@@ -53,6 +53,7 @@ export function PrototypeCanvas() {
           ? `${s.meta.role}${s.meta.phase ? ` · ${s.meta.phase}` : ''}`
           : undefined,
         src: screenUrl(prototype, s),
+        snapshot: `${prototype.basePath}snapshots/${s.id}.png`,
         onOpen: () => navigate(`/p/${prototype.id}`),
       } satisfies ScreenNodeData,
     }))

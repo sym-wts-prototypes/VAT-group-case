@@ -112,6 +112,8 @@ import type { FlowGraph } from '@wts/prototype-kit'
 export const flow: FlowGraph = ${JSON.stringify(flow, null, 2)}
 `
 
-const target = resolve(dirname(fileURLToPath(import.meta.url)), '../src/flow.generated.ts')
-writeFileSync(target, out)
-console.log(`[gen-flow] wrote ${screens.length} screens, ${edges.length} edges -> src/flow.generated.ts`)
+const srcDir = resolve(dirname(fileURLToPath(import.meta.url)), '../src')
+writeFileSync(resolve(srcDir, 'flow.generated.ts'), out)
+// Also emit JSON for Node tooling (e.g. the snapshot script) that can't import TS.
+writeFileSync(resolve(srcDir, 'flow.generated.json'), JSON.stringify(flow, null, 2) + '\n')
+console.log(`[gen-flow] wrote ${screens.length} screens, ${edges.length} edges -> src/flow.generated.{ts,json}`)

@@ -31,6 +31,16 @@ function serveBuiltPrototypes(): Plugin {
         const m = url.match(/^\/prototypes\/([^/]+)\/(.*)$/)
         if (!m) return next()
         const [, id, rest] = m
+        // canvas thumbnails live outside dist, in the prototype's snapshots/ dir
+        if (rest.startsWith('snapshots/')) {
+          const snapPath = path.join(PROTOTYPES_DIR, id, rest)
+          if (fs.existsSync(snapPath)) {
+            res.setHeader('Content-Type', MIME[path.extname(snapPath)] || 'application/octet-stream')
+            return fs.createReadStream(snapPath).pipe(res)
+          }
+          res.statusCode = 404
+          return res.end('snapshot not generated')
+        }
         const distRoot = path.join(PROTOTYPES_DIR, id, 'dist')
         let filePath = path.join(distRoot, rest || 'index.html')
         if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {

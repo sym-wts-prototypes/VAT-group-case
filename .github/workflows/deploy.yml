@@ -31,6 +31,12 @@ jobs:
       - name: Build (prototypes + gallery)
         run: pnpm build
 
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Generate canvas snapshots
+        run: pnpm snapshots
+
       - name: Assemble deploy tree
         run: pnpm assemble
 

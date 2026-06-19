@@ -1,0 +1,2643 @@
+{
+  "screens": [
+    {
+      "id": "cit-creator-case-draft",
+      "label": "Draft",
+      "hash": "cit/creator/case/draft",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 0,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "cit/creator/case/inPreparation",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "cit/creator/requirementList/inPreparation",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-creator-case-inReview",
+      "label": "In Review",
+      "hash": "cit/creator/case/inReview",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "cit/creator/requirementList/inReview",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-creator-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "cit/creator/case/clientApproval",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "cit/creator/requirementList/clientApproval",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-creator-case-submitted",
+      "label": "Submission",
+      "hash": "cit/creator/case/submitted",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "cit/creator/requirementList/submitted",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-creator-case-assessmentClosure",
+      "label": "Assessment & Closure",
+      "hash": "cit/creator/case/assessmentClosure",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Assessment & Closure",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-requirementList-assessmentClosure",
+      "label": "Assessment & Closure · Requirements",
+      "hash": "cit/creator/requirementList/assessmentClosure",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Assessment & Closure",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-creator-case-summary",
+      "label": "Summary",
+      "hash": "cit/creator/case/summary",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Summary",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-creator-requirementList-summary",
+      "label": "Summary · Requirements",
+      "hash": "cit/creator/requirementList/summary",
+      "group": "cit:creator",
+      "lane": "CIT · Creator",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Creator",
+        "phase": "Summary",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-draft",
+      "label": "Draft",
+      "hash": "cit/reviewer/case/draft",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 0,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "cit/reviewer/case/inPreparation",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "cit/reviewer/requirementList/inPreparation",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-inReview",
+      "label": "In Review",
+      "hash": "cit/reviewer/case/inReview",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "cit/reviewer/requirementList/inReview",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "cit/reviewer/case/clientApproval",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "cit/reviewer/requirementList/clientApproval",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-submitted",
+      "label": "Submission",
+      "hash": "cit/reviewer/case/submitted",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "cit/reviewer/requirementList/submitted",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-assessmentClosure",
+      "label": "Assessment & Closure",
+      "hash": "cit/reviewer/case/assessmentClosure",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Assessment & Closure",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-requirementList-assessmentClosure",
+      "label": "Assessment & Closure · Requirements",
+      "hash": "cit/reviewer/requirementList/assessmentClosure",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Assessment & Closure",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-reviewer-case-summary",
+      "label": "Summary",
+      "hash": "cit/reviewer/case/summary",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Summary",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-reviewer-requirementList-summary",
+      "label": "Summary · Requirements",
+      "hash": "cit/reviewer/requirementList/summary",
+      "group": "cit:reviewer",
+      "lane": "CIT · Reviewer",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Reviewer",
+        "phase": "Summary",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-partner-case-draft",
+      "label": "Draft",
+      "hash": "cit/partner/case/draft",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 0,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "cit/partner/case/inPreparation",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "cit/partner/requirementList/inPreparation",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-partner-case-inReview",
+      "label": "In Review",
+      "hash": "cit/partner/case/inReview",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "cit/partner/requirementList/inReview",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-partner-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "cit/partner/case/clientApproval",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "cit/partner/requirementList/clientApproval",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-partner-case-submitted",
+      "label": "Submission",
+      "hash": "cit/partner/case/submitted",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "cit/partner/requirementList/submitted",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-partner-case-assessmentClosure",
+      "label": "Assessment & Closure",
+      "hash": "cit/partner/case/assessmentClosure",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Assessment & Closure",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-requirementList-assessmentClosure",
+      "label": "Assessment & Closure · Requirements",
+      "hash": "cit/partner/requirementList/assessmentClosure",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Assessment & Closure",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-partner-case-summary",
+      "label": "Summary",
+      "hash": "cit/partner/case/summary",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Summary",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-partner-requirementList-summary",
+      "label": "Summary · Requirements",
+      "hash": "cit/partner/requirementList/summary",
+      "group": "cit:partner",
+      "lane": "CIT · Partner",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Partner",
+        "phase": "Summary",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "cit-client-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "cit/client/case/inPreparation",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-client-requirementBucket-inPreparation",
+      "label": "In Preparation · Requirement bucket",
+      "hash": "cit/client/requirementBucket/inPreparation",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 1,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "cit-client-case-inReview",
+      "label": "In Review",
+      "hash": "cit/client/case/inReview",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-client-requirementBucket-inReview",
+      "label": "In Review · Requirement bucket",
+      "hash": "cit/client/requirementBucket/inReview",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 2,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "cit-client-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "cit/client/case/clientApproval",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-client-requirementBucket-clientApproval",
+      "label": "Client Approval · Requirement bucket",
+      "hash": "cit/client/requirementBucket/clientApproval",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 3,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "cit-client-case-submitted",
+      "label": "Submission",
+      "hash": "cit/client/case/submitted",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-client-requirementBucket-submitted",
+      "label": "Submission · Requirement bucket",
+      "hash": "cit/client/requirementBucket/submitted",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 4,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "cit-client-case-assessmentClosure",
+      "label": "Assessment & Closure",
+      "hash": "cit/client/case/assessmentClosure",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Assessment & Closure",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-client-requirementBucket-assessmentClosure",
+      "label": "Assessment & Closure · Requirement bucket",
+      "hash": "cit/client/requirementBucket/assessmentClosure",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 5,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Assessment & Closure",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "cit-client-case-summary",
+      "label": "Summary",
+      "hash": "cit/client/case/summary",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Summary",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "cit-client-requirementBucket-summary",
+      "label": "Summary · Requirement bucket",
+      "hash": "cit/client/requirementBucket/summary",
+      "group": "cit:client",
+      "lane": "CIT · Client",
+      "col": 6,
+      "meta": {
+        "process": "CIT",
+        "role": "Client",
+        "phase": "Summary",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "hr-creator-caseWrapper-draft",
+      "label": "Draft · Engagement",
+      "hash": "hr/creator/caseWrapper/draft",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 0,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Draft",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-creator-case-draft",
+      "label": "Draft",
+      "hash": "hr/creator/case/draft",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 0,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-creator-caseWrapper-inPreparation",
+      "label": "In Preparation · Engagement",
+      "hash": "hr/creator/caseWrapper/inPreparation",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-creator-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "hr/creator/case/inPreparation",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-creator-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "hr/creator/requirementList/inPreparation",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-creator-caseWrapper-inReview",
+      "label": "In Review · Engagement",
+      "hash": "hr/creator/caseWrapper/inReview",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-creator-case-inReview",
+      "label": "In Review",
+      "hash": "hr/creator/case/inReview",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-creator-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "hr/creator/requirementList/inReview",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-creator-caseWrapper-clientApproval",
+      "label": "Client Approval · Engagement",
+      "hash": "hr/creator/caseWrapper/clientApproval",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-creator-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "hr/creator/case/clientApproval",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-creator-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "hr/creator/requirementList/clientApproval",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-creator-caseWrapper-submitted",
+      "label": "Submission · Engagement",
+      "hash": "hr/creator/caseWrapper/submitted",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-creator-case-submitted",
+      "label": "Submission",
+      "hash": "hr/creator/case/submitted",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-creator-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "hr/creator/requirementList/submitted",
+      "group": "hr:creator",
+      "lane": "HR · Creator",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-reviewer-caseWrapper-draft",
+      "label": "Draft · Engagement",
+      "hash": "hr/reviewer/caseWrapper/draft",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 0,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Draft",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-reviewer-case-draft",
+      "label": "Draft",
+      "hash": "hr/reviewer/case/draft",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 0,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-reviewer-caseWrapper-inPreparation",
+      "label": "In Preparation · Engagement",
+      "hash": "hr/reviewer/caseWrapper/inPreparation",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-reviewer-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "hr/reviewer/case/inPreparation",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-reviewer-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "hr/reviewer/requirementList/inPreparation",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-reviewer-caseWrapper-inReview",
+      "label": "In Review · Engagement",
+      "hash": "hr/reviewer/caseWrapper/inReview",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-reviewer-case-inReview",
+      "label": "In Review",
+      "hash": "hr/reviewer/case/inReview",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-reviewer-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "hr/reviewer/requirementList/inReview",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-reviewer-caseWrapper-clientApproval",
+      "label": "Client Approval · Engagement",
+      "hash": "hr/reviewer/caseWrapper/clientApproval",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-reviewer-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "hr/reviewer/case/clientApproval",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-reviewer-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "hr/reviewer/requirementList/clientApproval",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-reviewer-caseWrapper-submitted",
+      "label": "Submission · Engagement",
+      "hash": "hr/reviewer/caseWrapper/submitted",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-reviewer-case-submitted",
+      "label": "Submission",
+      "hash": "hr/reviewer/case/submitted",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-reviewer-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "hr/reviewer/requirementList/submitted",
+      "group": "hr:reviewer",
+      "lane": "HR · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-partner-caseWrapper-draft",
+      "label": "Draft · Engagement",
+      "hash": "hr/partner/caseWrapper/draft",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 0,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Draft",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-partner-case-draft",
+      "label": "Draft",
+      "hash": "hr/partner/case/draft",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 0,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-partner-caseWrapper-inPreparation",
+      "label": "In Preparation · Engagement",
+      "hash": "hr/partner/caseWrapper/inPreparation",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-partner-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "hr/partner/case/inPreparation",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-partner-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "hr/partner/requirementList/inPreparation",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-partner-caseWrapper-inReview",
+      "label": "In Review · Engagement",
+      "hash": "hr/partner/caseWrapper/inReview",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-partner-case-inReview",
+      "label": "In Review",
+      "hash": "hr/partner/case/inReview",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-partner-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "hr/partner/requirementList/inReview",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-partner-caseWrapper-clientApproval",
+      "label": "Client Approval · Engagement",
+      "hash": "hr/partner/caseWrapper/clientApproval",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-partner-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "hr/partner/case/clientApproval",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-partner-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "hr/partner/requirementList/clientApproval",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-partner-caseWrapper-submitted",
+      "label": "Submission · Engagement",
+      "hash": "hr/partner/caseWrapper/submitted",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-partner-case-submitted",
+      "label": "Submission",
+      "hash": "hr/partner/case/submitted",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-partner-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "hr/partner/requirementList/submitted",
+      "group": "hr:partner",
+      "lane": "HR · Partner",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "hr-client-caseWrapper-inPreparation",
+      "label": "In Preparation · Engagement",
+      "hash": "hr/client/caseWrapper/inPreparation",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-client-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "hr/client/case/inPreparation",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-client-requirementBucket-inPreparation",
+      "label": "In Preparation · Requirement bucket",
+      "hash": "hr/client/requirementBucket/inPreparation",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 1,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "hr-client-caseWrapper-inReview",
+      "label": "In Review · Engagement",
+      "hash": "hr/client/caseWrapper/inReview",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-client-case-inReview",
+      "label": "In Review",
+      "hash": "hr/client/case/inReview",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-client-requirementBucket-inReview",
+      "label": "In Review · Requirement bucket",
+      "hash": "hr/client/requirementBucket/inReview",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 2,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "hr-client-caseWrapper-clientApproval",
+      "label": "Client Approval · Engagement",
+      "hash": "hr/client/caseWrapper/clientApproval",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-client-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "hr/client/case/clientApproval",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-client-requirementBucket-clientApproval",
+      "label": "Client Approval · Requirement bucket",
+      "hash": "hr/client/requirementBucket/clientApproval",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 3,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "hr-client-caseWrapper-submitted",
+      "label": "Submission · Engagement",
+      "hash": "hr/client/caseWrapper/submitted",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Engagement"
+      }
+    },
+    {
+      "id": "hr-client-case-submitted",
+      "label": "Submission",
+      "hash": "hr/client/case/submitted",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "hr-client-requirementBucket-submitted",
+      "label": "Submission · Requirement bucket",
+      "hash": "hr/client/requirementBucket/submitted",
+      "group": "hr:client",
+      "lane": "HR · Client",
+      "col": 4,
+      "meta": {
+        "process": "HR",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "vat-creator-case-draft",
+      "label": "Draft",
+      "hash": "vat/creator/case/draft",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 0,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-creator-requirementList-draft",
+      "label": "Draft · Requirements",
+      "hash": "vat/creator/requirementList/draft",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 0,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "Draft",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-creator-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "vat/creator/case/inPreparation",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-creator-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "vat/creator/requirementList/inPreparation",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-creator-case-inReview",
+      "label": "In Review",
+      "hash": "vat/creator/case/inReview",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-creator-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "vat/creator/requirementList/inReview",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-creator-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "vat/creator/case/clientApproval",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-creator-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "vat/creator/requirementList/clientApproval",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-creator-case-submitted",
+      "label": "Submission",
+      "hash": "vat/creator/case/submitted",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-creator-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "vat/creator/requirementList/submitted",
+      "group": "vat:creator",
+      "lane": "VAT · Creator",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Creator",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-reviewer-case-draft",
+      "label": "Draft",
+      "hash": "vat/reviewer/case/draft",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 0,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-reviewer-requirementList-draft",
+      "label": "Draft · Requirements",
+      "hash": "vat/reviewer/requirementList/draft",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 0,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "Draft",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-reviewer-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "vat/reviewer/case/inPreparation",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-reviewer-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "vat/reviewer/requirementList/inPreparation",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-reviewer-case-inReview",
+      "label": "In Review",
+      "hash": "vat/reviewer/case/inReview",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-reviewer-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "vat/reviewer/requirementList/inReview",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-reviewer-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "vat/reviewer/case/clientApproval",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-reviewer-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "vat/reviewer/requirementList/clientApproval",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-reviewer-case-submitted",
+      "label": "Submission",
+      "hash": "vat/reviewer/case/submitted",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-reviewer-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "vat/reviewer/requirementList/submitted",
+      "group": "vat:reviewer",
+      "lane": "VAT · Reviewer",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Reviewer",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-partner-case-draft",
+      "label": "Draft",
+      "hash": "vat/partner/case/draft",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 0,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "Draft",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-partner-requirementList-draft",
+      "label": "Draft · Requirements",
+      "hash": "vat/partner/requirementList/draft",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 0,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "Draft",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-partner-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "vat/partner/case/inPreparation",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-partner-requirementList-inPreparation",
+      "label": "In Preparation · Requirements",
+      "hash": "vat/partner/requirementList/inPreparation",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "In Preparation",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-partner-case-inReview",
+      "label": "In Review",
+      "hash": "vat/partner/case/inReview",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-partner-requirementList-inReview",
+      "label": "In Review · Requirements",
+      "hash": "vat/partner/requirementList/inReview",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "In Review",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-partner-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "vat/partner/case/clientApproval",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-partner-requirementList-clientApproval",
+      "label": "Client Approval · Requirements",
+      "hash": "vat/partner/requirementList/clientApproval",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "Client Approval",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-partner-case-submitted",
+      "label": "Submission",
+      "hash": "vat/partner/case/submitted",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-partner-requirementList-submitted",
+      "label": "Submission · Requirements",
+      "hash": "vat/partner/requirementList/submitted",
+      "group": "vat:partner",
+      "lane": "VAT · Partner",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Partner",
+        "phase": "Submission",
+        "view": "Requirements"
+      }
+    },
+    {
+      "id": "vat-client-case-inPreparation",
+      "label": "In Preparation",
+      "hash": "vat/client/case/inPreparation",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-client-requirementBucket-inPreparation",
+      "label": "In Preparation · Requirement bucket",
+      "hash": "vat/client/requirementBucket/inPreparation",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 1,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "In Preparation",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "vat-client-case-inReview",
+      "label": "In Review",
+      "hash": "vat/client/case/inReview",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-client-requirementBucket-inReview",
+      "label": "In Review · Requirement bucket",
+      "hash": "vat/client/requirementBucket/inReview",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 2,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "In Review",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "vat-client-case-clientApproval",
+      "label": "Client Approval",
+      "hash": "vat/client/case/clientApproval",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-client-requirementBucket-clientApproval",
+      "label": "Client Approval · Requirement bucket",
+      "hash": "vat/client/requirementBucket/clientApproval",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 3,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "Client Approval",
+        "view": "Requirement bucket"
+      }
+    },
+    {
+      "id": "vat-client-case-submitted",
+      "label": "Submission",
+      "hash": "vat/client/case/submitted",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Case"
+      }
+    },
+    {
+      "id": "vat-client-requirementBucket-submitted",
+      "label": "Submission · Requirement bucket",
+      "hash": "vat/client/requirementBucket/submitted",
+      "group": "vat:client",
+      "lane": "VAT · Client",
+      "col": 4,
+      "meta": {
+        "process": "VAT",
+        "role": "Client",
+        "phase": "Submission",
+        "view": "Requirement bucket"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "cit-creator-case-draft",
+      "to": "cit-creator-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "cit-creator-case-inPreparation",
+      "to": "cit-creator-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "cit-creator-case-inReview",
+      "to": "cit-creator-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "cit-creator-case-clientApproval",
+      "to": "cit-creator-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "cit-creator-case-submitted",
+      "to": "cit-creator-case-assessmentClosure",
+      "label": "Assessment & Closure"
+    },
+    {
+      "from": "cit-creator-case-assessmentClosure",
+      "to": "cit-creator-case-summary",
+      "label": "Summary"
+    },
+    {
+      "from": "cit-creator-case-inPreparation",
+      "to": "cit-creator-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-creator-case-inReview",
+      "to": "cit-creator-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-creator-case-clientApproval",
+      "to": "cit-creator-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-creator-case-submitted",
+      "to": "cit-creator-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-creator-case-assessmentClosure",
+      "to": "cit-creator-requirementList-assessmentClosure",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-creator-case-summary",
+      "to": "cit-creator-requirementList-summary",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-reviewer-case-draft",
+      "to": "cit-reviewer-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "cit-reviewer-case-inPreparation",
+      "to": "cit-reviewer-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "cit-reviewer-case-inReview",
+      "to": "cit-reviewer-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "cit-reviewer-case-clientApproval",
+      "to": "cit-reviewer-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "cit-reviewer-case-submitted",
+      "to": "cit-reviewer-case-assessmentClosure",
+      "label": "Assessment & Closure"
+    },
+    {
+      "from": "cit-reviewer-case-assessmentClosure",
+      "to": "cit-reviewer-case-summary",
+      "label": "Summary"
+    },
+    {
+      "from": "cit-reviewer-case-inPreparation",
+      "to": "cit-reviewer-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-reviewer-case-inReview",
+      "to": "cit-reviewer-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-reviewer-case-clientApproval",
+      "to": "cit-reviewer-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-reviewer-case-submitted",
+      "to": "cit-reviewer-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-reviewer-case-assessmentClosure",
+      "to": "cit-reviewer-requirementList-assessmentClosure",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-reviewer-case-summary",
+      "to": "cit-reviewer-requirementList-summary",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-partner-case-draft",
+      "to": "cit-partner-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "cit-partner-case-inPreparation",
+      "to": "cit-partner-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "cit-partner-case-inReview",
+      "to": "cit-partner-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "cit-partner-case-clientApproval",
+      "to": "cit-partner-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "cit-partner-case-submitted",
+      "to": "cit-partner-case-assessmentClosure",
+      "label": "Assessment & Closure"
+    },
+    {
+      "from": "cit-partner-case-assessmentClosure",
+      "to": "cit-partner-case-summary",
+      "label": "Summary"
+    },
+    {
+      "from": "cit-partner-case-inPreparation",
+      "to": "cit-partner-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-partner-case-inReview",
+      "to": "cit-partner-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-partner-case-clientApproval",
+      "to": "cit-partner-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-partner-case-submitted",
+      "to": "cit-partner-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-partner-case-assessmentClosure",
+      "to": "cit-partner-requirementList-assessmentClosure",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-partner-case-summary",
+      "to": "cit-partner-requirementList-summary",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-client-case-inPreparation",
+      "to": "cit-client-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "cit-client-case-inReview",
+      "to": "cit-client-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "cit-client-case-clientApproval",
+      "to": "cit-client-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "cit-client-case-submitted",
+      "to": "cit-client-case-assessmentClosure",
+      "label": "Assessment & Closure"
+    },
+    {
+      "from": "cit-client-case-assessmentClosure",
+      "to": "cit-client-case-summary",
+      "label": "Summary"
+    },
+    {
+      "from": "cit-client-case-inPreparation",
+      "to": "cit-client-requirementBucket-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-client-case-inReview",
+      "to": "cit-client-requirementBucket-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-client-case-clientApproval",
+      "to": "cit-client-requirementBucket-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-client-case-submitted",
+      "to": "cit-client-requirementBucket-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-client-case-assessmentClosure",
+      "to": "cit-client-requirementBucket-assessmentClosure",
+      "label": "Requirements"
+    },
+    {
+      "from": "cit-client-case-summary",
+      "to": "cit-client-requirementBucket-summary",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-creator-caseWrapper-draft",
+      "to": "hr-creator-caseWrapper-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "hr-creator-caseWrapper-inPreparation",
+      "to": "hr-creator-caseWrapper-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-creator-caseWrapper-inReview",
+      "to": "hr-creator-caseWrapper-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-creator-caseWrapper-clientApproval",
+      "to": "hr-creator-caseWrapper-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-creator-case-draft",
+      "to": "hr-creator-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "hr-creator-case-inPreparation",
+      "to": "hr-creator-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-creator-case-inReview",
+      "to": "hr-creator-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-creator-case-clientApproval",
+      "to": "hr-creator-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-creator-case-inPreparation",
+      "to": "hr-creator-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-creator-case-inReview",
+      "to": "hr-creator-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-creator-case-clientApproval",
+      "to": "hr-creator-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-creator-case-submitted",
+      "to": "hr-creator-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-reviewer-caseWrapper-draft",
+      "to": "hr-reviewer-caseWrapper-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "hr-reviewer-caseWrapper-inPreparation",
+      "to": "hr-reviewer-caseWrapper-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-reviewer-caseWrapper-inReview",
+      "to": "hr-reviewer-caseWrapper-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-reviewer-caseWrapper-clientApproval",
+      "to": "hr-reviewer-caseWrapper-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-reviewer-case-draft",
+      "to": "hr-reviewer-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "hr-reviewer-case-inPreparation",
+      "to": "hr-reviewer-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-reviewer-case-inReview",
+      "to": "hr-reviewer-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-reviewer-case-clientApproval",
+      "to": "hr-reviewer-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-reviewer-case-inPreparation",
+      "to": "hr-reviewer-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-reviewer-case-inReview",
+      "to": "hr-reviewer-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-reviewer-case-clientApproval",
+      "to": "hr-reviewer-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-reviewer-case-submitted",
+      "to": "hr-reviewer-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-partner-caseWrapper-draft",
+      "to": "hr-partner-caseWrapper-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "hr-partner-caseWrapper-inPreparation",
+      "to": "hr-partner-caseWrapper-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-partner-caseWrapper-inReview",
+      "to": "hr-partner-caseWrapper-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-partner-caseWrapper-clientApproval",
+      "to": "hr-partner-caseWrapper-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-partner-case-draft",
+      "to": "hr-partner-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "hr-partner-case-inPreparation",
+      "to": "hr-partner-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-partner-case-inReview",
+      "to": "hr-partner-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-partner-case-clientApproval",
+      "to": "hr-partner-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-partner-case-inPreparation",
+      "to": "hr-partner-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-partner-case-inReview",
+      "to": "hr-partner-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-partner-case-clientApproval",
+      "to": "hr-partner-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-partner-case-submitted",
+      "to": "hr-partner-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-client-caseWrapper-inPreparation",
+      "to": "hr-client-caseWrapper-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-client-caseWrapper-inReview",
+      "to": "hr-client-caseWrapper-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-client-caseWrapper-clientApproval",
+      "to": "hr-client-caseWrapper-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-client-case-inPreparation",
+      "to": "hr-client-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "hr-client-case-inReview",
+      "to": "hr-client-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "hr-client-case-clientApproval",
+      "to": "hr-client-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "hr-client-case-inPreparation",
+      "to": "hr-client-requirementBucket-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-client-case-inReview",
+      "to": "hr-client-requirementBucket-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-client-case-clientApproval",
+      "to": "hr-client-requirementBucket-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "hr-client-case-submitted",
+      "to": "hr-client-requirementBucket-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-creator-case-draft",
+      "to": "vat-creator-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "vat-creator-case-inPreparation",
+      "to": "vat-creator-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "vat-creator-case-inReview",
+      "to": "vat-creator-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "vat-creator-case-clientApproval",
+      "to": "vat-creator-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "vat-creator-case-draft",
+      "to": "vat-creator-requirementList-draft",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-creator-case-inPreparation",
+      "to": "vat-creator-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-creator-case-inReview",
+      "to": "vat-creator-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-creator-case-clientApproval",
+      "to": "vat-creator-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-creator-case-submitted",
+      "to": "vat-creator-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-reviewer-case-draft",
+      "to": "vat-reviewer-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "vat-reviewer-case-inPreparation",
+      "to": "vat-reviewer-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "vat-reviewer-case-inReview",
+      "to": "vat-reviewer-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "vat-reviewer-case-clientApproval",
+      "to": "vat-reviewer-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "vat-reviewer-case-draft",
+      "to": "vat-reviewer-requirementList-draft",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-reviewer-case-inPreparation",
+      "to": "vat-reviewer-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-reviewer-case-inReview",
+      "to": "vat-reviewer-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-reviewer-case-clientApproval",
+      "to": "vat-reviewer-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-reviewer-case-submitted",
+      "to": "vat-reviewer-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-partner-case-draft",
+      "to": "vat-partner-case-inPreparation",
+      "label": "In Preparation"
+    },
+    {
+      "from": "vat-partner-case-inPreparation",
+      "to": "vat-partner-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "vat-partner-case-inReview",
+      "to": "vat-partner-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "vat-partner-case-clientApproval",
+      "to": "vat-partner-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "vat-partner-case-draft",
+      "to": "vat-partner-requirementList-draft",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-partner-case-inPreparation",
+      "to": "vat-partner-requirementList-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-partner-case-inReview",
+      "to": "vat-partner-requirementList-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-partner-case-clientApproval",
+      "to": "vat-partner-requirementList-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-partner-case-submitted",
+      "to": "vat-partner-requirementList-submitted",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-client-case-inPreparation",
+      "to": "vat-client-case-inReview",
+      "label": "In Review"
+    },
+    {
+      "from": "vat-client-case-inReview",
+      "to": "vat-client-case-clientApproval",
+      "label": "Client Approval"
+    },
+    {
+      "from": "vat-client-case-clientApproval",
+      "to": "vat-client-case-submitted",
+      "label": "Submission"
+    },
+    {
+      "from": "vat-client-case-inPreparation",
+      "to": "vat-client-requirementBucket-inPreparation",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-client-case-inReview",
+      "to": "vat-client-requirementBucket-inReview",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-client-case-clientApproval",
+      "to": "vat-client-requirementBucket-clientApproval",
+      "label": "Requirements"
+    },
+    {
+      "from": "vat-client-case-submitted",
+      "to": "vat-client-requirementBucket-submitted",
+      "label": "Requirements"
+    }
+  ]
+}

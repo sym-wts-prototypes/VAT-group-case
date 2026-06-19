@@ -19,6 +19,11 @@ export interface ScreenDef {
   hash: string
   /** Optional grouping key for canvas auto-layout (e.g. role or phase). */
   group?: string
+  /** Optional canvas layout hints. `lane` = horizontal band label, `col` = column index
+   * (e.g. workflow-phase order). When all screens provide them the canvas uses a
+   * lane/column layout; otherwise it falls back to an edges-based layered layout. */
+  lane?: string
+  col?: number
   /** Arbitrary display metadata (process, role, phase…). */
   meta?: Record<string, string>
 }

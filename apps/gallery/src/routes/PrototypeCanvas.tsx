@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ReactFlow,
@@ -10,27 +10,43 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { LayoutGrid } from 'lucide-react'
-import { screenUrl } from '@wts/prototype-kit'
+import { screenUrl, type ScreenDef } from '@wts/prototype-kit'
 
 import { getPrototype } from '../registry'
 import { NotFound } from './NotFound'
 import { ScreenNode, type ScreenNodeData } from '../components/flow/ScreenNode'
-import { layeredLayout } from '../components/flow/layout'
+import { LaneLabel } from '../components/flow/LaneLabel'
+import { laneLayout, layeredLayout } from '../components/flow/layout'
 
-const nodeTypes = { screen: ScreenNode }
+const nodeTypes = { screen: ScreenNode, lane: LaneLabel }
+
+const processOf = (s: ScreenDef) => s.meta?.process ?? s.hash.split('/')[0]?.toUpperCase() ?? ''
 
 export function PrototypeCanvas() {
   const { prototypeId } = useParams()
   const prototype = getPrototype(prototypeId)
   const navigate = useNavigate()
 
+  const processes = useMemo(() => {
+    if (!prototype) return [] as string[]
+    return [...new Set(prototype.flow.screens.map(processOf))].filter(Boolean)
+  }, [prototype])
+
+  const [filter, setFilter] = useState<string>('')
+
   const { nodes, edges } = useMemo(() => {
     if (!prototype) return { nodes: [] as Node[], edges: [] as Edge[] }
-    const positions = new Map(layeredLayout(prototype.flow).map((p) => [p.id, p]))
-    const nodes: Node[] = prototype.flow.screens.map((s) => ({
+    const active = filter || processes[0] || ''
+    const screens = prototype.flow.screens.filter((s) => !active || processOf(s) === active)
+    const ids = new Set(screens.map((s) => s.id))
+
+    const laid = laneLayout(screens) ?? layeredLayout({ screens, edges: prototype.flow.edges })
+    const pos = new Map(laid.positions.map((p) => [p.id, p]))
+
+    const screenNodes: Node[] = screens.map((s) => ({
       id: s.id,
       type: 'screen',
-      position: { x: positions.get(s.id)?.x ?? 0, y: positions.get(s.id)?.y ?? 0 },
+      position: { x: pos.get(s.id)?.x ?? 0, y: pos.get(s.id)?.y ?? 0 },
       data: {
         label: s.label,
         sublabel: s.meta?.role
@@ -40,18 +56,33 @@ export function PrototypeCanvas() {
         onOpen: () => navigate(`/p/${prototype.id}`),
       } satisfies ScreenNodeData,
     }))
-    const edges: Edge[] = prototype.flow.edges.map((e, i) => ({
-      id: `e${i}`,
-      source: e.from,
-      target: e.to,
-      label: e.label,
-      animated: true,
-      labelStyle: { fontSize: 11 },
+
+    const laneNodes: Node[] = laid.lanes.map((lane, i) => ({
+      id: `lane-${i}`,
+      type: 'lane',
+      position: { x: -40, y: lane.y },
+      data: { label: lane.label, height: lane.height },
+      draggable: false,
+      selectable: false,
     }))
-    return { nodes, edges }
-  }, [prototype, navigate])
+
+    const flowEdges: Edge[] = prototype.flow.edges
+      .filter((e) => ids.has(e.from) && ids.has(e.to))
+      .map((e, i) => ({
+        id: `e${i}`,
+        source: e.from,
+        target: e.to,
+        label: e.label,
+        labelStyle: { fontSize: 11 },
+        style: { strokeWidth: 1.5 },
+      }))
+
+    return { nodes: [...laneNodes, ...screenNodes], edges: flowEdges }
+  }, [prototype, filter, processes, navigate])
 
   if (!prototype) return <NotFound />
+
+  const active = filter || processes[0] || ''
 
   return (
     <div className="flex h-full flex-col">
@@ -60,8 +91,24 @@ export function PrototypeCanvas() {
           ← All prototypes
         </Link>
         <span className="text-sm font-medium">{prototype.title}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          Flow canvas · {prototype.flow.screens.length} screens
+        {processes.length > 1 && (
+          <div className="flex items-center gap-1 rounded-md bg-muted p-0.5">
+            {processes.map((p) => (
+              <button
+                key={p}
+                onClick={() => setFilter(p)}
+                className={
+                  'rounded px-2 py-0.5 text-xs font-medium ' +
+                  (active === p ? 'bg-background shadow-sm' : 'text-muted-foreground')
+                }
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+        <span className="text-[11px] text-muted-foreground">
+          {nodes.filter((n) => n.type === 'screen').length} screens
         </span>
         <Link
           to={`/p/${prototype.id}`}
@@ -72,12 +119,13 @@ export function PrototypeCanvas() {
       </div>
       <div className="min-h-0 flex-1">
         <ReactFlow
+          key={active}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           onlyRenderVisibleElements
           fitView
-          minZoom={0.1}
+          minZoom={0.05}
           proOptions={{ hideAttribution: true }}
         >
           <Background />

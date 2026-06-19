@@ -5,6 +5,7 @@ import { GalleryIndex } from './routes/GalleryIndex'
 import { Components } from './routes/Components'
 import { PrototypeScreen } from './routes/PrototypeScreen'
 import { PrototypeCanvas } from './routes/PrototypeCanvas'
+import { FigmaDesigns } from './routes/FigmaDesigns'
 import { NotFound } from './routes/NotFound'
 
 export const router = createBrowserRouter([
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
       { path: 'components', element: <Components /> },
       { path: 'p/:prototypeId', element: <PrototypeScreen /> },
       { path: 'p/:prototypeId/canvas', element: <PrototypeCanvas /> },
+      { path: 'p/:prototypeId/figma', element: <FigmaDesigns /> },
       { path: '*', element: <NotFound /> },
     ],
   },

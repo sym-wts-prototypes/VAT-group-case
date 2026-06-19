@@ -9,6 +9,9 @@
     "lint": "tsc --noEmit",
     "build": "echo \"worker assets are produced by the root assemble step\""
   },
+  "dependencies": {
+    "@wts/figma": "workspace:*"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
     "typescript": "^5.6.3",

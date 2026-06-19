@@ -8,16 +8,21 @@
  * each prototype under /prototypes/<id>/).
  */
 
+import { createFigmaClient } from '@wts/figma/pull'
+
 interface Env {
   ASSETS: Fetcher
   SITE_PASSWORD: string
   AUTH_SECRET: string
+  /** Figma personal access token (read-only pull). Optional; pull is disabled without it. */
+  FIGMA_TOKEN?: string
 }
 
 const COOKIE = 'wts_auth'
 const MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 const LOGIN_PATH = '/__auth/login'
 const LOGOUT_PATH = '/__auth/logout'
+const FIGMA_PREFIX = '/__figma/'
 
 const enc = new TextEncoder()
 
@@ -161,6 +166,45 @@ export default {
       return loginPage(url.pathname + url.search, false)
     }
 
+    // Server-side Figma pull proxy (keeps FIGMA_TOKEN out of the client).
+    if (url.pathname.startsWith(FIGMA_PREFIX)) {
+      return handleFigma(url, env)
+    }
+
     return env.ASSETS.fetch(request)
   },
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+}
+
+async function handleFigma(url: URL, env: Env): Promise<Response> {
+  if (!env.FIGMA_TOKEN) {
+    return json({ error: 'FIGMA_TOKEN not set. Run: wrangler secret put FIGMA_TOKEN' }, 503)
+  }
+  const fileKey = url.searchParams.get('file')
+  if (!fileKey) return json({ error: 'missing ?file=<fileKey>' }, 400)
+  const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean)
+  const client = createFigmaClient(env.FIGMA_TOKEN)
+  const route = url.pathname.slice(FIGMA_PREFIX.length)
+  try {
+    switch (route) {
+      case 'file':
+        return json(await client.getFile(fileKey))
+      case 'nodes':
+        return json(await client.getNodes(fileKey, ids))
+      case 'images':
+        return json(await client.getImages(fileKey, ids, { format: 'png', scale: 2 }))
+      case 'variables':
+        return json(await client.getLocalVariables(fileKey))
+      default:
+        return json({ error: `unknown figma route "${route}"` }, 404)
+    }
+  } catch (err) {
+    return json({ error: (err as Error).message }, 502)
+  }
 }

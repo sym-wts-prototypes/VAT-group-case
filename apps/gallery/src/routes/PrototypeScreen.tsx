@@ -52,6 +52,14 @@ export function PrototypeScreen() {
           >
             <Layers className="h-4 w-4" /> Open flow canvas
           </Link>
+          {prototype.figmaFileKey && (
+            <Link
+              to={`/p/${prototype.id}/figma`}
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[hsl(var(--link))] hover:underline"
+            >
+              <Figma className="h-4 w-4" /> Figma designs
+            </Link>
+          )}
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto p-2">
           <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

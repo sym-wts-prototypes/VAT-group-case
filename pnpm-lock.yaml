@@ -223,6 +223,10 @@ importers:
         version: 2.1.9(@types/node@22.19.21)
 
   worker:
+    dependencies:
+      '@wts/figma':
+        specifier: workspace:*
+        version: link:../packages/figma
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20241127.0

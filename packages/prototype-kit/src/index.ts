@@ -53,6 +53,8 @@ export interface PrototypeManifest {
   thumbnail?: string
   /** Hash to open by default when entering the prototype. Defaults to the first screen. */
   defaultHash?: string
+  /** Figma file key whose frames back this prototype; enables the design-pull tab. */
+  figmaFileKey?: string
   flow: FlowGraph
 }
 

@@ -17,6 +17,8 @@ const manifest: PrototypeManifest = {
     'Corporate income-tax case workflow across Creator, Reviewer, Partner and Client roles: preparation, maker/checker review, client approval, submission and assessment closure.',
   basePath: '/prototypes/wts-process-extension/',
   defaultHash: 'cit/creator/case/inPreparation',
+  // WTS designs file (from the original figma-upload.sh). Enables the Designs tab.
+  figmaFileKey: 's7egAC96sEnmBjGo4ngKvz',
   flow,
 }
 

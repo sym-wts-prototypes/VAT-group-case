@@ -2,3 +2,6 @@
 # In production set these with: wrangler secret put SITE_PASSWORD / AUTH_SECRET
 SITE_PASSWORD="change-me"
 AUTH_SECRET="a-long-random-string-used-to-sign-the-auth-cookie"
+# Optional: Figma personal access token for the design-pull proxy (/__figma/*).
+# Pull is disabled (503) until this is set. Get one at figma.com → Settings → Security.
+FIGMA_TOKEN=""

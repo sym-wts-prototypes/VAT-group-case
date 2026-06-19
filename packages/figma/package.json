@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./scene": "./src/scene.ts"
+    "./scene": "./src/scene.ts",
+    "./pull": "./src/pull.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit",

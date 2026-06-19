@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRD · CIT Process Extension</title>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --border: #e5e7eb;
+        --fg: #0f172a;
+        --muted: #64748b;
+        --accent: #dc2626;
+        --accent-soft: #fef2f2;
+        --code-bg: #f1f5f9;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+      }
+      .layout { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+      .doc {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 48px 56px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
+          0 8px 24px rgba(15, 23, 42, 0.04);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .actions a {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        text-decoration: none;
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: 8px;
+        transition: background 0.15s, color 0.15s;
+      }
+      .actions a:hover { background: var(--code-bg); color: var(--fg); }
+      .content h1 {
+        font-size: 30px;
+        line-height: 1.25;
+        margin: 8px 0 24px;
+        letter-spacing: -0.01em;
+      }
+      .content h2 {
+        font-size: 20px;
+        margin: 40px 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .content h3 { font-size: 16px; margin: 24px 0 8px; color: #1e293b; }
+      .content p, .content li { font-size: 15px; }
+      .content blockquote {
+        margin: 0 0 24px;
+        padding: 12px 18px;
+        background: var(--accent-soft);
+        border-left: 3px solid var(--accent);
+        border-radius: 8px;
+        color: #7f1d1d;
+        font-size: 13.5px;
+      }
+      .content blockquote p { margin: 4px 0; font-size: 13.5px; }
+      .content ul { padding-left: 22px; }
+      .content code {
+        background: var(--code-bg);
+        padding: 2px 6px;
+        border-radius: 5px;
+        font-size: 13px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .content pre {
+        background: var(--code-bg);
+        padding: 16px;
+        border-radius: 10px;
+        overflow: auto;
+      }
+      .content pre code { background: none; padding: 0; }
+      .content a { color: var(--accent); }
+      .content hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+      .content input[type="checkbox"] { margin-right: 8px; }
+      .content li:has(> input[type="checkbox"]) { list-style: none; margin-left: -22px; }
+      .loading { color: var(--muted); font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="doc">
+        <div class="topbar">
+          <span class="eyebrow">Product Requirements Document</span>
+          <div class="actions"><a href="./PRD.md" download>Download .md</a></div>
+        </div>
+        <div id="content" class="content">
+          <p class="loading">Rendering PRD…</p>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <script>
+      async function render() {
+        const target = document.getElementById('content');
+        try {
+          const res = await fetch('./PRD.md', { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const md = await res.text();
+          if (window.marked) {
+            marked.setOptions({ gfm: true, breaks: false });
+            target.innerHTML = marked.parse(md);
+          } else {
+            // Fallback: show raw markdown if the renderer failed to load.
+            const pre = document.createElement('pre');
+            pre.textContent = md;
+            target.replaceChildren(pre);
+          }
+          document.title =
+            (target.querySelector('h1')?.textContent || 'PRD') + ' · Preview';
+        } catch (err) {
+          target.innerHTML =
+            '<p class="loading">Could not load PRD.md (' +
+            err.message +
+            '). Open <code>PRD.md</code> directly in the editor.</p>';
+        }
+      }
+      render();
+    </script>
+  </body>
+</html>

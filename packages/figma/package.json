@@ -1,0 +1,17 @@
+{
+  "name": "@wts/figma",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scene": "./src/scene.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "build": "echo \"@wts/figma is consumed as source; no build step\""
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

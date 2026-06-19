@@ -1,0 +1,56 @@
+<div id="app">
+  <h2>WTS Prototype Bridge</h2>
+  <p>Paste the JSON exported from the gallery (“Send to Figma”), or choose the downloaded <code>.json</code> file, then Import.</p>
+  <input type="file" id="file" accept="application/json,.json" />
+  <textarea id="json" placeholder="…or paste the export JSON here"></textarea>
+  <div class="row">
+    <button id="import" class="primary">Import</button>
+    <button id="close">Close</button>
+  </div>
+  <p id="status"></p>
+</div>
+
+<style>
+  body { margin: 0; font-family: Inter, system-ui, sans-serif; color: #18181b; }
+  #app { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  h2 { font-size: 14px; margin: 0; }
+  p { font-size: 11px; color: #71717a; margin: 0; line-height: 1.45; }
+  textarea { width: 100%; box-sizing: border-box; height: 170px; font-family: ui-monospace, monospace; font-size: 11px; border: 1px solid #e4e4e7; border-radius: 8px; padding: 8px; resize: vertical; }
+  .row { display: flex; gap: 8px; }
+  button { flex: 1; height: 34px; border: 1px solid #e4e4e7; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; }
+  button.primary { background: #18181b; color: #fff; border-color: #18181b; }
+  #status { color: #c9202f; }
+</style>
+
+<script>
+  const $ = (id) => document.getElementById(id)
+  const status = $('status')
+
+  $('file').addEventListener('change', (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => { $('json').value = reader.result }
+    reader.readAsText(file)
+  })
+
+  $('import').addEventListener('click', () => {
+    status.textContent = ''
+    let payload
+    try {
+      payload = JSON.parse($('json').value)
+    } catch (err) {
+      status.textContent = 'Invalid JSON: ' + err.message
+      return
+    }
+    if (!payload || !Array.isArray(payload.scenes)) {
+      status.textContent = 'JSON does not look like a Bridge export (missing "scenes").'
+      return
+    }
+    parent.postMessage({ pluginMessage: { type: 'import', payload } }, '*')
+  })
+
+  $('close').addEventListener('click', () => {
+    parent.postMessage({ pluginMessage: { type: 'close' } }, '*')
+  })
+</script>

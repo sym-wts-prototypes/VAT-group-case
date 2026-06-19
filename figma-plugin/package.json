@@ -1,0 +1,16 @@
+{
+  "name": "@wts/figma-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild code.ts --bundle --target=es2017 --outfile=code.js",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
+    "@wts/figma": "workspace:*",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.6.3"
+  }
+}

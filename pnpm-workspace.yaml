@@ -3,6 +3,7 @@ packages:
   - 'apps/*'
   - 'prototypes/*'
   - 'worker'
+  - 'figma-plugin'
 allowBuilds:
   esbuild: true
   workerd: true

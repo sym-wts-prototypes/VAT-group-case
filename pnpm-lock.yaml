@@ -20,6 +20,9 @@ importers:
 
   apps/gallery:
     dependencies:
+      '@wts/figma':
+        specifier: workspace:*
+        version: link:../../packages/figma
       '@wts/prototype-kit':
         specifier: workspace:*
         version: link:../../packages/prototype-kit
@@ -72,6 +75,27 @@ importers:
       vite:
         specifier: ^5.4.10
         version: 5.4.21(@types/node@22.19.21)
+
+  figma-plugin:
+    devDependencies:
+      '@figma/plugin-typings':
+        specifier: ^1.100.0
+        version: 1.129.0
+      '@wts/figma':
+        specifier: workspace:*
+        version: link:../packages/figma
+      esbuild:
+        specifier: ^0.21.5
+        version: 0.21.5
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  packages/figma:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
 
   packages/prototype-kit:
     devDependencies:
@@ -645,6 +669,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@figma/plugin-typings@1.129.0':
+    resolution: {integrity: sha512-LW3UhslmR0QMPwvycDhxLGh3ACjb4Ebh1MjSG5PnyYlmJiOVQ/I+98XLyEtJSXbeGs3DDiJxGuu8Xa+PBoon4w==}
 
   '@floating-ui/core@1.7.5':
     resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
@@ -2404,6 +2431,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@figma/plugin-typings@1.129.0': {}
 
   '@floating-ui/core@1.7.5':
     dependencies:

@@ -1,21 +1,40 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Layers, ExternalLink } from 'lucide-react'
+import { Layers, ExternalLink, Figma } from 'lucide-react'
 import { entryUrl, screenUrl } from '@wts/prototype-kit'
 
 import { getPrototype } from '../registry'
+import { buildScreenExport, downloadExport } from '../figma/export'
 import { NotFound } from './NotFound'
 
 export function PrototypeScreen() {
   const { prototypeId } = useParams()
   const prototype = getPrototype(prototypeId)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  const currentScreen = useMemo(() => {
+    if (!prototype) return undefined
+    return (
+      prototype.flow.screens.find((s) => s.id === activeId) ?? prototype.flow.screens[0]
+    )
+  }, [prototype, activeId])
 
   const src = useMemo(() => {
     if (!prototype) return ''
     const screen = prototype.flow.screens.find((s) => s.id === activeId)
     return screen ? screenUrl(prototype, screen) : entryUrl(prototype)
   }, [prototype, activeId])
+
+  function sendToFigma() {
+    const doc = iframeRef.current?.contentDocument
+    if (!doc?.body || !prototype || !currentScreen) {
+      alert('Screen not ready yet — wait for it to load, then try again.')
+      return
+    }
+    const payload = buildScreenExport(prototype, currentScreen, doc)
+    downloadExport(payload, `${prototype.id}--${currentScreen.id}.figma.json`)
+  }
 
   if (!prototype) return <NotFound />
 
@@ -57,6 +76,12 @@ export function PrototypeScreen() {
             </button>
           ))}
         </nav>
+        <button
+          onClick={sendToFigma}
+          className="flex items-center gap-1.5 border-t p-3 text-left text-xs font-medium text-foreground hover:bg-accent"
+        >
+          <Figma className="h-3.5 w-3.5" /> Send screen to Figma
+        </button>
         <a
           href={src}
           target="_blank"
@@ -68,6 +93,7 @@ export function PrototypeScreen() {
       </aside>
       <div className="min-w-0 flex-1 bg-muted/40">
         <iframe
+          ref={iframeRef}
           key={prototype.id}
           title={prototype.title}
           src={src}

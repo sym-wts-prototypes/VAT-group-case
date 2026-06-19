@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@wts/figma": "workspace:*",
     "@wts/prototype-kit": "workspace:*",
     "@wts/ui": "workspace:*",
     "@xyflow/react": "^12.3.5",

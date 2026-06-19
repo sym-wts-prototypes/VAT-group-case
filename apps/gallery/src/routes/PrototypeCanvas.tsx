@@ -9,11 +9,12 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { LayoutGrid } from 'lucide-react'
+import { LayoutGrid, Figma, Loader2 } from 'lucide-react'
 import { screenUrl, type ScreenDef } from '@wts/prototype-kit'
 
 import { getPrototype } from '../registry'
 import { NotFound } from './NotFound'
+import { buildFlowExport, downloadExport } from '../figma/export'
 import { ScreenNode, type ScreenNodeData } from '../components/flow/ScreenNode'
 import { LaneLabel } from '../components/flow/LaneLabel'
 import { laneLayout, layeredLayout } from '../components/flow/layout'
@@ -33,10 +34,29 @@ export function PrototypeCanvas() {
   }, [prototype])
 
   const [filter, setFilter] = useState<string>('')
+  const [exporting, setExporting] = useState<{ done: number; total: number } | null>(null)
+  const active = filter || processes[0] || ''
+
+  const activeScreens = useMemo(
+    () => (prototype ? prototype.flow.screens.filter((s) => !active || processOf(s) === active) : []),
+    [prototype, active],
+  )
+
+  async function sendFlowToFigma() {
+    if (!prototype || exporting) return
+    setExporting({ done: 0, total: activeScreens.length })
+    try {
+      const payload = await buildFlowExport(prototype, activeScreens, (done, total) =>
+        setExporting({ done, total }),
+      )
+      downloadExport(payload, `${prototype.id}--flow-${active || 'all'}.figma.json`)
+    } finally {
+      setExporting(null)
+    }
+  }
 
   const { nodes, edges } = useMemo(() => {
     if (!prototype) return { nodes: [] as Node[], edges: [] as Edge[] }
-    const active = filter || processes[0] || ''
     const screens = prototype.flow.screens.filter((s) => !active || processOf(s) === active)
     const ids = new Set(screens.map((s) => s.id))
 
@@ -79,11 +99,9 @@ export function PrototypeCanvas() {
       }))
 
     return { nodes: [...laneNodes, ...screenNodes], edges: flowEdges }
-  }, [prototype, filter, processes, navigate])
+  }, [prototype, active, navigate])
 
   if (!prototype) return <NotFound />
-
-  const active = filter || processes[0] || ''
 
   return (
     <div className="flex h-full flex-col">
@@ -111,9 +129,24 @@ export function PrototypeCanvas() {
         <span className="text-[11px] text-muted-foreground">
           {nodes.filter((n) => n.type === 'screen').length} screens
         </span>
+        <button
+          onClick={sendFlowToFigma}
+          disabled={!!exporting}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-medium hover:bg-accent disabled:opacity-60"
+        >
+          {exporting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Exporting {exporting.done}/{exporting.total}
+            </>
+          ) : (
+            <>
+              <Figma className="h-4 w-4" /> Send flow to Figma
+            </>
+          )}
+        </button>
         <Link
           to={`/p/${prototype.id}`}
-          className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-[hsl(var(--link))] hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[hsl(var(--link))] hover:underline"
         >
           <LayoutGrid className="h-4 w-4" /> Screen view
         </Link>

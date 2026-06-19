@@ -17,3 +17,6 @@ storybook-static
 
 # assembled deploy output
 worker/public
+
+# local editor/agent config
+.claude/

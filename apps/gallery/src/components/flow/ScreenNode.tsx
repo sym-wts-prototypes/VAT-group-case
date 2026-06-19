@@ -1,0 +1,78 @@
+import { memo } from 'react'
+import { Handle, Position, useStore, type NodeProps } from '@xyflow/react'
+import { Maximize2 } from 'lucide-react'
+
+export interface ScreenNodeData {
+  label: string
+  sublabel?: string
+  src: string
+  onOpen: () => void
+  [key: string]: unknown
+}
+
+// Live screen rendered at a real viewport size, scaled down to a thumbnail.
+const FRAME_W = 1280
+const FRAME_H = 800
+const SCALE = 0.26
+const NODE_W = Math.round(FRAME_W * SCALE) // ~333
+const NODE_H = Math.round(FRAME_H * SCALE) // ~208
+
+// Below this zoom the iframe is replaced by a lightweight placeholder so panning
+// across many screens stays smooth (paired with onlyRenderVisibleElements).
+const LIVE_ZOOM_THRESHOLD = 0.4
+
+export const ScreenNode = memo(function ScreenNode({ data }: NodeProps) {
+  const d = data as ScreenNodeData
+  const zoom = useStore((s) => s.transform[2])
+  const live = zoom >= LIVE_ZOOM_THRESHOLD
+
+  return (
+    <div
+      className="overflow-hidden rounded-lg border bg-card shadow-header-base"
+      style={{ width: NODE_W }}
+    >
+      <Handle type="target" position={Position.Left} className="!bg-muted-foreground" />
+      <div className="flex items-center gap-2 border-b bg-background px-2.5 py-1.5">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-medium">{d.label}</div>
+          {d.sublabel && (
+            <div className="truncate text-[10px] text-muted-foreground">{d.sublabel}</div>
+          )}
+        </div>
+        <button
+          onClick={d.onOpen}
+          title="Open screen"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div
+        className="relative overflow-hidden bg-muted/40"
+        style={{ width: NODE_W, height: NODE_H }}
+      >
+        {live ? (
+          <iframe
+            title={d.label}
+            src={d.src}
+            tabIndex={-1}
+            scrolling="no"
+            style={{
+              width: FRAME_W,
+              height: FRAME_H,
+              border: 0,
+              transform: `scale(${SCALE})`,
+              transformOrigin: 'top left',
+              pointerEvents: 'none',
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">
+            {d.label}
+          </div>
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} className="!bg-muted-foreground" />
+    </div>
+  )
+})

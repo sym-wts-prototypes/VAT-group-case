@@ -1,0 +1,79 @@
+import { useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { Layers, ExternalLink } from 'lucide-react'
+import { entryUrl, screenUrl } from '@wts/prototype-kit'
+
+import { getPrototype } from '../registry'
+import { NotFound } from './NotFound'
+
+export function PrototypeScreen() {
+  const { prototypeId } = useParams()
+  const prototype = getPrototype(prototypeId)
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  const src = useMemo(() => {
+    if (!prototype) return ''
+    const screen = prototype.flow.screens.find((s) => s.id === activeId)
+    return screen ? screenUrl(prototype, screen) : entryUrl(prototype)
+  }, [prototype, activeId])
+
+  if (!prototype) return <NotFound />
+
+  return (
+    <div className="flex h-full">
+      <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/30">
+        <div className="border-b p-4">
+          <Link to="/" className="text-xs text-muted-foreground hover:underline">
+            ← All prototypes
+          </Link>
+          <h2 className="mt-2 text-sm font-semibold leading-snug">{prototype.title}</h2>
+          <Link
+            to={`/p/${prototype.id}/canvas`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[hsl(var(--link))] hover:underline"
+          >
+            <Layers className="h-4 w-4" /> Open flow canvas
+          </Link>
+        </div>
+        <nav className="min-h-0 flex-1 overflow-y-auto p-2">
+          <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Screens
+          </p>
+          {prototype.flow.screens.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveId(s.id)}
+              className={
+                'flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent ' +
+                (activeId === s.id ? 'bg-accent font-medium' : '')
+              }
+            >
+              <span>{s.label}</span>
+              {s.meta?.role && (
+                <span className="text-[11px] text-muted-foreground">
+                  {s.meta.role}
+                  {s.meta.phase ? ` · ${s.meta.phase}` : ''}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <a
+          href={src}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 border-t p-3 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ExternalLink className="h-3.5 w-3.5" /> Open screen in new tab
+        </a>
+      </aside>
+      <div className="min-w-0 flex-1 bg-muted/40">
+        <iframe
+          key={prototype.id}
+          title={prototype.title}
+          src={src}
+          className="h-full w-full border-0"
+        />
+      </div>
+    </div>
+  )
+}

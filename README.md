@@ -1,130 +1,69 @@
-# Process Extension
+# WTS Prototype Platform
 
-A small internal tool to design and track the four header types across the
-WTS / Client platforms, the three tax processes (**CIT**, **HR**, **VAT**),
-and the four roles (**Creator**, **Reviewer**, **Partner**, **Client**).
+A monorepo that hosts a shared component library (with Storybook), a
+password-gated **gallery** of interactive prototypes, and per-prototype **screen
+access** + a **flow canvas**. Deployed to Cloudflare behind a single password.
 
-The whole point of this project: **one config file decides what every header
-renders**, so changing a rule in one place propagates everywhere.
+> Phase 1 (foundation) is implemented. Phase 2 (full flow-canvas enumeration +
+> synced snapshots) and Phase 3 (Figma round-trip) are planned — see
+> `.claude/plans/`.
 
-## Stack
+## Layout
 
-- Vite + React 18 + TypeScript
-- Tailwind CSS + shadcn/ui primitives (custom theme)
-- `lucide-react` for icons (mirrors the Figma)
-- `zustand` for the demo controls, with URL hash sync so a state is shareable
+```
+packages/ui              @wts/ui — ShadCN primitives + Tailwind preset + tokens + Storybook
+packages/prototype-kit   @wts/prototype-kit — PrototypeManifest / FlowGraph types
+apps/gallery             @wts/gallery — host SPA: index, screen access, flow canvas
+prototypes/<id>          one app per prototype (independent Vite build)
+worker                   Cloudflare Worker password gate; serves the assembled site
+scripts/                 assemble-dist.mjs (deploy tree), new-prototype.mjs (scaffold)
+```
 
-## Getting started
+The gallery renders prototype screens in **iframes** (`/prototypes/<id>/#<hash>`),
+so the canvas shows real, live screens. Each prototype ships a pure-data
+`src/manifest.ts` that the gallery auto-discovers via a Vite glob.
+
+## Develop
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm build           # build ui+storybook, every prototype, and the gallery
+pnpm gallery         # gallery dev server (run `pnpm build` once so iframes resolve)
+pnpm storybook       # component library at :6006
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Full integrated preview (gallery + prototypes + storybook + auth) via the worker:
 
 ```bash
-npm run build     # type-check + production build
-npm run lint      # TypeScript noEmit check
-npm run preview   # local preview via Wrangler (serves ./dist)
+cp worker/.dev.vars.example worker/.dev.vars   # set SITE_PASSWORD + AUTH_SECRET
+pnpm build && pnpm assemble && pnpm preview     # http://localhost:8787
 ```
 
-## Deploy to Cloudflare
+## Add a prototype (it shows up automatically)
 
-This app is a static Vite build hosted on [Cloudflare Workers static assets](https://developers.cloudflare.com/workers/static-assets/).
-
-1. Log in once: `npx wrangler login`
-2. Deploy: `npm run deploy`
-
-The first deploy publishes to `https://wts-headers-playground.<your-subdomain>.workers.dev`.
-To use a custom domain, add it in the Cloudflare dashboard under the Worker’s **Triggers** tab.
-
-If the worker name is taken, change `name` in `wrangler.jsonc` and deploy again.
-
-Use the control panel to pick process / platform / role / header type / phase
-and see the live header plus a placeholder for the content below. The URL hash
-reflects the selection (e.g. `#cit/wts/creator/case/inPreparation`) so you can
-share a specific state.
-
-## Architecture
-
-```
-Controls (UI)
-  -> Zustand store (URL hash sync)
-    -> resolveHeader(ctx)
-      -> config/headers.ts        <-- SINGLE SOURCE OF TRUTH
-    -> HeaderDescriptor
-  -> HeaderRenderer
-    -> CaseWrapperHeader / CaseHeader / RequirementListHeader / RequirementBucketHeader
+```bash
+pnpm gen:prototype my-idea
+pnpm install
 ```
 
-Header components are **dumb**. They only know how to render a
-`HeaderDescriptor`. All the "what action shows in which phase for which role"
-logic lives in [src/config/headers.ts](src/config/headers.ts).
+Build it on a branch, open a PR, merge to `main` → CI builds and deploys, and it
+appears in the gallery. No edits to the gallery are needed — discovery is driven
+by `prototypes/*/src/manifest.ts`.
 
-## Where to edit what
+## Auth
 
-| You want to change... | Edit |
-|---|---|
-| The text on a phase's primary button for a role | `src/config/headers.ts` -> `CONFIG.{process}.{headerType}.phases.{phase}.{role}` |
-| Which phases exist for a (process, headerType) | `src/config/phases.ts` |
-| The list of valid roles for a platform | `src/lib/resolveHeader.ts` -> `rolesFor` |
-| Whether a header type is valid for a (process, platform) | `src/lib/resolveHeader.ts` -> `headerTypesFor` / `isValidContext` |
-| Demo people / company / due date | `src/config/sampleData.ts` |
-| Theme colors / radius / shadows | `src/index.css` |
+The Worker (`worker/src/index.ts`) gates **every path** with a single universal
+password. A correct password sets an HMAC-signed, HttpOnly cookie. Secrets:
 
-## Config merge order
-
-`resolveHeader(ctx)` merges these layers, last one wins:
-
-1. `GLOBAL_DEFAULT` (cross-process)
-2. `CONFIG[process].base`
-3. `CONFIG[process][headerType].base`
-4. `CONFIG[process][headerType].phases[phase].default`
-5. `CONFIG[process][headerType].phases[phase][role]`
-
-This makes it easy to set a rule once at the broadest level and only override
-where it diverges - e.g. `inPreparation` defaults apply to Creator, Reviewer,
-and Partner; only override `inPreparation.reviewer` if the Reviewer should
-see different actions.
-
-## Known TODOs
-
-- **Case Wrapper (HR)** - awaiting Figma. Currently a placeholder modeled
-  after the Case header, marked with a dashed border + "Placeholder" pill.
-- **HR / VAT phase divergence** - HR and VAT currently clone the CIT phase
-  rules. Diverge in `CONFIG.hr.case.phases.*` / `CONFIG.vat.case.phases.*`
-  as the actual differences emerge.
-
-## File map
-
+```bash
+cd worker
+wrangler secret put SITE_PASSWORD
+wrangler secret put AUTH_SECRET      # long random string used to sign the cookie
 ```
-src/
-  config/
-    headers.ts           # SINGLE SOURCE OF TRUTH for header rules
-    phases.ts            # which phases exist per (process, headerType)
-    sampleData.ts        # demo people / case / due date
-  lib/
-    resolveHeader.ts     # validity rules + descriptor merge
-    cn.ts                # tailwind classnames helper
-  store/
-    useDemoStore.ts      # zustand + URL hash sync
-  components/
-    ui/                  # shadcn primitives (Button, Badge, Select, Separator)
-    headers/
-      parts/             # Breadcrumb, BackLink, Title, Badges, PeopleRow, DueDate, Actions, Icon
-      CaseHeader.tsx
-      CaseWrapperHeader.tsx       # HR only, placeholder
-      RequirementListHeader.tsx   # WTS
-      RequirementBucketHeader.tsx # Client
-      HeaderRenderer.tsx
-    body/
-      BodyPlaceholder.tsx  # shows what nests under each header
-    controls/
-      ControlPanel.tsx     # selects for process / platform / role / headerType / phase
-  views/
-    PlaygroundView.tsx
-  App.tsx
-  main.tsx
-  types.ts                 # Process, Role, HeaderType, Phase, Platform, HeaderDescriptor
-```
+
+## Deploy
+
+GitHub Actions (`.github/workflows/deploy.yml`) builds + assembles + deploys the
+worker on push to `main`. Configure repo secrets `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`. Runtime secrets are set with `wrangler secret put` (not
+in CI).

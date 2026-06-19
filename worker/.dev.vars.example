@@ -1,0 +1,4 @@
+# Copy to `worker/.dev.vars` for local `wrangler dev`. Never commit the real file.
+# In production set these with: wrangler secret put SITE_PASSWORD / AUTH_SECRET
+SITE_PASSWORD="change-me"
+AUTH_SECRET="a-long-random-string-used-to-sign-the-auth-cookie"

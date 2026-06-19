@@ -1,0 +1,44 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint / typecheck
+        run: pnpm lint
+
+      - name: Build (ui + storybook, prototypes, gallery)
+        run: pnpm build
+
+      - name: Assemble deploy tree
+        run: pnpm assemble
+
+      # Deploy only from main, never from PRs.
+      - name: Deploy to Cloudflare
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          # Runtime secrets (SITE_PASSWORD, AUTH_SECRET, FIGMA_TOKEN) are NOT set here.
+          # Set them once per environment with: wrangler secret put <NAME>

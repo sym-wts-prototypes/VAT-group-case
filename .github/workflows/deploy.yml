@@ -26,7 +26,7 @@ jobs:
       - name: Lint / typecheck
         run: pnpm lint
 
-      - name: Build (ui + storybook, prototypes, gallery)
+      - name: Build (prototypes + gallery)
         run: pnpm build
 
       - name: Assemble deploy tree

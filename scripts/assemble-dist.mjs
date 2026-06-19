@@ -11,7 +11,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'worker', 'public')
 const galleryDist = path.join(root, 'apps', 'gallery', 'dist')
 const prototypesDir = path.join(root, 'prototypes')
-const storybookDist = path.join(root, 'packages', 'ui', 'storybook-static')
 
 function requireDir(dir, hint) {
   if (!fs.existsSync(dir)) {
@@ -49,14 +48,4 @@ for (const id of ids) {
   count++
 }
 
-// 3) Storybook under /storybook/
-if (fs.existsSync(storybookDist)) {
-  const dest = path.join(out, 'storybook')
-  fs.mkdirSync(dest, { recursive: true })
-  fs.cpSync(storybookDist, dest, { recursive: true })
-  console.log('[assemble] storybook -> worker/public/storybook')
-} else {
-  console.warn('[assemble] skip storybook (not built)')
-}
-
-console.log(`[assemble] done: gallery + ${count} prototype(s) + storybook.`)
+console.log(`[assemble] done: gallery + ${count} prototype(s).`)

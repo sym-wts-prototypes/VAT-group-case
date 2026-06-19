@@ -1,8 +1,9 @@
 # WTS Prototype Platform
 
-A monorepo that hosts a shared component library (with Storybook), a
-password-gated **gallery** of interactive prototypes, and per-prototype **screen
-access** + a **flow canvas**. Deployed to Cloudflare behind a single password.
+A monorepo that hosts a shared component library (with an in-app **Components**
+catalog), a password-gated **gallery** of interactive prototypes, and
+per-prototype **screen access** + a **flow canvas**. Deployed to Cloudflare
+behind a single password.
 
 > Phase 1 (foundation) is implemented. Phase 2 (full flow-canvas enumeration +
 > synced snapshots) and Phase 3 (Figma round-trip) are planned — see
@@ -11,7 +12,7 @@ access** + a **flow canvas**. Deployed to Cloudflare behind a single password.
 ## Layout
 
 ```
-packages/ui              @wts/ui — ShadCN primitives + Tailwind preset + tokens + Storybook
+packages/ui              @wts/ui — ShadCN primitives + Tailwind preset + tokens
 packages/prototype-kit   @wts/prototype-kit — PrototypeManifest / FlowGraph types
 apps/gallery             @wts/gallery — host SPA: index, screen access, flow canvas
 prototypes/<id>          one app per prototype (independent Vite build)
@@ -27,10 +28,13 @@ so the canvas shows real, live screens. Each prototype ships a pure-data
 
 ```bash
 pnpm install
-pnpm build           # build ui+storybook, every prototype, and the gallery
+pnpm build           # build every prototype and the gallery
 pnpm gallery         # gallery dev server (run `pnpm build` once so iframes resolve)
-pnpm storybook       # component library at :6006
 ```
+
+The component library is browsable in-app at **`/components`** (top-right link in
+the gallery) — a registry-driven catalog defined in
+`apps/gallery/src/catalog/registry.tsx`.
 
 Full integrated preview (gallery + prototypes + storybook + auth) via the worker:
 

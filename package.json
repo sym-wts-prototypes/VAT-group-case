@@ -11,8 +11,6 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "storybook": "pnpm --filter @wts/ui storybook",
-    "build:storybook": "pnpm --filter @wts/ui build:storybook",
     "gallery": "pnpm --filter @wts/gallery dev",
     "gen:prototype": "node scripts/new-prototype.mjs",
     "assemble": "node scripts/assemble-dist.mjs",

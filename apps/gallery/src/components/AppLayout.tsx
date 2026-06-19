@@ -12,12 +12,12 @@ export function AppLayout() {
             WTS Prototype Gallery
           </span>
         </Link>
-        <a
-          href="/storybook/"
+        <Link
+          to="/components"
           className="ml-auto text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          Storybook
-        </a>
+          Components
+        </Link>
       </header>
       <div className="min-h-0 flex-1">
         <Outlet />

@@ -51,8 +51,14 @@ import {
   DrawerDescription,
   DrawerFooter,
   DrawerClose,
+  DataTable,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
   type ButtonProps,
 } from '@wts/ui'
+import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
 
 /**
  * Component catalog ("storybook-like" page). Each entry lists variants with a
@@ -552,6 +558,65 @@ export const CATALOG: CatalogEntry[] = [
             </DrawerContent>
           </Drawer>
         ),
+      },
+    ],
+  },
+  {
+    id: 'data-table',
+    name: 'Data Table',
+    description: 'TanStack-table-backed table built on the Table primitives.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<DataTable columns={columns} data={data} />`,
+        render: () => {
+          const columns: any[] = [
+            { accessorKey: 'case', header: 'Case' },
+            { accessorKey: 'role', header: 'Role' },
+            { accessorKey: 'status', header: 'Status' },
+          ]
+          const data = [
+            { case: 'CIT-2847', role: 'Creator', status: 'In Review' },
+            { case: 'HR-0193', role: 'Reviewer', status: 'Draft' },
+            { case: 'VAT-5612', role: 'Partner', status: 'Submitted' },
+          ]
+          return (
+            <div className="w-96">
+              <DataTable columns={columns} data={data} />
+            </div>
+          )
+        },
+      },
+    ],
+  },
+  {
+    id: 'chart',
+    name: 'Chart',
+    description: 'Recharts wrapper themed via a ChartConfig.',
+    variants: [
+      {
+        label: 'Bar',
+        code: `<ChartContainer config={config}>\n  <BarChart data={data}>\n    <Bar dataKey="value" fill="var(--color-value)" />\n  </BarChart>\n</ChartContainer>`,
+        render: () => {
+          const config = {
+            value: { label: 'Cases', color: 'hsl(var(--brand))' },
+          } satisfies ChartConfig
+          const data = [
+            { process: 'CIT', value: 48 },
+            { process: 'HR', value: 54 },
+            { process: 'VAT', value: 35 },
+          ]
+          return (
+            <ChartContainer config={config} className="h-48 w-96">
+              <BarChart data={data}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="process" tickLine={false} axisLine={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={4} />
+              </BarChart>
+            </ChartContainer>
+          )
+        },
       },
     ],
   },

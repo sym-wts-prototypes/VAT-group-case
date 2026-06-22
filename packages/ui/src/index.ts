@@ -20,6 +20,16 @@ export {
 export { Avatar, AvatarImage, AvatarFallback } from './avatar'
 export { AspectRatio } from './aspect-ratio'
 export { Calendar, type CalendarProps } from './calendar'
+export { DataTable, type DataTableProps } from './data-table'
+export {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartStyle,
+  useChart,
+  type ChartConfig,
+} from './chart'
 export {
   Drawer,
   DrawerPortal,

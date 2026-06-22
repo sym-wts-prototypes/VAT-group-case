@@ -10,6 +10,15 @@ export { RadioGroup, RadioGroupItem } from './radio-group'
 export { Switch } from './switch'
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
 export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from './card'
+export { Avatar, AvatarImage, AvatarFallback } from './avatar'
+export {
   Select,
   SelectGroup,
   SelectValue,

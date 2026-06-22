@@ -20,6 +20,15 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
   type ButtonProps,
 } from '@wts/ui'
 
@@ -343,6 +352,56 @@ export const CATALOG: CatalogEntry[] = [
               VAT workflow.
             </TabsContent>
           </Tabs>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'card',
+    name: 'Card',
+    description: 'Surface container with header, content and footer slots.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Card>\n  <CardHeader>\n    <CardTitle>CIT-2847</CardTitle>\n    <CardDescription>Uniper Technologies GmbH</CardDescription>\n  </CardHeader>\n  <CardContent>…</CardContent>\n</Card>`,
+        render: () => (
+          <Card className="w-72">
+            <CardHeader>
+              <CardTitle>CIT-2847</CardTitle>
+              <CardDescription>Uniper Technologies GmbH</CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Corporate income tax return, FY2026.
+            </CardContent>
+            <CardFooter className="gap-2">
+              <Button size="sm" variant="outline">
+                View
+              </Button>
+              <Button size="sm">Open case</Button>
+            </CardFooter>
+          </Card>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'avatar',
+    name: 'Avatar',
+    description: 'User image with text fallback.',
+    variants: [
+      {
+        label: 'Image + fallback',
+        code: `<Avatar>\n  <AvatarImage src="…" />\n  <AvatarFallback>EF</AvatarFallback>\n</Avatar>`,
+        render: () => (
+          <div className="flex items-center gap-3">
+            <Avatar>
+              <AvatarImage src="https://i.pravatar.cc/80?img=5" alt="" />
+              <AvatarFallback>EF</AvatarFallback>
+            </Avatar>
+            <Avatar>
+              <AvatarFallback>PK</AvatarFallback>
+            </Avatar>
+          </div>
         ),
       },
     ],

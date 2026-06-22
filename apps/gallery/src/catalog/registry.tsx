@@ -9,6 +9,17 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Input,
+  Textarea,
+  Label,
+  Checkbox,
+  RadioGroup,
+  RadioGroupItem,
+  Switch,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
   type ButtonProps,
 } from '@wts/ui'
 
@@ -207,6 +218,131 @@ export const CATALOG: CatalogEntry[] = [
               <SelectItem value="client">Client</SelectItem>
             </SelectContent>
           </Select>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'input',
+    name: 'Input',
+    description: 'Single-line text field.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Input placeholder="Email" />`,
+        render: () => <Input placeholder="Email" className="w-64" />,
+      },
+      {
+        label: 'Disabled',
+        code: `<Input disabled placeholder="Disabled" />`,
+        render: () => <Input disabled placeholder="Disabled" className="w-64" />,
+      },
+      {
+        label: 'With label',
+        code: `<Label htmlFor="co">Company</Label>\n<Input id="co" placeholder="Uniper Technologies GmbH" />`,
+        render: () => (
+          <div className="grid w-64 gap-1.5">
+            <Label htmlFor="co">Company</Label>
+            <Input id="co" placeholder="Uniper Technologies GmbH" />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'textarea',
+    name: 'Textarea',
+    description: 'Multi-line text field.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Textarea placeholder="Add a comment…" />`,
+        render: () => <Textarea placeholder="Add a comment…" className="w-72" />,
+      },
+    ],
+  },
+  {
+    id: 'checkbox',
+    name: 'Checkbox',
+    description: 'Binary toggle with a checked indicator.',
+    variants: [
+      {
+        label: 'With label',
+        code: `<Checkbox id="t" />\n<Label htmlFor="t">Tasks done</Label>`,
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Checkbox id="t" defaultChecked />
+            <Label htmlFor="t">Tasks done</Label>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'radio-group',
+    name: 'Radio Group',
+    description: 'Mutually exclusive options.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<RadioGroup defaultValue="approve">\n  <RadioGroupItem value="approve" /> Approve\n  <RadioGroupItem value="object" /> Object\n</RadioGroup>`,
+        render: () => (
+          <RadioGroup defaultValue="approve">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="approve" id="r1" />
+              <Label htmlFor="r1">Approve</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="object" id="r2" />
+              <Label htmlFor="r2">Object</Label>
+            </div>
+          </RadioGroup>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'switch',
+    name: 'Switch',
+    description: 'On/off toggle.',
+    variants: [
+      {
+        label: 'With label',
+        code: `<Switch id="s" />\n<Label htmlFor="s">Notifications</Label>`,
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Switch id="s" defaultChecked />
+            <Label htmlFor="s">Notifications</Label>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'tabs',
+    name: 'Tabs',
+    description: 'Switch between related views.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Tabs defaultValue="cit">\n  <TabsList>\n    <TabsTrigger value="cit">CIT</TabsTrigger>\n    <TabsTrigger value="hr">HR</TabsTrigger>\n  </TabsList>\n</Tabs>`,
+        render: () => (
+          <Tabs defaultValue="cit" className="w-72">
+            <TabsList>
+              <TabsTrigger value="cit">CIT</TabsTrigger>
+              <TabsTrigger value="hr">HR</TabsTrigger>
+              <TabsTrigger value="vat">VAT</TabsTrigger>
+            </TabsList>
+            <TabsContent value="cit" className="text-sm text-muted-foreground">
+              Corporate income tax workflow.
+            </TabsContent>
+            <TabsContent value="hr" className="text-sm text-muted-foreground">
+              Payroll tax workflow.
+            </TabsContent>
+            <TabsContent value="vat" className="text-sm text-muted-foreground">
+              VAT workflow.
+            </TabsContent>
+          </Tabs>
         ),
       },
     ],

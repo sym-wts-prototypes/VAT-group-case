@@ -24,8 +24,8 @@
   --accent: 240 5% 96%;
   --accent-foreground: 240 6% 10%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 356 70% 52%; /* #da313b — WTS-ShadCn destructive */
+  --destructive-foreground: 0 86% 97%; /* #fef2f2 */
 
   --border: 240 6% 90%; /* #e4e4e7 */
   --sidebar-border: 0 0% 90%; /* #e5e5e5 */

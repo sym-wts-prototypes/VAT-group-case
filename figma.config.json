@@ -1,7 +1,7 @@
 {
   "codeConnect": {
     "parser": "react",
-    "include": ["packages/ui/src/**/*.figma.tsx"],
+    "include": ["packages/ui/src/**/*.tsx"],
     "importPaths": {
       "packages/ui/src/*": "@wts/ui"
     }

@@ -29,6 +29,19 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  AspectRatio,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
   type ButtonProps,
 } from '@wts/ui'
 
@@ -401,6 +414,85 @@ export const CATALOG: CatalogEntry[] = [
             <Avatar>
               <AvatarFallback>PK</AvatarFallback>
             </Avatar>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'table',
+    name: 'Table',
+    description: 'Rows and columns with header, body and footer.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Table>\n  <TableHeader>…</TableHeader>\n  <TableBody>…</TableBody>\n</Table>`,
+        render: () => (
+          <Table className="w-80">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Case</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>CIT-2847</TableCell>
+                <TableCell>Creator</TableCell>
+                <TableCell>In Review</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>HR-0193</TableCell>
+                <TableCell>Reviewer</TableCell>
+                <TableCell>Draft</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'dropdown-menu',
+    name: 'Dropdown Menu',
+    description: 'Menu triggered by a button.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<DropdownMenu>\n  <DropdownMenuTrigger asChild><Button variant="outline">Open</Button></DropdownMenuTrigger>\n  <DropdownMenuContent>…</DropdownMenuContent>\n</DropdownMenu>`,
+        render: () => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">Open menu</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>Case actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Send for review</DropdownMenuItem>
+              <DropdownMenuItem>Add requirement</DropdownMenuItem>
+              <DropdownMenuItem>Close case</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'aspect-ratio',
+    name: 'Aspect Ratio',
+    description: 'Constrains content to a ratio.',
+    variants: [
+      {
+        label: '16:9',
+        code: `<AspectRatio ratio={16 / 9}>…</AspectRatio>`,
+        render: () => (
+          <div className="w-64">
+            <AspectRatio ratio={16 / 9}>
+              <div className="flex h-full w-full items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
+                16 : 9
+              </div>
+            </AspectRatio>
           </div>
         ),
       },

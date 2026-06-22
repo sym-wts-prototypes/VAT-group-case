@@ -42,6 +42,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuItem,
+  Calendar,
+  Drawer,
+  DrawerTrigger,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerClose,
   type ButtonProps,
 } from '@wts/ui'
 
@@ -494,6 +503,54 @@ export const CATALOG: CatalogEntry[] = [
               </div>
             </AspectRatio>
           </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'calendar',
+    name: 'Calendar',
+    description: 'Date picker calendar (react-day-picker).',
+    variants: [
+      {
+        label: 'Single date',
+        code: `<Calendar mode="single" selected={date} onSelect={setDate} />`,
+        render: () => (
+          <div className="inline-block rounded-md border">
+            <Calendar mode="single" />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'drawer',
+    name: 'Drawer',
+    description: 'Bottom sheet / drawer (vaul).',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Drawer>\n  <DrawerTrigger>Open</DrawerTrigger>\n  <DrawerContent>…</DrawerContent>\n</Drawer>`,
+        render: () => (
+          <Drawer>
+            <DrawerTrigger asChild>
+              <Button variant="outline">Open drawer</Button>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>Close case CIT-2847?</DrawerTitle>
+                <DrawerDescription>
+                  All assessments are resolved. This will move the case to Summary.
+                </DrawerDescription>
+              </DrawerHeader>
+              <DrawerFooter>
+                <Button>Close case</Button>
+                <DrawerClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
         ),
       },
     ],

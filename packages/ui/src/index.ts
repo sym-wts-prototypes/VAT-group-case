@@ -19,6 +19,19 @@ export {
 } from './card'
 export { Avatar, AvatarImage, AvatarFallback } from './avatar'
 export { AspectRatio } from './aspect-ratio'
+export { Calendar, type CalendarProps } from './calendar'
+export {
+  Drawer,
+  DrawerPortal,
+  DrawerOverlay,
+  DrawerTrigger,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerFooter,
+  DrawerTitle,
+  DrawerDescription,
+} from './drawer'
 export {
   Table,
   TableHeader,

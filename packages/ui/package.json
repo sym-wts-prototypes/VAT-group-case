@@ -27,8 +27,11 @@
     "@radix-ui/react-tabs": "^1.1.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
     "lucide-react": "^0.453.0",
-    "tailwind-merge": "^2.5.4"
+    "react-day-picker": "^8.10.1",
+    "tailwind-merge": "^2.5.4",
+    "vaul": "^1.1.1"
   },
   "peerDependencies": {
     "react": "^18.3.1 || ^19",

@@ -1,0 +1,33 @@
+name: Code Connect
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/ui/src/**/*.tsx'
+      - 'figma.config.json'
+      - '.github/workflows/code-connect.yml'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      # true only once the FIGMA_ACCESS_TOKEN repo secret has been added
+      HAS_FIGMA: ${{ secrets.FIGMA_ACCESS_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Republish Code Connect mappings to Figma. --force overwrites existing
+      # mappings. Skipped until the FIGMA_ACCESS_TOKEN secret exists.
+      # The token needs scopes: file_content:read + file_code_connect:write.
+      - name: Publish Code Connect
+        if: env.HAS_FIGMA == 'true'
+        run: npx figma connect publish --force
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}

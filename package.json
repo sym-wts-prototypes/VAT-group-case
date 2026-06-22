@@ -13,6 +13,8 @@
     "lint": "turbo run lint",
     "gallery": "pnpm --filter @wts/gallery dev",
     "gen:prototype": "node scripts/new-prototype.mjs",
+    "figma:parse": "npx figma connect parse",
+    "figma:publish": "npx figma connect publish",
     "assemble": "node scripts/assemble-dist.mjs",
     "snapshots": "node scripts/snapshot.mjs",
     "preview": "pnpm --filter @wts/worker dev",

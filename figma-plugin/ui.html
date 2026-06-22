@@ -1,10 +1,11 @@
 <div id="app">
   <h2>WTS Prototype Bridge</h2>
-  <p>Paste the JSON exported from the gallery (“Send to Figma”), or choose the downloaded <code>.json</code> file, then Import.</p>
+  <p>In the gallery click <b>Copy to Figma</b>, then hit <b>Paste &amp; Import</b> below. (Or paste the JSON / choose the downloaded file.)</p>
+  <button id="paste" class="primary">Paste &amp; Import from clipboard</button>
+  <textarea id="json" placeholder="…or paste the export JSON here (auto-imports)"></textarea>
   <input type="file" id="file" accept="application/json,.json" />
-  <textarea id="json" placeholder="…or paste the export JSON here"></textarea>
   <div class="row">
-    <button id="import" class="primary">Import</button>
+    <button id="import">Import</button>
     <button id="close">Close</button>
   </div>
   <p id="status"></p>
@@ -26,29 +27,50 @@
   const $ = (id) => document.getElementById(id)
   const status = $('status')
 
-  $('file').addEventListener('change', (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => { $('json').value = reader.result }
-    reader.readAsText(file)
-  })
-
-  $('import').addEventListener('click', () => {
+  function importText(text) {
     status.textContent = ''
     let payload
     try {
-      payload = JSON.parse($('json').value)
+      payload = JSON.parse(text)
     } catch (err) {
       status.textContent = 'Invalid JSON: ' + err.message
       return
     }
     if (!payload || !Array.isArray(payload.scenes)) {
-      status.textContent = 'JSON does not look like a Bridge export (missing "scenes").'
+      status.textContent = 'That doesn’t look like a Bridge export (missing "scenes").'
       return
     }
     parent.postMessage({ pluginMessage: { type: 'import', payload } }, '*')
+  }
+
+  // Primary path: read straight from the clipboard (set by the gallery's "Copy to Figma").
+  $('paste').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text) { status.textContent = 'Clipboard is empty — click "Copy to Figma" in the gallery first.'; return }
+      $('json').value = text
+      importText(text)
+    } catch (err) {
+      status.textContent = 'Clipboard blocked — paste (Cmd/Ctrl+V) into the box below instead.'
+      $('json').focus()
+    }
   })
+
+  // Pasting into the textarea auto-imports.
+  $('json').addEventListener('paste', (e) => {
+    const text = (e.clipboardData || window.clipboardData).getData('text')
+    if (text) { e.preventDefault(); $('json').value = text; importText(text) }
+  })
+
+  $('file').addEventListener('change', (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => { $('json').value = reader.result; importText(reader.result) }
+    reader.readAsText(file)
+  })
+
+  $('import').addEventListener('click', () => importText($('json').value))
 
   $('close').addEventListener('click', () => {
     parent.postMessage({ pluginMessage: { type: 'close' } }, '*')

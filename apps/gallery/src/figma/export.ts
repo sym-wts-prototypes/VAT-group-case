@@ -93,6 +93,11 @@ function loadIframe(iframe: HTMLIFrameElement, src: string): Promise<void> {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** Copy the export JSON to the clipboard (paste it into the Figma plugin). */
+export async function copyExport(data: FigmaExport): Promise<void> {
+  await navigator.clipboard.writeText(JSON.stringify(data))
+}
+
 /** Trigger a browser download of the export JSON. */
 export function downloadExport(data: FigmaExport, filename: string): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })

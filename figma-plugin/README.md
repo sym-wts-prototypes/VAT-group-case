@@ -14,13 +14,14 @@ pnpm --filter @wts/figma-plugin build   # bundles code.ts -> code.js
 1. Figma → **Plugins → Development → Import plugin from manifest…**
 2. Choose `figma-plugin/manifest.json` in this repo.
 
-## Use
+## Use (copy → paste, recommended)
 
-1. In the gallery, open a prototype:
-   - a screen → **Send screen to Figma** (downloads `…figma.json`), or
-   - the canvas → **Send flow to Figma** (downloads the whole flow as one file).
+1. In the gallery: a screen → **Copy screen to Figma**, or the canvas →
+   **Copy flow to Figma**. (Both also offer a JSON download as a fallback.)
 2. In Figma, run **Plugins → Development → WTS Prototype Bridge**.
-3. Choose the downloaded `.json` (or paste it) → **Import**.
+3. Click **Paste & Import from clipboard** — done. (If your Figma build blocks
+   clipboard reads, just `Cmd/Ctrl+V` into the box; it auto-imports. A file
+   picker is there too.)
 
 Each screen becomes a frame; a flow lays all frames out mirroring the canvas.
 

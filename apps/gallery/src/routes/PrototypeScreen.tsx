@@ -1,16 +1,17 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Layers, ExternalLink, Figma } from 'lucide-react'
+import { Layers, ExternalLink, Figma, Check } from 'lucide-react'
 import { entryUrl, screenUrl } from '@wts/prototype-kit'
 
 import { getPrototype } from '../registry'
-import { buildScreenExport, downloadExport } from '../figma/export'
+import { buildScreenExport, copyExport, downloadExport } from '../figma/export'
 import { NotFound } from './NotFound'
 
 export function PrototypeScreen() {
   const { prototypeId } = useParams()
   const prototype = getPrototype(prototypeId)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const currentScreen = useMemo(() => {
@@ -26,14 +27,28 @@ export function PrototypeScreen() {
     return screen ? screenUrl(prototype, screen) : entryUrl(prototype)
   }, [prototype, activeId])
 
-  function sendToFigma() {
+  function buildPayload() {
     const doc = iframeRef.current?.contentDocument
     if (!doc?.body || !prototype || !currentScreen) {
       alert('Screen not ready yet — wait for it to load, then try again.')
-      return
+      return null
     }
-    const payload = buildScreenExport(prototype, currentScreen, doc)
-    downloadExport(payload, `${prototype.id}--${currentScreen.id}.figma.json`)
+    return { payload: buildScreenExport(prototype, currentScreen, doc), screen: currentScreen }
+  }
+
+  async function copyToFigma() {
+    const built = buildPayload()
+    if (!built) return
+    await copyExport(built.payload)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  function downloadToFigma() {
+    const built = buildPayload()
+    if (built && prototype) {
+      downloadExport(built.payload, `${prototype.id}--${built.screen.id}.figma.json`)
+    }
   }
 
   if (!prototype) return <NotFound />
@@ -84,12 +99,28 @@ export function PrototypeScreen() {
             </button>
           ))}
         </nav>
-        <button
-          onClick={sendToFigma}
-          className="flex items-center gap-1.5 border-t p-3 text-left text-xs font-medium text-foreground hover:bg-accent"
-        >
-          <Figma className="h-3.5 w-3.5" /> Send screen to Figma
-        </button>
+        <div className="flex flex-col gap-1 border-t p-3">
+          <button
+            onClick={copyToFigma}
+            className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            {copied ? (
+              <>
+                <Check className="h-3.5 w-3.5" /> Copied — paste in the Figma plugin
+              </>
+            ) : (
+              <>
+                <Figma className="h-3.5 w-3.5" /> Copy screen to Figma
+              </>
+            )}
+          </button>
+          <button
+            onClick={downloadToFigma}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            or download JSON
+          </button>
+        </div>
         <a
           href={src}
           target="_blank"

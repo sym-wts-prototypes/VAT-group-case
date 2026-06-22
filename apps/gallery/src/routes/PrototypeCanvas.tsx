@@ -9,12 +9,12 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { LayoutGrid, Figma, Loader2 } from 'lucide-react'
+import { LayoutGrid, Figma, Loader2, Check } from 'lucide-react'
 import { screenUrl, type ScreenDef } from '@wts/prototype-kit'
 
 import { getPrototype } from '../registry'
 import { NotFound } from './NotFound'
-import { buildFlowExport, downloadExport } from '../figma/export'
+import { buildFlowExport, copyExport } from '../figma/export'
 import { ScreenNode, type ScreenNodeData } from '../components/flow/ScreenNode'
 import { LaneLabel } from '../components/flow/LaneLabel'
 import { laneLayout, layeredLayout } from '../components/flow/layout'
@@ -35,6 +35,7 @@ export function PrototypeCanvas() {
 
   const [filter, setFilter] = useState<string>('')
   const [exporting, setExporting] = useState<{ done: number; total: number } | null>(null)
+  const [copied, setCopied] = useState(false)
   const active = filter || processes[0] || ''
 
   const activeScreens = useMemo(
@@ -49,7 +50,9 @@ export function PrototypeCanvas() {
       const payload = await buildFlowExport(prototype, activeScreens, (done, total) =>
         setExporting({ done, total }),
       )
-      downloadExport(payload, `${prototype.id}--flow-${active || 'all'}.figma.json`)
+      await copyExport(payload)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
     } finally {
       setExporting(null)
     }
@@ -138,9 +141,13 @@ export function PrototypeCanvas() {
             <>
               <Loader2 className="h-4 w-4 animate-spin" /> Exporting {exporting.done}/{exporting.total}
             </>
+          ) : copied ? (
+            <>
+              <Check className="h-4 w-4" /> Copied — paste in Figma plugin
+            </>
           ) : (
             <>
-              <Figma className="h-4 w-4" /> Send flow to Figma
+              <Figma className="h-4 w-4" /> Copy flow to Figma
             </>
           )}
         </button>

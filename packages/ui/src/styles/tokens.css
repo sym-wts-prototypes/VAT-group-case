@@ -1,8 +1,9 @@
-/* @wts/ui design tokens — single source of truth for color/radius variables.
+/* @wts/ui design tokens — single source of truth for the WTS-ShadCn DS.
    Pure CSS custom properties (no @apply / @tailwind) so this file is safe to
-   import from any app, Storybook, or prototype. */
+   import from any app, Storybook, or prototype.
+   Values pulled from the WTS-ShadCn Figma DS (file UZi1uoOiqQtd0cE40PUzi6). */
 :root {
-  /* WTS / shadcn zinc palette from Figma */
+  /* ── Colors (zinc palette from Figma) ── */
   --background: 0 0% 100%;
   --foreground: 240 6% 10%; /* #18181b */
 
@@ -13,7 +14,7 @@
   --popover-foreground: 240 6% 10%;
 
   --primary: 240 6% 10%; /* #18181b */
-  --primary-foreground: 0 0% 98%; /* #fafafa - header surface */
+  --primary-foreground: 0 0% 98%; /* #fafafa */
 
   --secondary: 240 5% 96%;
   --secondary-foreground: 240 6% 10%;
@@ -24,7 +25,7 @@
   --accent: 240 5% 96%;
   --accent-foreground: 240 6% 10%;
 
-  --destructive: 356 70% 52%; /* #da313b — WTS-ShadCn destructive */
+  --destructive: 356 70% 52%; /* #da313b */
   --destructive-foreground: 0 86% 97%; /* #fef2f2 */
 
   --border: 240 6% 90%; /* #e4e4e7 */
@@ -35,24 +36,62 @@
   --brand: 358 75% 52%;
   --brand-foreground: 0 0% 100%;
 
+  /* ── Border radius ── */
   --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-full: 9999px;
 
-  /* WTS semantic tokens */
+  /* ── Typography — from WTS-ShadCn Figma DS ──
+     Font: IBM Plex Sans (body), Cera Pro (display/headings optional) */
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Cera Pro', 'CeraPro', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 3rem;        /* 48px */
+
+  --leading-none: 1;
+  --leading-tight: 1.2;   /* headings */
+  --leading-normal: 1.75; /* 28px at 16px base — body/paragraph */
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.025em; /* -0.4px at 16px — headings */
+  --tracking-normal: 0em;
+
+  /* ── Shadows — matching WTS-ShadCn effect styles ── */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+
+  /* ── WTS semantic tokens ── */
   --link: 201 90% 27%; /* sky-800 #075985 */
   --person-name: 351 65% 45%; /* red-700 #bb2739 */
 
-  /* Soft badge - blue (status / due date on case header) */
-  --badge-blue-bg: 204 94% 94%; /* sky-100 */
-  --badge-blue-border: 199 95% 86%; /* sky-200 */
-  --badge-blue-fg: 201 80% 16%; /* sky-950 */
+  /* Soft badge - blue */
+  --badge-blue-bg: 204 94% 94%;
+  --badge-blue-border: 199 95% 86%;
+  --badge-blue-fg: 201 80% 16%;
 
-  /* Soft badge - gray (company pills, due date on req list) */
+  /* Soft badge - gray */
   --badge-gray-bg: 240 5% 96%;
   --badge-gray-border: 240 6% 90%;
   --badge-gray-fg: 240 6% 10%;
 
   --badge-green-bg: 142 76% 94%;
-  --badge-green-border: 141 79% 85%; /* green-200 */
+  --badge-green-border: 141 79% 85%;
   --badge-green-fg: 142 71% 30%;
   --badge-amber-bg: 48 100% 94%;
   --badge-amber-fg: 25 95% 38%;

@@ -1,10 +1,5 @@
 import type { Config } from 'tailwindcss'
 
-/**
- * Shared Tailwind preset for the WTS platform. Apps/prototypes/Storybook spread
- * this via `presets: [wtsPreset]` and only declare their own `content` globs.
- * Color tokens resolve against the CSS variables in `@wts/ui/styles/tokens.css`.
- */
 const preset: Omit<Config, 'content'> = {
   darkMode: ['class'],
   theme: {
@@ -56,9 +51,12 @@ const preset: Omit<Config, 'content'> = {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        '2xl': 'var(--radius-2xl)',
+        xl: 'var(--radius-xl)',
+        lg: 'var(--radius-lg)',
+        md: 'var(--radius-md)',
+        sm: 'var(--radius-sm)',
+        full: 'var(--radius-full)',
       },
       fontFamily: {
         sans: [
@@ -77,10 +75,31 @@ const preset: Omit<Config, 'content'> = {
           'sans-serif',
         ],
       },
+      fontSize: {
+        xs: ['var(--text-xs)', { lineHeight: '1rem' }],
+        sm: ['var(--text-sm)', { lineHeight: '1.25rem' }],
+        base: ['var(--text-base)', { lineHeight: 'var(--leading-normal)' }],
+        lg: ['var(--text-lg)', { lineHeight: '1.75rem' }],
+        xl: ['var(--text-xl)', { lineHeight: '1.75rem' }],
+        '2xl': ['var(--text-2xl)', { lineHeight: '2rem' }],
+        '3xl': ['var(--text-3xl)', { lineHeight: '2.25rem' }],
+        '4xl': ['var(--text-4xl)', { lineHeight: 'var(--leading-none)' }],
+      },
+      letterSpacing: {
+        tighter: '-0.05em',
+        tight: 'var(--tracking-tight)',
+        normal: 'var(--tracking-normal)',
+      },
       boxShadow: {
-        'header-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        'header-base':
-          '0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        sm: 'var(--shadow-sm)',
+        DEFAULT: 'var(--shadow)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        xl: 'var(--shadow-xl)',
+        '2xl': 'var(--shadow-2xl)',
+        inner: 'var(--shadow-inner)',
+        'header-sm': 'var(--shadow-sm)',
+        'header-base': 'var(--shadow)',
       },
     },
   },

@@ -20,7 +20,7 @@ export {
 } from './card'
 export { Avatar, AvatarImage, AvatarFallback } from './avatar'
 export { AspectRatio } from './aspect-ratio'
-export { Calendar, type CalendarProps } from './calendar'
+export { Calendar, CalendarDayButton } from './calendar'
 export { DataTable, type DataTableProps } from './data-table'
 export {
   ChartContainer,

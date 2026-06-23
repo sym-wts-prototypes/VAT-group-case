@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { ArrowRight, Check } from 'lucide-react'
 import {
   Badge,
+  Alert,
   Button,
   Separator,
   Select,
@@ -236,6 +237,31 @@ export const CATALOG: CatalogEntry[] = [
             <Badge tone="amber" size="md">
               <Check /> 3 files
             </Badge>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'alert',
+    name: 'Alert',
+    description: 'Inline banner (info matches the project banner). info / success / warning / destructive.',
+    variants: [
+      {
+        label: 'Variants',
+        code: `<Alert variant="info">…</Alert>\n<Alert variant="success" title="Approved">…</Alert>`,
+        render: () => (
+          <div className="flex w-[28rem] flex-col gap-2">
+            <Alert variant="info">
+              Before sending for client approval, confirm each task is complete again.
+            </Alert>
+            <Alert variant="success" title="Package approved">
+              The client approved the data package.
+            </Alert>
+            <Alert variant="warning">Some assessments are still outstanding.</Alert>
+            <Alert variant="destructive" title="Submission failed">
+              The protocol could not be confirmed.
+            </Alert>
           </div>
         ),
       },

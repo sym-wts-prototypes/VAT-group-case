@@ -1,36 +1,47 @@
 # @wts/ui — Component Reconciliation
 
-Each component is tagged with its source of truth and whether it has a Code Connect mapping to the WTS-ShadCn Figma DS.
+Each component is tagged with its source and whether it has a Code Connect mapping to the WTS-ShadCn Figma DS. shadcn CLI is initialized (`components.json`) — run `pnpm dlx shadcn@latest add <name> --cwd packages/ui --path src --overwrite` to install/update, then convert `@/` imports to relative `./`.
+
+## Token layer
+
+| Token group | File | Controlled by |
+|---|---|---|
+| Colors | `tokens.css` | Figma sync (`figma-tokens.mjs --write`) or manual edit |
+| Border radius | `tokens.css` `--radius` | Change `--radius`; sm/md/lg/xl/2xl derive from it |
+| Typography | `tokens.css` + `tailwind-preset.ts` | Font sizes, line heights, tracking from DS |
+| Shadows | `tokens.css` | sm through 2xl, matching DS effect styles |
+
+## Components
 
 | Component | Source | Code Connect | Notes |
 |---|---|---|---|
-| Alert | Project (CitInReviewReconfirmBanner) | — | info/success/warning/destructive variants |
-| AspectRatio | DS | `aspect-ratio.figma.tsx` | |
-| Avatar | DS | `avatar.figma.tsx` | |
-| Badge | Project + DS enriched | — | Tones from project; added `size` (sm/md) + icon support |
-| Button | Project + DS enriched | `button.figma.tsx` | 7 variants, 4 sizes; added `loading` prop from DS |
-| Calendar | DS | `calendar.figma.tsx` | react-day-picker |
-| Card | DS | `card.figma.tsx` | |
-| Chart | DS | `chart.figma.tsx` | Recharts wrapper |
-| Checkbox | DS (Radix) | `checkbox.figma.tsx` | Bare control; see CheckboxField for card layout |
-| CheckboxField | Project + DS | `checkbox.figma.tsx` | Card layout (label + description) wrapping Checkbox |
-| DataTable | DS | `data-table.figma.tsx` | TanStack Table |
-| Drawer | DS | `drawer.figma.tsx` | vaul |
-| DropdownMenu | DS | `dropdown-menu.figma.tsx` | |
-| Dropzone | Custom | — | Simple drag-and-drop area |
-| FileDropzone | Project | — | Rich: validation, progress bar, error, template download |
-| Input | DS | `input.figma.tsx` | |
-| Label | DS | — | |
-| OptionPills | Project | — | Pill-styled radio group (filled primary when selected) |
-| RadioGroup | DS (Radix) | — | Bare Radix radio group |
-| RadioPills | Project (PhaseRadios) | — | Vertical native-radio group with label |
-| SegmentedTabs | Project (ProcessTabs) | — | Segmented control with optional count badge |
-| Select | DS | `select.figma.tsx` | |
-| SelectField | DS | — | Select with label/info/description/error |
-| Separator | DS | `separator.figma.tsx` | |
-| Stepper | Project (CasePhaseStepper) | — | Horizontal; finished/inProgress/notStarted/disabled states |
-| Switch | DS (Radix) | `switch.figma.tsx` | Bare control; see SwitchField for card layout |
-| SwitchField | Project + DS | `switch.figma.tsx` | Card layout (label + description + labelPosition) |
-| Table | DS | `table.figma.tsx` | |
-| Tabs | DS (Radix) | — | Generic Radix tabs; see SegmentedTabs for project pattern |
-| Textarea | DS | `textarea.figma.tsx` | |
+| Alert | shadcn + customized | — | info/success/warning/destructive variants |
+| AspectRatio | shadcn | `aspect-ratio.figma.tsx` | |
+| Avatar | shadcn | `avatar.figma.tsx` | |
+| Badge | shadcn + customized | — | Tones (gray/blue/green/amber/red); `size` (sm/md) + icon |
+| Button | shadcn + customized | `button.figma.tsx` | 7 variants, 4 sizes; `loading` prop; `brand` variant |
+| Calendar | shadcn (v10) | `calendar.figma.tsx` | react-day-picker v10 |
+| Card | shadcn | `card.figma.tsx` | |
+| Chart | shadcn | `chart.figma.tsx` | Recharts wrapper |
+| Checkbox | shadcn (Radix) | `checkbox.figma.tsx` | Bare control; see CheckboxField for card layout |
+| CheckboxField | WTS custom | `checkbox.figma.tsx` | Card layout (label + description) wrapping Checkbox |
+| DataTable | WTS custom | `data-table.figma.tsx` | TanStack Table |
+| Drawer | shadcn | `drawer.figma.tsx` | vaul |
+| DropdownMenu | shadcn | `dropdown-menu.figma.tsx` | |
+| Dropzone | WTS custom | — | Simple drag-and-drop area |
+| FileDropzone | WTS custom | — | Rich: validation, progress bar, error, template download |
+| Input | shadcn | `input.figma.tsx` | |
+| Label | shadcn | — | |
+| OptionPills | WTS custom | — | Pill-styled radio group (filled primary when selected) |
+| RadioGroup | shadcn (Radix) | — | Bare Radix radio group |
+| RadioPills | WTS custom | — | Vertical native-radio group with label |
+| SegmentedTabs | WTS custom | — | Segmented control with optional count badge |
+| Select | shadcn | `select.figma.tsx` | |
+| SelectField | WTS custom | — | Select with label/info/description/error |
+| Separator | shadcn | `separator.figma.tsx` | |
+| Stepper | WTS custom | — | Horizontal; finished/inProgress/notStarted/disabled states |
+| Switch | shadcn (Radix) | `switch.figma.tsx` | Bare control; see SwitchField for card layout |
+| SwitchField | WTS custom | `switch.figma.tsx` | Card layout (label + description + labelPosition) |
+| Table | shadcn | `table.figma.tsx` | |
+| Tabs | shadcn (Radix) | — | Generic Radix tabs; see SegmentedTabs for project pattern |
+| Textarea | shadcn | `textarea.figma.tsx` | |

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -175,12 +175,24 @@ export const CATALOG: CatalogEntry[] = [
           </div>
         ),
       },
+      {
+        label: 'Loading',
+        code: `<Button loading>Saving…</Button>`,
+        render: () => (
+          <div className="flex items-center gap-3">
+            <Button loading>Saving…</Button>
+            <Button variant="outline" loading>
+              Uploading
+            </Button>
+          </div>
+        ),
+      },
     ],
   },
   {
     id: 'badge',
     name: 'Badge',
-    description: 'Soft status pill. Tones map to the badge-* CSS variables.',
+    description: 'Soft status pill. Tones map to the badge-* CSS variables. Supports sizes and a leading icon.',
     variants: [
       {
         label: 'Tones',
@@ -192,10 +204,38 @@ export const CATALOG: CatalogEntry[] = [
         render: () => (
           <div className="flex flex-wrap items-center gap-2">
             {(['gray', 'blue', 'green', 'amber', 'red', 'outline'] as const).map((tone) => (
-              <Badge key={tone} tone={tone} className="px-2.5 py-1">
+              <Badge key={tone} tone={tone} size="md">
                 {tone}
               </Badge>
             ))}
+          </div>
+        ),
+      },
+      {
+        label: 'Sizes',
+        code: `<Badge size="sm">sm</Badge>\n<Badge size="md">md</Badge>`,
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Badge tone="blue" size="sm">
+              <span className="px-1.5 py-[3px]">sm</span>
+            </Badge>
+            <Badge tone="blue" size="md">
+              md
+            </Badge>
+          </div>
+        ),
+      },
+      {
+        label: 'With icon',
+        code: `<Badge tone="green" size="md"><Check /> Approved</Badge>`,
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Badge tone="green" size="md">
+              <Check /> Approved
+            </Badge>
+            <Badge tone="amber" size="md">
+              <Check /> 3 files
+            </Badge>
           </div>
         ),
       },
@@ -663,21 +703,20 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'stepper',
     name: 'Stepper',
-    description: 'Horizontal progress stepper (WTS custom — case phases).',
+    description: 'Horizontal case-phase stepper (matches the project) — connector line above each step; finished/in-progress/upcoming states.',
     variants: [
       {
-        label: 'Default',
-        code: `<Stepper current={2} steps={[{label:'Draft'},{label:'In Preparation'},…]} />`,
+        label: 'Case phases',
+        code: `<Stepper steps={[\n  { label: 'Draft', state: 'finished' },\n  { label: 'In Preparation', state: 'finished' },\n  { label: 'In Review', state: 'inProgress' },\n  { label: 'Approval', state: 'notStarted' },\n]} />`,
         render: () => (
-          <div className="w-[420px]">
+          <div className="w-[460px]">
             <Stepper
-              current={2}
               steps={[
-                { label: 'Draft' },
-                { label: 'In Preparation' },
-                { label: 'In Review' },
-                { label: 'Approval' },
-                { label: 'Submitted' },
+                { label: 'Draft', state: 'finished' },
+                { label: 'In Preparation', state: 'finished' },
+                { label: 'In Review', state: 'inProgress' },
+                { label: 'Approval', state: 'notStarted' },
+                { label: 'Submitted', state: 'notStarted' },
               ]}
             />
           </div>

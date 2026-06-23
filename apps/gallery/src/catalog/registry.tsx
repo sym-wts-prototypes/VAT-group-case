@@ -957,4 +957,184 @@ export const CATALOG: CatalogEntry[] = [
       },
     ],
   },
+
+  // ── Foundations ──
+
+  {
+    id: 'colors',
+    name: 'Colors',
+    description: 'Semantic color tokens from the WTS-ShadCn DS. Edit --variable values in tokens.css to rebrand.',
+    variants: [
+      {
+        label: 'Semantic palette',
+        code: `/* tokens.css */\n--primary: 240 6% 10%;\n--brand: 358 75% 52%;\n--destructive: 356 70% 52%;`,
+        render: () => {
+          const swatches: [string, string][] = [
+            ['background', 'hsl(var(--background))'],
+            ['foreground', 'hsl(var(--foreground))'],
+            ['primary', 'hsl(var(--primary))'],
+            ['primary-fg', 'hsl(var(--primary-foreground))'],
+            ['secondary', 'hsl(var(--secondary))'],
+            ['muted', 'hsl(var(--muted))'],
+            ['muted-fg', 'hsl(var(--muted-foreground))'],
+            ['accent', 'hsl(var(--accent))'],
+            ['brand', 'hsl(var(--brand))'],
+            ['destructive', 'hsl(var(--destructive))'],
+            ['border', 'hsl(var(--border))'],
+            ['ring', 'hsl(var(--ring))'],
+          ]
+          return (
+            <div className="grid grid-cols-4 gap-3">
+              {swatches.map(([name, color]) => (
+                <div key={name} className="flex flex-col items-center gap-1">
+                  <div
+                    className="h-10 w-10 rounded-md border"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-[10px] text-muted-foreground">{name}</span>
+                </div>
+              ))}
+            </div>
+          )
+        },
+      },
+      {
+        label: 'Badge tones',
+        code: `--badge-blue-bg / --badge-green-bg / --badge-amber-bg / --badge-red-bg`,
+        render: () => {
+          const tones: [string, string, string][] = [
+            ['gray', 'hsl(var(--badge-gray-bg))', 'hsl(var(--badge-gray-fg))'],
+            ['blue', 'hsl(var(--badge-blue-bg))', 'hsl(var(--badge-blue-fg))'],
+            ['green', 'hsl(var(--badge-green-bg))', 'hsl(var(--badge-green-fg))'],
+            ['amber', 'hsl(var(--badge-amber-bg))', 'hsl(var(--badge-amber-fg))'],
+            ['red', 'hsl(var(--badge-red-bg))', 'hsl(var(--badge-red-fg))'],
+          ]
+          return (
+            <div className="flex gap-3">
+              {tones.map(([name, bg, fg]) => (
+                <div key={name} className="flex flex-col items-center gap-1">
+                  <div
+                    className="flex h-10 w-16 items-center justify-center rounded-md text-xs font-medium"
+                    style={{ backgroundColor: bg, color: fg }}
+                  >
+                    {name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        },
+      },
+    ],
+  },
+  {
+    id: 'typography',
+    name: 'Typography',
+    description: 'Type scale from the WTS-ShadCn Figma DS. Font: IBM Plex Sans. Adjust --text-* and --leading-* in tokens.css.',
+    variants: [
+      {
+        label: 'Heading scale',
+        code: `/* tokens.css */\n--text-4xl: 3rem;    /* H1 48px Bold */\n--text-3xl: 1.875rem; /* H2 30px SemiBold */\n--text-2xl: 1.5rem;  /* H3 24px SemiBold */\n--text-xl: 1.25rem;  /* H4 20px SemiBold */`,
+        render: () => (
+          <div className="flex flex-col gap-3">
+            <p className="text-4xl font-bold tracking-tight">H1 — 48px Bold</p>
+            <p className="border-b pb-2 text-3xl font-semibold tracking-tight">H2 — 30px SemiBold</p>
+            <p className="text-2xl font-semibold tracking-tight">H3 — 24px SemiBold</p>
+            <p className="text-xl font-semibold tracking-tight">H4 — 20px SemiBold</p>
+          </div>
+        ),
+      },
+      {
+        label: 'Body scale',
+        code: `/* tokens.css */\n--text-lg: 1.125rem; /* Large 18px SemiBold */\n--text-base: 1rem;   /* P 16px Regular */\n--text-sm: 0.875rem; /* Small 14px Medium */\n--text-xs: 0.75rem;  /* XS 12px */`,
+        render: () => (
+          <div className="flex flex-col gap-3">
+            <p className="text-xl text-muted-foreground">Lead — 20px Regular (muted)</p>
+            <p className="text-lg font-semibold">Large — 18px SemiBold</p>
+            <p className="text-base leading-7">Paragraph — 16px Regular, 28px line height. The quick brown fox jumps over the lazy dog to demonstrate paragraph text at the base size.</p>
+            <p className="text-sm font-medium">Small — 14px Medium</p>
+            <p className="text-xs text-muted-foreground">XS — 12px (captions, metadata)</p>
+          </div>
+        ),
+      },
+      {
+        label: 'Font families',
+        code: `--font-sans: 'IBM Plex Sans', …;\n--font-display: 'Cera Pro', …;`,
+        render: () => (
+          <div className="flex flex-col gap-3">
+            <p className="font-sans text-lg">IBM Plex Sans — body text (font-sans)</p>
+            <p className="font-display text-lg">Cera Pro — display headings (font-display)</p>
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'shadows',
+    name: 'Shadows',
+    description: 'Elevation scale matching the WTS-ShadCn DS effect styles. Edit --shadow-* in tokens.css.',
+    variants: [
+      {
+        label: 'Elevation scale',
+        code: `/* tokens.css */\n--shadow-sm: 0 1px 2px …;\n--shadow: 0 1px 3px …;\n--shadow-md: 0 4px 6px …;\n--shadow-lg: 0 10px 15px …;\n--shadow-xl: 0 20px 25px …;\n--shadow-2xl: 0 25px 50px …;`,
+        render: () => {
+          const levels: [string, string][] = [
+            ['shadow-sm', 'sm'],
+            ['shadow', 'base'],
+            ['shadow-md', 'md'],
+            ['shadow-lg', 'lg'],
+            ['shadow-xl', 'xl'],
+            ['shadow-2xl', '2xl'],
+            ['shadow-inner', 'inner'],
+          ]
+          return (
+            <div className="flex flex-wrap gap-6 py-4">
+              {levels.map(([cls, label]) => (
+                <div
+                  key={cls}
+                  className={`flex h-20 w-24 items-center justify-center rounded-lg bg-background text-xs font-medium ${cls}`}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )
+        },
+      },
+    ],
+  },
+  {
+    id: 'radius',
+    name: 'Border Radius',
+    description: 'Radius scale derived from --radius base value. Change --radius in tokens.css and all sizes adjust.',
+    variants: [
+      {
+        label: 'Radius scale',
+        code: `/* tokens.css — change --radius to shift all levels */\n--radius: 0.5rem;\n--radius-sm: calc(var(--radius) - 4px);\n--radius-md: calc(var(--radius) - 2px);\n--radius-lg: var(--radius);\n--radius-xl: calc(var(--radius) + 4px);`,
+        render: () => {
+          const radii: [string, string][] = [
+            ['rounded-none', 'none'],
+            ['rounded-sm', 'sm'],
+            ['rounded-md', 'md'],
+            ['rounded-lg', 'lg'],
+            ['rounded-xl', 'xl'],
+            ['rounded-2xl', '2xl'],
+            ['rounded-full', 'full'],
+          ]
+          return (
+            <div className="flex flex-wrap gap-4">
+              {radii.map(([cls, label]) => (
+                <div
+                  key={cls}
+                  className={`flex h-16 w-16 items-center justify-center border bg-muted text-xs font-medium ${cls}`}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )
+        },
+      },
+    ],
+  },
 ]

@@ -90,3 +90,21 @@ export {
   type StepperStepState,
 } from './stepper'
 export { Dropzone, type DropzoneProps } from './dropzone'
+export { CheckboxField, type CheckboxFieldProps } from './checkbox-field'
+export { SwitchField, type SwitchFieldProps } from './switch-field'
+export {
+  OptionPills,
+  type OptionPillsProps,
+  type OptionPillItem,
+} from './option-pills'
+export {
+  RadioPills,
+  type RadioPillsProps,
+  type RadioPillItem,
+} from './radio-pills'
+export {
+  SegmentedTabs,
+  type SegmentedTabsProps,
+  type SegmentedTabItem,
+} from './segmented-tabs'
+export { FileDropzone, type FileDropzoneProps } from './file-dropzone'

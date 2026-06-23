@@ -60,6 +60,12 @@ import {
   SelectField,
   Stepper,
   Dropzone,
+  CheckboxField,
+  SwitchField,
+  OptionPills,
+  RadioPills,
+  SegmentedTabs,
+  FileDropzone,
   type ButtonProps,
 } from '@wts/ui'
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
@@ -370,10 +376,10 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'checkbox',
     name: 'Checkbox',
-    description: 'Binary toggle with a checked indicator.',
+    description: 'Radix-based binary toggle. Use bare for simple cases, or CheckboxField for card layout with label + description.',
     variants: [
       {
-        label: 'With label',
+        label: 'Bare + label',
         code: `<Checkbox id="t" />\n<Label htmlFor="t">Tasks done</Label>`,
         render: () => (
           <div className="flex items-center gap-2">
@@ -382,12 +388,34 @@ export const CATALOG: CatalogEntry[] = [
           </div>
         ),
       },
+      {
+        label: 'CheckboxField (card)',
+        code: `<CheckboxField\n  label="Tasks Done"\n  description="Marks all tasks complete."\n  defaultChecked\n/>`,
+        render: () => (
+          <div className="w-80">
+            <CheckboxField
+              label="Tasks Done"
+              description="Marks all tasks complete and enables Send for review."
+              defaultChecked
+            />
+          </div>
+        ),
+      },
+      {
+        label: 'CheckboxField (no description)',
+        code: `<CheckboxField label="Approved" defaultChecked />`,
+        render: () => (
+          <div className="w-80">
+            <CheckboxField label="Approved" defaultChecked />
+          </div>
+        ),
+      },
     ],
   },
   {
     id: 'radio-group',
     name: 'Radio Group',
-    description: 'Mutually exclusive options.',
+    description: 'Radix-based mutually exclusive options.',
     variants: [
       {
         label: 'Default',
@@ -408,17 +436,105 @@ export const CATALOG: CatalogEntry[] = [
     ],
   },
   {
-    id: 'switch',
-    name: 'Switch',
-    description: 'On/off toggle.',
+    id: 'radio-pills',
+    name: 'Radio Pills',
+    description: 'Vertical native-radio group matching the project\'s PhaseRadios — label above, radio + text per option.',
     variants: [
       {
-        label: 'With label',
+        label: 'Phase selection',
+        code: `<RadioPills\n  label="Phase"\n  value="inReview"\n  options={[…]}\n  onChange={setPhase}\n/>`,
+        render: () => (
+          <RadioPills
+            label="Phase"
+            value="inReview"
+            options={[
+              { value: 'draft', label: 'Draft' },
+              { value: 'inPreparation', label: 'In Preparation' },
+              { value: 'inReview', label: 'In Review' },
+              { value: 'clientApproval', label: 'Client Approval' },
+              { value: 'submitted', label: 'Submitted', disabled: true },
+            ]}
+            onChange={() => {}}
+          />
+        ),
+      },
+    ],
+  },
+  {
+    id: 'option-pills',
+    name: 'Option Pills',
+    description: 'Segmented pill radio — all options visible, filled primary when selected. Matches the project\'s OptionPills.',
+    variants: [
+      {
+        label: 'Role selection',
+        code: `<OptionPills\n  label="Role"\n  value="creator"\n  options={[…]}\n  onChange={setRole}\n/>`,
+        render: () => (
+          <OptionPills
+            label="Role"
+            value="creator"
+            options={[
+              { value: 'creator', label: 'Creator' },
+              { value: 'reviewer', label: 'Reviewer' },
+              { value: 'partner', label: 'Partner' },
+              { value: 'client', label: 'Client' },
+            ]}
+            onChange={() => {}}
+          />
+        ),
+      },
+      {
+        label: 'With disabled',
+        code: `<OptionPills label="Page" value="case" options={[…]} onChange={…} />`,
+        render: () => (
+          <OptionPills
+            label="Page"
+            value="case"
+            options={[
+              { value: 'caseWrapper', label: 'Case Wrapper' },
+              { value: 'case', label: 'Case' },
+              { value: 'requirementList', label: 'Requirement List', disabled: true },
+              { value: 'requirementBucket', label: 'Requirement Bucket', disabled: true },
+            ]}
+            onChange={() => {}}
+          />
+        ),
+      },
+    ],
+  },
+  {
+    id: 'switch',
+    name: 'Switch',
+    description: 'On/off toggle. Use bare for simple cases, or SwitchField for card layout with label + description.',
+    variants: [
+      {
+        label: 'Bare + label',
         code: `<Switch id="s" />\n<Label htmlFor="s">Notifications</Label>`,
         render: () => (
           <div className="flex items-center gap-2">
             <Switch id="s" defaultChecked />
             <Label htmlFor="s">Notifications</Label>
+          </div>
+        ),
+      },
+      {
+        label: 'SwitchField (card)',
+        code: `<SwitchField\n  label="Email notifications"\n  description="Receive alerts when tasks change."\n  defaultChecked\n/>`,
+        render: () => (
+          <div className="w-80">
+            <SwitchField
+              label="Email notifications"
+              description="Receive alerts when tasks change."
+              defaultChecked
+            />
+          </div>
+        ),
+      },
+      {
+        label: 'SwitchField (label left)',
+        code: `<SwitchField label="Dark mode" labelPosition="left" />`,
+        render: () => (
+          <div className="w-80">
+            <SwitchField label="Dark mode" labelPosition="left" />
           </div>
         ),
       },
@@ -449,6 +565,45 @@ export const CATALOG: CatalogEntry[] = [
               VAT workflow.
             </TabsContent>
           </Tabs>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'segmented-tabs',
+    name: 'Segmented Tabs',
+    description: 'Segmented control matching the project\'s ProcessTabs — muted background, shadow on selected. Optional count badge per tab.',
+    variants: [
+      {
+        label: 'Process switch',
+        code: `<SegmentedTabs\n  label="Process"\n  value="cit"\n  options={[\n    { value: 'cit', label: 'CIT' },\n    { value: 'hr', label: 'HR' },\n    { value: 'vat', label: 'VAT' },\n  ]}\n  onChange={setProcess}\n/>`,
+        render: () => (
+          <SegmentedTabs
+            label="Process"
+            value="cit"
+            options={[
+              { value: 'cit', label: 'CIT' },
+              { value: 'hr', label: 'HR' },
+              { value: 'vat', label: 'VAT' },
+            ]}
+            onChange={() => {}}
+          />
+        ),
+      },
+      {
+        label: 'With count badges',
+        code: `<SegmentedTabs\n  label="Status"\n  value="open"\n  options={[\n    { value: 'open', label: 'Open', count: 12 },\n    { value: 'closed', label: 'Closed', count: 5 },\n  ]}\n  onChange={…}\n/>`,
+        render: () => (
+          <SegmentedTabs
+            label="Status"
+            value="open"
+            options={[
+              { value: 'open', label: 'Open', count: 12 },
+              { value: 'closed', label: 'Closed', count: 5 },
+              { value: 'draft', label: 'Draft', count: 0 },
+            ]}
+            onChange={() => {}}
+          />
         ),
       },
     ],
@@ -753,7 +908,7 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'dropzone',
     name: 'Dropzone',
-    description: 'File upload area, drag-and-drop or click (WTS custom).',
+    description: 'Simple file upload area, drag-and-drop or click.',
     variants: [
       {
         label: 'Default',
@@ -761,6 +916,42 @@ export const CATALOG: CatalogEntry[] = [
         render: () => (
           <div className="w-80">
             <Dropzone hint="PDF, PNG or JPG up to 10MB" />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'file-dropzone',
+    name: 'File Dropzone',
+    description: 'Rich single-file upload with validation, progress bar, error state, and optional template download.',
+    variants: [
+      {
+        label: 'Default',
+        code: `<FileDropzone\n  id="upload"\n  label="Upload document"\n  onFileChange={(name) => console.log(name)}\n  accept=".pdf,.docx"\n/>`,
+        render: () => (
+          <div className="w-96">
+            <FileDropzone
+              id="demo-upload"
+              label="Upload document"
+              onFileChange={() => {}}
+              accept=".pdf,.docx"
+            />
+          </div>
+        ),
+      },
+      {
+        label: 'With template download',
+        code: `<FileDropzone\n  id="upload"\n  label="Tax return"\n  templateLabel="Download template"\n  onTemplateDownload={() => {}}\n  onFileChange={…}\n/>`,
+        render: () => (
+          <div className="w-96">
+            <FileDropzone
+              id="demo-template"
+              label="Tax return"
+              templateLabel="Download template"
+              onTemplateDownload={() => {}}
+              onFileChange={() => {}}
+            />
           </div>
         ),
       },

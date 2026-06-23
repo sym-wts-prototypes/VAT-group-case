@@ -17,6 +17,7 @@ import {
 import { useDemoStore } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
+import { CheckboxField } from '@wts/ui'
 import { OptionPills } from './OptionPills'
 import { PhaseRadios } from './PhaseRadios'
 import { ProcessTabs } from './ProcessTabs'
@@ -167,42 +168,21 @@ export function ControlPanel() {
       )}
 
       {showTasksDoneControl && (
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 shrink-0 rounded border-input accent-primary"
-            checked={tasksDoneChecked}
-            onChange={(e) => setTasksDoneChecked(e.target.checked)}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">
-              Tasks Done
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Marks all tasks complete and enables Send for review.
-            </span>
-          </span>
-        </label>
+        <CheckboxField
+          label="Tasks Done"
+          description="Marks all tasks complete and enables Send for review."
+          checked={tasksDoneChecked}
+          onCheckedChange={setTasksDoneChecked}
+        />
       )}
 
       {showProtocolConfirmationControl && (
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 shrink-0 rounded border-input accent-primary"
-            checked={protocolConfirmationChecked}
-            onChange={(e) => setProtocolConfirmationChecked(e.target.checked)}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">
-              Submission receipt
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Confirms the submission receipt was received and enables Tax
-              assessment.
-            </span>
-          </span>
-        </label>
+        <CheckboxField
+          label="Submission receipt"
+          description="Confirms the submission receipt was received and enables Tax assessment."
+          checked={protocolConfirmationChecked}
+          onCheckedChange={setProtocolConfirmationChecked}
+        />
       )}
 
       {showAssessmentsDoneControl && (
@@ -220,39 +200,21 @@ export function ControlPanel() {
       )}
 
       {showTasksReconfirmedControl && packageReviewOutcome === 'approved' && (
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 shrink-0 rounded border-input accent-primary"
-            checked={tasksReconfirmedDone}
-            onChange={(e) => setTasksReconfirmedDone(e.target.checked)}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">Done</span>
-            <span className="text-xs text-muted-foreground">
-              Tasks reconfirmed after approval; enables Send for approval.
-            </span>
-          </span>
-        </label>
+        <CheckboxField
+          label="Done"
+          description="Tasks reconfirmed after approval; enables Send for approval."
+          checked={tasksReconfirmedDone}
+          onCheckedChange={setTasksReconfirmedDone}
+        />
       )}
 
       {showApprovedControl && !showReviewOutcomeControl && (
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 shrink-0 rounded border-input accent-primary"
-            checked={approvedChecked}
-            onChange={(e) => setApprovedChecked(e.target.checked)}
-          />
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">
-              Approved
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Enables the primary action for this phase.
-            </span>
-          </span>
-        </label>
+        <CheckboxField
+          label="Approved"
+          description="Enables the primary action for this phase."
+          checked={approvedChecked}
+          onCheckedChange={setApprovedChecked}
+        />
       )}
     </div>
   )

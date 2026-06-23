@@ -81,3 +81,6 @@ export {
   SelectScrollUpButton,
   SelectScrollDownButton,
 } from './select'
+export { SelectField, type SelectFieldProps } from './select-field'
+export { Stepper, type StepperProps, type StepperStep } from './stepper'
+export { Dropzone, type DropzoneProps } from './dropzone'

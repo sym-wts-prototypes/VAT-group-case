@@ -56,6 +56,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
+  SelectField,
+  Stepper,
+  Dropzone,
   type ButtonProps,
 } from '@wts/ui'
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
@@ -617,6 +620,84 @@ export const CATALOG: CatalogEntry[] = [
             </ChartContainer>
           )
         },
+      },
+    ],
+  },
+  {
+    id: 'select-field',
+    name: 'Select Field',
+    description: 'Select with label, info tooltip, description and error state (matches the DS Select).',
+    variants: [
+      {
+        label: 'With label + description',
+        code: `<SelectField label="Reviewer" description="Who signs off." placeholder="Pick…">\n  <SelectItem value="pk">Patricia Klein</SelectItem>\n</SelectField>`,
+        render: () => (
+          <SelectField
+            label="Reviewer"
+            info="The person who approves the case."
+            description="Who signs off on this case."
+            placeholder="Select a reviewer"
+            className="w-64"
+          >
+            <SelectItem value="pk">Patricia Klein</SelectItem>
+            <SelectItem value="aw">Amara Weber</SelectItem>
+          </SelectField>
+        ),
+      },
+      {
+        label: 'Error',
+        code: `<SelectField label="Reviewer" error="Required." placeholder="Pick…">…</SelectField>`,
+        render: () => (
+          <SelectField
+            label="Reviewer"
+            error="A reviewer is required."
+            placeholder="Select a reviewer"
+            className="w-64"
+          >
+            <SelectItem value="pk">Patricia Klein</SelectItem>
+          </SelectField>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'stepper',
+    name: 'Stepper',
+    description: 'Horizontal progress stepper (WTS custom — case phases).',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Stepper current={2} steps={[{label:'Draft'},{label:'In Preparation'},…]} />`,
+        render: () => (
+          <div className="w-[420px]">
+            <Stepper
+              current={2}
+              steps={[
+                { label: 'Draft' },
+                { label: 'In Preparation' },
+                { label: 'In Review' },
+                { label: 'Approval' },
+                { label: 'Submitted' },
+              ]}
+            />
+          </div>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'dropzone',
+    name: 'Dropzone',
+    description: 'File upload area, drag-and-drop or click (WTS custom).',
+    variants: [
+      {
+        label: 'Default',
+        code: `<Dropzone onFiles={(files) => upload(files)} accept=".pdf,.png" multiple />`,
+        render: () => (
+          <div className="w-80">
+            <Dropzone hint="PDF, PNG or JPG up to 10MB" />
+          </div>
+        ),
       },
     ],
   },

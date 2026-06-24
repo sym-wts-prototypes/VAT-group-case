@@ -13,7 +13,7 @@ export function Badges({ badges, className }: BadgesProps) {
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
       {badges.map((b, i) => (
         <Badge key={`${b.label}-${i}`} tone={b.tone}>
-          <span className="px-1.5 py-[3px]">{b.label}</span>
+          {b.label}
         </Badge>
       ))}
     </div>

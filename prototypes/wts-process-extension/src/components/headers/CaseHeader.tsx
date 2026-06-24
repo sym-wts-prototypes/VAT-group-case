@@ -65,7 +65,7 @@ export function CaseHeader({
           {descriptor.dueDate && (
             <DueDate
               date={descriptor.dueDate}
-              variant="blue"
+              variant="sky"
               className="shrink-0"
             />
           )}

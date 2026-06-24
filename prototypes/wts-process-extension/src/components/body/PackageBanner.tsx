@@ -73,10 +73,8 @@ export function PackageBanner({
                 {descriptor.description}
               </p>
             </div>
-            <Badge tone="outline" className="shrink-0 self-start">
-              <span className="px-1.5 py-[3px] text-xs font-medium leading-none">
-                {descriptor.meta}
-              </span>
+            <Badge variant="soft" tone="default" className="shrink-0 self-start">
+              {descriptor.meta}
             </Badge>
           </div>
         </div>

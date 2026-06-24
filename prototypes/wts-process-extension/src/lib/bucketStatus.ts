@@ -8,10 +8,10 @@ export const BUCKET_STATUS_LABELS: Record<BucketStatus, string> = {
 
 export const BUCKET_STATUS_TONE: Record<
   BucketStatus,
-  'gray' | 'blue' | 'green'
+  'gray' | 'sky' | 'green'
 > = {
   notStarted: 'gray',
-  inProgress: 'blue',
+  inProgress: 'sky',
   done: 'green',
 }
 

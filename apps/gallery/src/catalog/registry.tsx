@@ -243,48 +243,73 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'badge',
     name: 'Badge',
-    description: 'Displays a badge or a component that looks like a badge. Supports semantic color tones.',
+    description: 'Displays a badge or a component that looks like a badge. Supports Fill and Soft styles with 8 color tones.',
     source: 'shadcn-customized',
     installCommand: 'pnpm dlx shadcn@latest add badge --cwd packages/ui --path src',
     importPath: `import { Badge } from '@wts/ui'`,
     demo: {
-      code: `<Badge tone="blue" size="md">In Review</Badge>`,
-      render: () => <Badge tone="blue" size="md">In Review</Badge>,
+      code: `<Badge variant="fill" tone="sky" size="md">In Review</Badge>`,
+      render: () => <Badge variant="fill" tone="sky" size="md">In Review</Badge>,
     },
     examples: [
       {
-        title: 'Tones',
-        description: 'Semantic color tones using the `badge-*` CSS variables.',
-        code: `<Badge tone="gray">gray</Badge>\n<Badge tone="blue">blue</Badge>\n<Badge tone="green">green</Badge>\n<Badge tone="amber">amber</Badge>\n<Badge tone="red">red</Badge>`,
+        title: 'Fill Tones',
+        description: 'Solid background with light text.',
+        code: `<Badge variant="fill" tone="default">default</Badge>\n<Badge variant="fill" tone="gray">gray</Badge>\n<Badge variant="fill" tone="sky">sky</Badge>\n<Badge variant="fill" tone="blue">blue</Badge>\n<Badge variant="fill" tone="green">green</Badge>\n<Badge variant="fill" tone="orange">orange</Badge>\n<Badge variant="fill" tone="red">red</Badge>\n<Badge variant="fill" tone="violet">violet</Badge>`,
         render: () => (
           <div className="flex flex-wrap items-center gap-2">
-            {(['gray', 'blue', 'green', 'amber', 'red', 'outline'] as const).map((tone) => (
-              <Badge key={tone} tone={tone} size="md">{tone}</Badge>
+            {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((tone) => (
+              <Badge key={tone} variant="fill" tone={tone}>{tone}</Badge>
+            ))}
+          </div>
+        ),
+      },
+      {
+        title: 'Soft Tones',
+        description: 'Tinted background with border and dark text.',
+        code: `<Badge tone="default">default</Badge>\n<Badge tone="gray">gray</Badge>\n<Badge tone="sky">sky</Badge>\n<Badge tone="blue">blue</Badge>\n<Badge tone="green">green</Badge>\n<Badge tone="orange">orange</Badge>\n<Badge tone="red">red</Badge>\n<Badge tone="violet">violet</Badge>`,
+        render: () => (
+          <div className="flex flex-wrap items-center gap-2">
+            {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((tone) => (
+              <Badge key={tone} tone={tone}>{tone}</Badge>
             ))}
           </div>
         ),
       },
       {
         title: 'Sizes',
-        code: `<Badge size="sm">Small</Badge>\n<Badge size="md">Medium</Badge>`,
+        code: `<Badge size="sm">Small</Badge>\n<Badge size="md">Medium</Badge>\n<Badge size="lg">Large</Badge>`,
         render: () => (
           <div className="flex items-center gap-2">
-            <Badge tone="blue" size="sm">Small</Badge>
-            <Badge tone="blue" size="md">Medium</Badge>
+            <Badge variant="fill" tone="sky" size="sm">Small</Badge>
+            <Badge variant="fill" tone="sky" size="md">Medium</Badge>
+            <Badge variant="fill" tone="sky" size="lg">Large</Badge>
           </div>
         ),
       },
       {
         title: 'With Icon',
-        code: `<Badge tone="green" size="md"><Check /> Approved</Badge>`,
+        code: `<Badge variant="fill" tone="green" size="md"><Check /> Approved</Badge>`,
         render: () => (
-          <Badge tone="green" size="md"><Check /> Approved</Badge>
+          <Badge variant="fill" tone="green" size="md"><Check /> Approved</Badge>
+        ),
+      },
+      {
+        title: 'Disabled',
+        code: `<Badge variant="fill" tone="sky" disabled>Disabled</Badge>`,
+        render: () => (
+          <div className="flex items-center gap-2">
+            <Badge variant="fill" tone="sky" disabled>Disabled</Badge>
+            <Badge tone="sky" disabled>Disabled</Badge>
+          </div>
         ),
       },
     ],
     props: [
-      { name: 'tone', type: '"gray" | "blue" | "green" | "amber" | "red" | "outline"', default: '"gray"' },
-      { name: 'size', type: '"sm" | "md"', default: '"sm"' },
+      { name: 'variant', type: '"fill" | "soft"', default: '"soft"' },
+      { name: 'tone', type: '"default" | "gray" | "red" | "sky" | "orange" | "green" | "violet" | "blue"', default: '"gray"' },
+      { name: 'size', type: '"sm" | "md" | "lg"', default: '"sm"' },
+      { name: 'disabled', type: 'boolean', default: 'false' },
     ],
   },
   {
@@ -1120,23 +1145,21 @@ export const CATALOG: CatalogEntry[] = [
     examples: [
       {
         title: 'Badge Tones',
-        code: `--badge-blue-bg / --badge-green-bg / --badge-amber-bg / --badge-red-bg`,
-        render: () => {
-          const tones: [string, string, string][] = [
-            ['gray', 'hsl(var(--badge-gray-bg))', 'hsl(var(--badge-gray-fg))'],
-            ['blue', 'hsl(var(--badge-blue-bg))', 'hsl(var(--badge-blue-fg))'],
-            ['green', 'hsl(var(--badge-green-bg))', 'hsl(var(--badge-green-fg))'],
-            ['amber', 'hsl(var(--badge-amber-bg))', 'hsl(var(--badge-amber-fg))'],
-            ['red', 'hsl(var(--badge-red-bg))', 'hsl(var(--badge-red-fg))'],
-          ]
-          return (
-            <div className="flex gap-3">
-              {tones.map(([name, bg, fg]) => (
-                <div key={name} className="flex h-10 w-16 items-center justify-center rounded-md text-xs font-medium" style={{ backgroundColor: bg, color: fg }}>{name}</div>
+        code: `<Badge variant="fill" tone="sky">fill</Badge>\n<Badge tone="sky">soft</Badge>`,
+        render: () => (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((t) => (
+                <Badge key={t} variant="fill" tone={t}>{t}</Badge>
               ))}
             </div>
-          )
-        },
+            <div className="flex flex-wrap gap-2">
+              {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((t) => (
+                <Badge key={t} tone={t}>{t}</Badge>
+              ))}
+            </div>
+          </div>
+        ),
       },
     ],
   },

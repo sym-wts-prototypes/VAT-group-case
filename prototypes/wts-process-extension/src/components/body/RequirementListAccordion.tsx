@@ -26,10 +26,10 @@ interface RequirementListAccordionProps {
 
 function categoryStatusTone(
   status: RequirementCategoryStatus | undefined,
-): 'blue' | 'gray' | 'green' {
+): 'sky' | 'gray' | 'green' {
   switch (status) {
     case 'In Progress':
-      return 'blue'
+      return 'sky'
     case 'Done':
       return 'green'
     default:
@@ -98,9 +98,7 @@ export function RequirementListAccordion({
 
               {!isDraft && category.status && (
                 <Badge tone={categoryStatusTone(category.status)}>
-                  <span className="px-1.5 py-[3px] leading-none">
-                    {category.status}
-                  </span>
+                  {category.status}
                 </Badge>
               )}
 

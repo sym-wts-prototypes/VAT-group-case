@@ -63,10 +63,10 @@ export function SegmentedTabs<T extends string>({
               </span>
               {option.count != null && (
                 <Badge
-                  tone={selected ? 'blue' : 'gray'}
+                  tone={selected ? 'sky' : 'gray'}
                   size="sm"
                 >
-                  <span className="px-1 py-[1px]">{option.count}</span>
+                  {option.count}
                 </Badge>
               )}
             </button>

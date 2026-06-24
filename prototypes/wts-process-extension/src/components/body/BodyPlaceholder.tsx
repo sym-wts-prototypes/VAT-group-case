@@ -418,18 +418,14 @@ function TaskRow({
         <div className="flex flex-wrap items-center gap-2">
           {showStatus && (
             <Badge tone={tone}>
-              <span className="inline-flex items-center gap-1 px-1.5 py-[3px]">
-                {label}
-                {showStatusDropdown && (
-                  <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
-                )}
-              </span>
+              {label}
+              {showStatusDropdown && (
+                <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+              )}
             </Badge>
           )}
           <Badge tone="gray">
-            <span className="px-1.5 py-[3px]">
-              {fileCount} {fileCount === 1 ? 'file' : 'files'}
-            </span>
+            {fileCount} {fileCount === 1 ? 'file' : 'files'}
           </Badge>
           {showUpload && (
             <Button variant="outline" size="sm" className="h-9 gap-2">
@@ -698,7 +694,7 @@ function BucketCard({
   onOpen?: () => void
 }) {
   const tone =
-    status === 'Done' ? 'green' : status === 'In Progress' ? 'blue' : 'gray'
+    status === 'Done' ? 'green' : status === 'In Progress' ? 'sky' : 'gray'
 
   const CardWrapper = onOpen ? 'button' : 'div'
 
@@ -713,7 +709,7 @@ function BucketCard({
     >
       <div className="mb-6 flex items-start justify-between">
         <Badge tone={tone}>
-          <span className="px-1.5 py-[3px]">{status}</span>
+          {status}
         </Badge>
         <MessageSquareText
           className="h-5 w-5 text-muted-foreground"

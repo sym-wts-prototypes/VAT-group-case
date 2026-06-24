@@ -1,6 +1,6 @@
 export { cn } from './cn'
 export { Button, buttonVariants, type ButtonProps } from './button'
-export { Badge, badgeVariants, type BadgeProps } from './badge'
+export { Badge, badgeVariants, type BadgeProps, type BadgeTone } from './badge'
 export { Alert, alertVariants, type AlertProps } from './alert'
 export { Separator } from './separator'
 export { Input, type InputProps } from './input'

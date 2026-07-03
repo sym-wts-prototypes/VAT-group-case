@@ -5,7 +5,7 @@ import {
   Link2, Unlink, Activity, ClipboardList, X, AlertTriangle,
   Check, MapPin, Trash2,
 } from "lucide-react";
-import { Badge, Button, EmptyState, Tabs, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, cn } from "@wts/ui";
+import { Badge, Button, ConfirmDialog, EmptyState, Tabs, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, cn } from "@wts/ui";
 import { Organization } from "./organizations-data";
 import {
   LegalEntity, OrgUser, Engagement, VatRegistration, ActivityLogEntry, AccessScope,
@@ -135,6 +135,9 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   // Org Details modals
   const [editOrgOpen, setEditOrgOpen] = useState(false);
   const [disableOrgOpen, setDisableOrgOpen] = useState(false);
+
+  // V12 — confirmation before rejecting or removing a user (org + entity user lists).
+  const [userConfirm, setUserConfirm] = useState<{ kind: "reject" | "remove"; id: string; email: string } | null>(null);
 
   const selectedEntity = entities.find((e) => e.id === selectedEntityId) ?? null;
   const selectedEngagement = engagements.find((e) => e.id === selectedEngagementId) ?? null;
@@ -450,7 +453,25 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   }
 
   function removeUser(id: string) {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    const u = users.find((x) => x.id === id);
+    setUsers((prev) => prev.filter((x) => x.id !== id));
+    if (u) addLogEntry(`Removed user ${u.email}`, entityNamesLabel(u.entityIds));
+  }
+
+  // V12 — open the shared confirmation dialog instead of mutating immediately.
+  function requestRejectUser(id: string) {
+    const u = users.find((x) => x.id === id);
+    if (u) setUserConfirm({ kind: "reject", id, email: u.email });
+  }
+  function requestRemoveUser(id: string) {
+    const u = users.find((x) => x.id === id);
+    if (u) setUserConfirm({ kind: "remove", id, email: u.email });
+  }
+  function runUserConfirm() {
+    if (!userConfirm) return;
+    if (userConfirm.kind === "reject") rejectUser(userConfirm.id);
+    else removeUser(userConfirm.id);
+    setUserConfirm(null);
   }
 
   // Engagement handlers
@@ -737,8 +758,8 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
             onAddUser={() => setUserModal({ kind: "access", mode: "add", user: null, defaultEntityId: selectedEntityId })}
             onEditUser={(u) => setUserModal({ kind: "access", mode: "edit", user: u, defaultEntityId: null })}
             onApproveUser={approveUser}
-            onRejectUser={rejectUser}
-            onRemoveUser={removeUser}
+            onRejectUser={requestRejectUser}
+            onRemoveUser={requestRemoveUser}
             groups={groups}
             onOpenGroup={(id) => { setActiveTab("groups"); setSelectedGroupId(id); }}
             caps={caps}
@@ -792,8 +813,8 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
               onAdd={() => setUserModal({ kind: "access", mode: "add", user: null, defaultEntityId: null, allowSuperAdmin: true })}
               onEditUser={(u) => setUserModal({ kind: "access", mode: "edit", user: u, defaultEntityId: null, allowSuperAdmin: true })}
               onApproveUser={approveUser}
-              onRejectUser={rejectUser}
-              onRemoveUser={removeUser}
+              onRejectUser={requestRejectUser}
+              onRemoveUser={requestRemoveUser}
               canInvite={caps.userInviteOrg}
               canManage={caps.userManage}
             />
@@ -925,6 +946,30 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
       {disableOrgOpen && (
         <DisableDialog org={org} onCancel={() => setDisableOrgOpen(false)} onConfirm={handleOrgDisable} />
       )}
+
+      {/* V12 — confirm before rejecting / removing a user. */}
+      <ConfirmDialog
+        open={!!userConfirm}
+        onOpenChange={(o) => !o && setUserConfirm(null)}
+        onConfirm={runUserConfirm}
+        title={userConfirm?.kind === "reject" ? "Reject user?" : "Remove user?"}
+        confirmLabel={userConfirm?.kind === "reject" ? "Reject user" : "Remove user"}
+        description={
+          userConfirm?.kind === "reject" ? (
+            <>
+              This rejects the access request from{" "}
+              <span className="font-semibold text-foreground">{userConfirm?.email}</span>. They will
+              not gain access to this organization.
+            </>
+          ) : (
+            <>
+              This removes{" "}
+              <span className="font-semibold text-foreground">{userConfirm?.email}</span> from this
+              organization, revoking their access. This can't be undone.
+            </>
+          )
+        }
+      />
 
       {/* Group modals */}
       {groupModal && (

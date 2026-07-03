@@ -1,7 +1,8 @@
 import React from "react";
-import { AlertTriangle, History } from "lucide-react";
+import { History } from "lucide-react";
+import { ConfirmDialog } from "@wts/ui";
 import { LegalEntity } from "./org-details-data";
-import { ModalShell, secondaryBtn } from "./legal-entity-modal";
+import { ModalShell } from "./legal-entity-modal";
 
 export function DisableEntityDialog({
   entity,
@@ -13,30 +14,21 @@ export function DisableEntityDialog({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full max-w-[440px] bg-white rounded-xl shadow-2xl p-6 flex flex-col gap-4">
-        <div className="items-start flex gap-3">
-          <div className="items-center flex justify-center w-10 h-10 rounded-full bg-red-50 text-brand shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <h2 className="text-[18px] leading-[24px]" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Disable Legal Entity</h2>
-            <p className="text-[14px] leading-[20px] text-neutral-600">
-              Disabling <span className="font-medium text-neutral-900">{entity.legalName}</span> hides it from standard
-              users while preserving all historical data, engagements, and users. It remains visible to Super Admins and
-              can be re-enabled later.
-            </p>
-          </div>
-        </div>
-        <div className="items-center flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onCancel} className={secondaryBtn}>Cancel</button>
-          <button type="button" onClick={onConfirm} className="bg-brand text-white font-medium text-[14px] leading-[20px] px-4 py-2 rounded-lg hover:opacity-90">
-            Disable Legal Entity
-          </button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && onCancel()}
+      onConfirm={onConfirm}
+      title="Disable legal entity?"
+      description={
+        <>
+          Disabling{" "}
+          <span className="font-semibold text-foreground">{entity.legalName}</span> hides it from
+          standard users while preserving all historical data, engagements, and users. It remains
+          visible to Super Admins and can be re-enabled later.
+        </>
+      }
+      confirmLabel="Disable legal entity"
+    />
   );
 }
 

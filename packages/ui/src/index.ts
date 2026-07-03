@@ -36,6 +36,7 @@ export {
   AlertDialogAction,
   AlertDialogCancel,
 } from './alert-dialog'
+export { ConfirmDialog, type ConfirmDialogProps } from './confirm-dialog'
 export {
   Card,
   CardHeader,

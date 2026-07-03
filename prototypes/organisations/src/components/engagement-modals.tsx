@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Ban, AlertTriangle, ChevronDown, Check, ExternalLink, Plus, Trash2 } from "lucide-react";
-import { Badge } from "@wts/ui";
+import { X, ChevronDown, Check, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Badge, ConfirmDialog } from "@wts/ui";
 import { Engagement, EngagementStatus, LegalEntity, ServiceLineAssignment, ServiceFrequency, SERVICE_CATALOGUE, SERVICE_FREQUENCIES } from "./org-details-data";
 
 /* ─── Shared modal shell ─────────────────────────────────────────────────── */
@@ -300,51 +300,41 @@ export function EditEngagementModal({
 /* ─── Disable Engagement Dialog ──────────────────────────────────────────── */
 export function DisableEngagementDialog({ engagement, onCancel, onConfirm }: { engagement: Engagement; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)" }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[440px]">
-        <div className="flex items-start gap-4 px-6 py-5">
-          <div className="items-center flex justify-center w-10 h-10 rounded-full bg-red-50 shrink-0">
-            <Ban className="w-5 h-5 text-brand" />
-          </div>
-          <div>
-            <h2 className="text-primary text-[18px] leading-[26px] mb-1" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Disable Engagement</h2>
-            <p className="text-neutral-600 text-[14px] leading-[20px]">
-              Are you sure you want to disable engagement <span className="font-sans font-semibold">{engagement.contractRef}</span>?
-              It will remain visible with a Disabled status and can be re-enabled at any time.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200">
-          <button type="button" onClick={onCancel} className="px-4 py-2 border border-neutral-200 text-neutral-700 font-medium text-[14px] leading-[20px] rounded-lg hover:bg-neutral-50">Cancel</button>
-          <button type="button" onClick={onConfirm} className="px-4 py-2 bg-brand text-white font-medium text-[14px] leading-[20px] rounded-lg hover:opacity-90">Disable Engagement</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open
+      onOpenChange={(o) => !o && onCancel()}
+      onConfirm={onConfirm}
+      title="Disable engagement?"
+      description={
+        <>
+          This disables engagement{" "}
+          <span className="font-semibold text-foreground">{engagement.contractRef}</span>. It
+          stays visible with a Disabled status and can be re-enabled at any time.
+        </>
+      }
+      confirmLabel="Disable engagement"
+    />
   );
 }
 
 /* ─── Re-enable Engagement Dialog ────────────────────────────────────────── */
 export function ReenableEngagementDialog({ engagement, onCancel, onConfirm }: { engagement: Engagement; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)" }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[440px]">
-        <div className="flex items-start gap-4 px-6 py-5">
-          <div className="items-center flex justify-center w-10 h-10 rounded-full bg-emerald-50 shrink-0">
-            <AlertTriangle className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <h2 className="text-primary text-[18px] leading-[26px] mb-1" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Re-enable Engagement</h2>
-            <p className="text-neutral-600 text-[14px] leading-[20px]">
-              Re-enable engagement <span className="font-sans font-semibold">{engagement.contractRef}</span>? It will be set back to Active.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200">
-          <button type="button" onClick={onCancel} className="px-4 py-2 border border-neutral-200 text-neutral-700 font-medium text-[14px] leading-[20px] rounded-lg hover:bg-neutral-50">Cancel</button>
-          <button type="button" onClick={onConfirm} className="px-4 py-2 bg-primary text-white font-medium text-[14px] leading-[20px] rounded-lg hover:opacity-90">Re-enable</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open
+      onOpenChange={(o) => !o && onCancel()}
+      onConfirm={onConfirm}
+      destructive={false}
+      title="Re-enable engagement?"
+      description={
+        <>
+          This sets engagement{" "}
+          <span className="font-semibold text-foreground">{engagement.contractRef}</span> back to
+          Active.
+        </>
+      }
+      confirmLabel="Re-enable"
+    />
   );
 }
 
@@ -435,25 +425,21 @@ export function AssignEngagementModal({
 /* ─── Remove Engagement Dialog ───────────────────────────────────────────── */
 export function RemoveAssignmentDialog({ engagement, entityName, onCancel, onConfirm }: { engagement: Engagement; entityName: string; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)" }}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[440px]">
-        <div className="flex items-start gap-4 px-6 py-5">
-          <div className="items-center flex justify-center w-10 h-10 rounded-full bg-amber-50 shrink-0">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-          </div>
-          <div>
-            <h2 className="text-primary text-[18px] leading-[26px] mb-1" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Remove Engagement</h2>
-            <p className="text-neutral-600 text-[14px] leading-[20px]">
-              This will remove the Engagement from this Legal Entity only. The Engagement will remain available at Organization level and may still be used by other Legal Entities.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200">
-          <button type="button" onClick={onCancel} className="px-4 py-2 border border-neutral-200 text-neutral-700 font-medium text-[14px] leading-[20px] rounded-lg hover:bg-neutral-50">Cancel</button>
-          <button type="button" onClick={onConfirm} className="px-4 py-2 bg-brand text-white font-medium text-[14px] leading-[20px] rounded-lg hover:opacity-90">Remove Engagement</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open
+      onOpenChange={(o) => !o && onCancel()}
+      onConfirm={onConfirm}
+      title="Remove engagement?"
+      description={
+        <>
+          This removes engagement{" "}
+          <span className="font-semibold text-foreground">{engagement.contractRef}</span> from{" "}
+          <span className="font-semibold text-foreground">{entityName}</span> only. It stays
+          available at organization level and may still be used by other legal entities.
+        </>
+      }
+      confirmLabel="Remove engagement"
+    />
   );
 }
 

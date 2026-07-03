@@ -1,16 +1,9 @@
 import { useState } from 'react'
 import { Building2, ChevronDown, ChevronRight, Crown, MoreHorizontal, Plus, Trash2, UserPlus, X } from 'lucide-react'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   Badge,
   Button,
+  ConfirmDialog,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -81,8 +74,8 @@ export interface GroupsTabProps {
   onPromoteRep: (groupId: string, entityId: string) => void
   onCancelPending: (groupId: string, entityId: string) => void
   onOpenConsolidationCase: (group: Group) => void
-  // V11-E — delete an entire group. Only surfaced when canManage is true; wrapped in an
-  // AlertDialog confirmation inside GroupDetail before the callback fires.
+  // V11-E — delete an entire group. Only surfaced when canManage is true; wrapped in a
+  // ConfirmDialog confirmation inside GroupDetail before the callback fires.
   onDeleteGroup?: (groupId: string) => void
   // V7 — group.manage capability. When false the create/add-members/remove/promote/cancel
   // affordances are hidden; the panel is view-only.
@@ -235,6 +228,7 @@ function GroupDetail({
   const [confirm, setConfirm] = useState<
     | { kind: 'promote'; entityId: string; entityName: string }
     | { kind: 'remove'; entityId: string; entityName: string }
+    | { kind: 'cancel'; entityId: string; entityName: string }
     | { kind: 'delete' }
     | null
   >(null)
@@ -242,9 +236,17 @@ function GroupDetail({
     if (!confirm) return
     if (confirm.kind === 'promote') onPromoteRep(group.id, confirm.entityId)
     else if (confirm.kind === 'remove') onRemoveMember(group.id, confirm.entityId)
+    else if (confirm.kind === 'cancel') onCancelPending(group.id, confirm.entityId)
     else if (confirm.kind === 'delete') onDeleteGroup?.(group.id)
     setConfirm(null)
   }
+  // Route "Cancel pending membership" through the shared confirmation dialog.
+  const requestCancelPending = (_groupId: string, entityId: string) =>
+    setConfirm({
+      kind: 'cancel',
+      entityId,
+      entityName: entities.find((e) => e.id === entityId)?.legalName ?? entityId,
+    })
 
   return (
     <div className="flex flex-col gap-8 px-8 py-6">
@@ -413,51 +415,65 @@ function GroupDetail({
             entities={entities}
             groupId={group.id}
             canManage={canManage}
-            onCancelPending={onCancelPending}
+            onCancelPending={requestCancelPending}
           />
         </Card>
       )}
 
-      {/* V11-E — confirmation dialog for representative promotion, member removal,
-          and group deletion. Same shell, message varies by pending action. */}
-      <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirm?.kind === 'promote' && 'Change representative?'}
-              {confirm?.kind === 'remove' && 'Remove member?'}
-              {confirm?.kind === 'delete' && 'Delete group?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirm?.kind === 'promote' && (
-                <>
-                  {confirm.entityName} will become the representative of {group.name}.
-                  {' '}The current representative ({rep ? memberLabel(rep, entities) : '—'}) will be demoted.
-                </>
-              )}
-              {confirm?.kind === 'remove' && (
-                <>
-                  {confirm.entityName}'s membership in {group.name} will end today. They will move to the
-                  Inactive members list as a past member.
-                </>
-              )}
-              {confirm?.kind === 'delete' && (
-                <>
-                  {group.name} will be permanently removed, including its member history. This cannot be undone.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={runConfirmed} className={confirm?.kind === 'delete' || confirm?.kind === 'remove' ? 'bg-brand hover:bg-brand/90' : undefined}>
-              {confirm?.kind === 'promote' && 'Change representative'}
-              {confirm?.kind === 'remove' && 'Remove member'}
-              {confirm?.kind === 'delete' && 'Delete group'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* V11-E / V12 — shared confirmation dialog for representative promotion,
+          member removal, pending-membership cancellation, and group deletion. */}
+      <ConfirmDialog
+        open={!!confirm}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        onConfirm={runConfirmed}
+        destructive={confirm?.kind !== 'promote'}
+        title={
+          confirm?.kind === 'promote'
+            ? 'Change representative?'
+            : confirm?.kind === 'remove'
+              ? 'Remove member?'
+              : confirm?.kind === 'cancel'
+                ? 'Cancel pending membership?'
+                : 'Delete group?'
+        }
+        confirmLabel={
+          confirm?.kind === 'promote'
+            ? 'Change representative'
+            : confirm?.kind === 'remove'
+              ? 'Remove member'
+              : confirm?.kind === 'cancel'
+                ? 'Cancel membership'
+                : 'Delete group'
+        }
+        description={
+          <>
+            {confirm?.kind === 'promote' && (
+              <>
+                {confirm.entityName} will become the representative of {group.name}.{' '}
+                The current representative ({rep ? memberLabel(rep, entities) : '—'}) will be demoted.
+              </>
+            )}
+            {confirm?.kind === 'remove' && (
+              <>
+                {confirm.entityName}'s membership in {group.name} will end today. They will move to
+                the Inactive members list as a past member.
+              </>
+            )}
+            {confirm?.kind === 'cancel' && (
+              <>
+                The pending membership for {confirm.entityName} in {group.name} will be cancelled.
+                This scheduled membership will not take effect.
+              </>
+            )}
+            {confirm?.kind === 'delete' && (
+              <>
+                {group.name} will be permanently removed, including its member history. This cannot
+                be undone.
+              </>
+            )}
+          </>
+        }
+      />
     </div>
   )
 }

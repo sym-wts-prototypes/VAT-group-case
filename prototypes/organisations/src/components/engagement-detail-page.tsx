@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ArrowLeft, Pencil, Ban, RotateCcw, Plus, Unlink, Trash2, ExternalLink, FileText, Users as UsersIcon, Activity, Check } from "lucide-react";
-import { Badge, Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenuItem, cn } from "@wts/ui";
+import { Badge, Button, ConfirmDialog, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenuItem, cn } from "@wts/ui";
 import {
   Organization,
 } from "./organizations-data";
@@ -50,6 +50,18 @@ export function EngagementDetailPage({
   const [userModal, setUserModal] = useState<{ mode: "edit"; user: OrgUser } | null>(null);
   // V10-B — Assign User picker state (multi-select).
   const [assignOpen, setAssignOpen] = useState(false);
+  // V12 — confirm before removing a user or disconnecting an entity from the engagement.
+  const [confirm, setConfirm] = useState<
+    | { kind: "removeUser"; id: string; email: string }
+    | { kind: "disconnect"; id: string; name: string }
+    | null
+  >(null);
+  const runConfirm = () => {
+    if (!confirm) return;
+    if (confirm.kind === "removeUser") onRemoveUser(confirm.id);
+    else onDisconnectEntity(confirm.id);
+    setConfirm(null);
+  };
 
   const entityMap = new Map(entities.map((e) => [e.id, e]));
   const connectedEntities = entities.filter((e) => engagement.entityIds.includes(e.id));
@@ -189,7 +201,7 @@ export function EngagementDetailPage({
                       <TdActions>
                         {canEdit ? (
                           <RowActionsMenu ariaLabel={`Actions for ${e.legalName}`}>
-                            <DropdownMenuItem onSelect={() => onDisconnectEntity(e.id)} className="text-brand focus:text-brand focus:bg-red-50">
+                            <DropdownMenuItem onSelect={() => setConfirm({ kind: "disconnect", id: e.id, name: e.legalName })} className="text-brand focus:text-brand focus:bg-red-50">
                               <Unlink className="w-3.5 h-3.5" /> Remove from engagement
                             </DropdownMenuItem>
                           </RowActionsMenu>
@@ -257,7 +269,7 @@ export function EngagementDetailPage({
                             <DropdownMenuItem onSelect={() => setUserModal({ mode: "edit", user: u })}>
                               <Pencil className="w-3.5 h-3.5" /> Edit access
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => onRemoveUser(u.id)} className="text-brand focus:text-brand focus:bg-red-50">
+                            <DropdownMenuItem onSelect={() => setConfirm({ kind: "removeUser", id: u.id, email: u.email })} className="text-brand focus:text-brand focus:bg-red-50">
                               <Trash2 className="w-3.5 h-3.5" /> Remove
                             </DropdownMenuItem>
                           </RowActionsMenu>
@@ -334,6 +346,32 @@ export function EngagementDetailPage({
           onAssign={(ids) => { onAssignUsers?.(ids); setAssignOpen(false); }}
         />
       )}
+
+      {/* V12 — confirm before removing a user / disconnecting an entity. */}
+      <ConfirmDialog
+        open={!!confirm}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        onConfirm={runConfirm}
+        title={confirm?.kind === "removeUser" ? "Remove user?" : "Remove legal entity?"}
+        confirmLabel={confirm?.kind === "removeUser" ? "Remove user" : "Remove entity"}
+        description={
+          confirm?.kind === "removeUser" ? (
+            <>
+              This removes{" "}
+              <span className="font-semibold text-foreground">{confirm?.email}</span> from engagement{" "}
+              <span className="font-semibold text-foreground">{engagement.contractRef}</span>. Their
+              access to this engagement is revoked.
+            </>
+          ) : (
+            <>
+              This disconnects{" "}
+              <span className="font-semibold text-foreground">{confirm?.name}</span> from engagement{" "}
+              <span className="font-semibold text-foreground">{engagement.contractRef}</span>. The
+              legal entity itself is not affected.
+            </>
+          )
+        }
+      />
     </div>
   );
 }

@@ -1,5 +1,4 @@
-import { Separator } from '@wts/ui'
-import { cn } from '@wts/ui'
+import { Separator, cn } from '@wts/ui'
 
 const FOOTER_LINKS = [
   {

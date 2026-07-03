@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { cn } from '@wts/ui'
 
 import { WtsFooter } from './WtsFooter'
-import { WtsSidebar } from './WtsSidebar'
+import { WtsSidebar, type WtsSidebarProps } from './WtsSidebar'
 import { WtsTopNav } from './WtsTopNav'
 
 interface WtsAppShellProps {
@@ -11,12 +11,20 @@ interface WtsAppShellProps {
   className?: string
   /** Edge-to-edge layout without demo container chrome. */
   fullscreen?: boolean
+  /** Sidebar props — role, active item, custom nav handler. */
+  sidebar?: WtsSidebarProps
 }
 
 /**
  * WTS app chrome: top navbar + sidebar + page content + footer (Figma 15907:3195).
+ * Universal shell shared across prototypes.
  */
-export function WtsAppShell({ children, className, fullscreen = false }: WtsAppShellProps) {
+export function WtsAppShell({
+  children,
+  className,
+  fullscreen = false,
+  sidebar,
+}: WtsAppShellProps) {
   return (
     <div
       className={cn(
@@ -29,7 +37,7 @@ export function WtsAppShell({ children, className, fullscreen = false }: WtsAppS
     >
       <WtsTopNav />
       <div className="flex min-h-0 flex-1">
-        <WtsSidebar />
+        <WtsSidebar {...sidebar} />
         <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
           {children}
         </div>

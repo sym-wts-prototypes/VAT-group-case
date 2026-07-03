@@ -39,7 +39,8 @@ export type Phase =
   | 'inProgress'
   | 'completed'
 
-export type { BadgeTone } from '@wts/ui'
+import type { BadgeTone } from '@wts/ui'
+export type { BadgeTone }
 
 export type IconName =
   | 'ArrowRight'

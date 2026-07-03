@@ -1,0 +1,7 @@
+---
+description: WTS design system + prototype rules
+alwaysApply: true
+---
+
+Follow @AGENTS.md and packages/ui/COMPONENTS.md.
+Compose from @wts/ui; never inline a primitive that already exists.

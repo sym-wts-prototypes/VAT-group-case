@@ -1,12 +1,21 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Copy, Terminal } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Input,
+} from '@wts/ui'
 
 import {
   CATALOG,
   type CatalogEntry,
-  type CatalogExample,
   type CatalogSource,
+  type PlaygroundControl,
 } from '../catalog/registry'
 
 /* ── Helpers ── */
@@ -27,11 +36,11 @@ function SourceBadge({ source }: { source: CatalogSource }) {
   )
 }
 
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({ code, dark }: { code: string; dark?: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
     <div className="relative">
-      <pre className="overflow-x-auto rounded-lg bg-zinc-950 p-4 text-[13px] leading-relaxed text-zinc-50">
+      <pre className={`overflow-x-auto p-4 text-[13px] leading-relaxed ${dark !== false ? 'rounded-lg bg-zinc-100 text-zinc-900' : 'bg-zinc-100 text-zinc-900'}`}>
         <code>{code}</code>
       </pre>
       <button
@@ -40,7 +49,7 @@ function CodeBlock({ code }: { code: string }) {
           setCopied(true)
           setTimeout(() => setCopied(false), 1200)
         }}
-        className="absolute right-3 top-3 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+        className="absolute right-3 top-3 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900"
         title="Copy code"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -49,18 +58,10 @@ function CodeBlock({ code }: { code: string }) {
   )
 }
 
-function Preview({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-[140px] items-center justify-center rounded-lg border bg-background p-8">
-      {children}
-    </div>
-  )
-}
-
 function InstallBlock({ command }: { command: string }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="relative flex items-center gap-2 rounded-lg bg-zinc-950 px-4 py-3 font-mono text-[13px] text-zinc-50">
+    <div className="relative flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-3 font-mono text-[13px] text-zinc-900">
       <Terminal className="h-4 w-4 shrink-0 text-zinc-500" />
       <span className="overflow-x-auto">{command}</span>
       <button
@@ -69,31 +70,10 @@ function InstallBlock({ command }: { command: string }) {
           setCopied(true)
           setTimeout(() => setCopied(false), 1200)
         }}
-        className="ml-auto shrink-0 rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+        className="ml-auto shrink-0 rounded-md p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
-    </div>
-  )
-}
-
-function ExampleSection({ example }: { example: CatalogExample }) {
-  return (
-    <div>
-      <h3 className="text-lg font-semibold tracking-tight">{example.title}</h3>
-      {example.description && (
-        <p className="mt-1 text-sm text-muted-foreground">{example.description}</p>
-      )}
-      <div className="mt-4 overflow-hidden rounded-lg border">
-        <div className="flex min-h-[120px] items-center justify-center bg-background p-6">
-          {example.render()}
-        </div>
-        <div className="border-t bg-zinc-950 p-4">
-          <pre className="overflow-x-auto text-[13px] leading-relaxed text-zinc-50">
-            <code>{example.code}</code>
-          </pre>
-        </div>
-      </div>
     </div>
   )
 }
@@ -121,6 +101,71 @@ function PropsTable({ props }: { props: NonNullable<CatalogEntry['props']> }) {
       </table>
     </div>
   )
+}
+
+/* ── Playground Controls ── */
+
+function ControlField({
+  control,
+  value,
+  onChange,
+}: {
+  control: PlaygroundControl
+  value: any
+  onChange: (v: any) => void
+}) {
+  const label = control.label ?? control.prop
+
+  if (control.type === 'select') {
+    return (
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <Select value={String(value)} onValueChange={onChange}>
+          <SelectTrigger className="h-8 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {control.options?.map((opt) => (
+              <SelectItem key={opt} value={opt}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
+    )
+  }
+
+  if (control.type === 'boolean') {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-foreground">{label}</span>
+        <Switch
+          checked={!!value}
+          onCheckedChange={(v) => onChange(v === true)}
+        />
+      </div>
+    )
+  }
+
+  if (control.type === 'text') {
+    return (
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <Input
+          value={String(value ?? '')}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 w-full text-xs"
+        />
+      </label>
+    )
+  }
+
+  return null
 }
 
 /* ── Sidebar ── */
@@ -188,75 +233,99 @@ function NavButton({
   )
 }
 
-/* ── Component Doc Page ── */
+/* ── Component Page ── */
 
 function ComponentPage({ entry }: { entry: CatalogEntry }) {
+  const pg = entry.playground
+  const [values, setValues] = useState<Record<string, any>>(() => {
+    if (!pg) return {}
+    const d: Record<string, any> = {}
+    pg.controls.forEach((c) => {
+      d[c.prop] = c.defaultValue
+    })
+    return d
+  })
+
+  const updateValue = (prop: string, v: any) =>
+    setValues((prev) => ({ ...prev, [prop]: v }))
+
+  const hasPlayground = pg && pg.controls.length > 0
+  const previewContent = pg ? pg.render(values, updateValue) : entry.demo?.render()
+  const codeContent = pg ? pg.code(values) : entry.demo?.code
+
   return (
     <div className="mx-auto max-w-3xl px-8 py-10">
-      {/* Title + badge */}
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <h1 className="font-display text-3xl font-bold tracking-tight">{entry.name}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">
+          {entry.name}
+        </h1>
         <SourceBadge source={entry.source} />
       </div>
       <p className="mt-2 text-base text-muted-foreground">{entry.description}</p>
 
-      {/* Hero demo */}
-      {entry.demo && (
-        <div className="mt-8">
-          <Preview>{entry.demo.render()}</Preview>
-          <div className="mt-3">
-            <CodeBlock code={entry.demo.code} />
+      {/* Playground card: preview + side controls, code below */}
+      {(previewContent || codeContent) && (
+        <div className="mt-8 overflow-hidden rounded-xl border">
+          <div className="flex flex-col md:flex-row">
+            {previewContent && (
+              <div className="flex min-h-[200px] flex-1 items-center justify-center bg-background p-10">
+                {previewContent}
+              </div>
+            )}
+
+            {hasPlayground && (
+              <div className="flex w-full shrink-0 flex-col gap-4 border-t bg-muted/30 p-5 md:w-64 md:border-l md:border-t-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Controls
+                </p>
+                {pg.controls
+                  .filter((control) => !control.visible || control.visible(values))
+                  .map((control) => (
+                    <ControlField
+                      key={control.prop}
+                      control={control}
+                      value={values[control.prop]}
+                      onChange={(v) => updateValue(control.prop, v)}
+                    />
+                  ))}
+              </div>
+            )}
           </div>
+
+          {codeContent && (
+            <div className="border-t">
+              <CodeBlock code={codeContent} dark={false} />
+            </div>
+          )}
         </div>
       )}
 
-      {/* Installation */}
+      {/* Install */}
       {entry.installCommand && (
-        <section className="mt-10">
-          <h2 className="text-xl font-semibold tracking-tight">Installation</h2>
-          <div className="mt-4">
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold tracking-tight">Installation</h2>
+          <div className="mt-3">
             <InstallBlock command={entry.installCommand} />
           </div>
         </section>
       )}
 
-      {/* Usage / import */}
+      {/* Import */}
       {entry.importPath && (
-        <section className="mt-10">
-          <h2 className="text-xl font-semibold tracking-tight">Usage</h2>
-          <div className="mt-4">
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold tracking-tight">Usage</h2>
+          <div className="mt-3">
             <CodeBlock code={entry.importPath} />
-          </div>
-        </section>
-      )}
-
-      {/* Playground */}
-      {entry.Playground && (
-        <section className="mt-10">
-          <h2 className="text-xl font-semibold tracking-tight">Playground</h2>
-          <div className="mt-4 rounded-lg border bg-card p-6">
-            <entry.Playground />
-          </div>
-        </section>
-      )}
-
-      {/* Examples */}
-      {entry.examples.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-xl font-semibold tracking-tight">Examples</h2>
-          <div className="mt-6 space-y-8">
-            {entry.examples.map((ex) => (
-              <ExampleSection key={ex.title} example={ex} />
-            ))}
           </div>
         </section>
       )}
 
       {/* API Reference */}
       {entry.props && entry.props.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-xl font-semibold tracking-tight">API Reference</h2>
-          <div className="mt-4">
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold tracking-tight">API Reference</h2>
+          <div className="mt-3">
             <PropsTable props={entry.props} />
           </div>
         </section>
@@ -275,7 +344,7 @@ export function Components() {
     <div className="flex h-full">
       <Sidebar activeId={active?.id ?? ''} onSelect={setActiveId} />
       <div className="min-w-0 flex-1 overflow-y-auto">
-        {active && <ComponentPage entry={active} />}
+        {active && <ComponentPage key={active.id} entry={active} />}
       </div>
     </div>
   )

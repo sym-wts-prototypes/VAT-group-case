@@ -29,8 +29,14 @@ const SwitchField = React.forwardRef<HTMLLabelElement, SwitchFieldProps>(
     },
     ref,
   ) => {
+    const isLeft = labelPosition === 'left'
     const textBlock = (
-      <span className="flex flex-col gap-0.5">
+      <span
+        className={cn(
+          'flex flex-col gap-0.5',
+          isLeft && 'flex-1 text-right',
+        )}
+      >
         <span className="text-sm font-medium text-foreground">{label}</span>
         {description && (
           <span className="text-xs text-muted-foreground">{description}</span>
@@ -42,7 +48,7 @@ const SwitchField = React.forwardRef<HTMLLabelElement, SwitchFieldProps>(
       <label
         ref={ref}
         className={cn(
-          'flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3',
+          'flex cursor-pointer items-start gap-3 [&>[role=switch]]:mt-0.5',
           disabled && 'cursor-not-allowed opacity-50',
           className,
         )}

@@ -158,21 +158,50 @@ export function PrototypeCanvas() {
           <LayoutGrid className="h-4 w-4" /> Screen view
         </Link>
       </div>
-      <div className="min-h-0 flex-1">
-        <ReactFlow
-          key={active}
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onlyRenderVisibleElements
-          fitView
-          minZoom={0.05}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background />
-          <Controls />
-          <MiniMap pannable zoomable />
-        </ReactFlow>
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/30">
+          <div className="border-b px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Screens
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {activeScreens.length} in {active || 'all flows'}
+            </p>
+          </div>
+          <nav className="min-h-0 flex-1 overflow-y-auto p-2">
+            {activeScreens.map((s) => (
+              <Link
+                key={s.id}
+                to={`/p/${prototype.id}#${s.hash}`}
+                className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+              >
+                <span>{s.label}</span>
+                {s.meta?.role && (
+                  <span className="text-[11px] text-muted-foreground">
+                    {s.meta.role}
+                    {s.meta.phase ? ` · ${s.meta.phase}` : ''}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </nav>
+        </aside>
+        <div className="min-w-0 flex-1">
+          <ReactFlow
+            key={active}
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onlyRenderVisibleElements
+            fitView
+            minZoom={0.05}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background />
+            <Controls />
+            <MiniMap pannable zoomable />
+          </ReactFlow>
+        </div>
       </div>
     </div>
   )

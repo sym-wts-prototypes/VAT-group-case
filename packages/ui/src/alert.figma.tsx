@@ -8,18 +8,26 @@ figma.connect(
   {
     props: {
       variant: figma.enum('State', {
-        Default: 'info',
+        Default: 'default',
         Info: 'info',
         Sucess: 'success',
         Warning: 'warning',
         Error: 'destructive',
       }),
       title: figma.string('Title'),
-      description: figma.string('Description'),
+      subtitle: figma.string('Subtitle'),
+      showTitle: figma.boolean('showTitle'),
+      showSubtitle: figma.boolean('showSubtitle'),
+      showBadge: figma.boolean('showBadge'),
+      showButton: figma.boolean('showButton'),
+      close: figma.boolean('Close'),
     },
-    example: ({ variant, title, description }) => (
-      <Alert variant={variant} title={title}>
-        {description}
+    example: ({ variant, title, subtitle, showTitle, showSubtitle }) => (
+      <Alert
+        variant={variant}
+        title={showTitle ? title : undefined}
+      >
+        {showSubtitle ? subtitle : undefined}
       </Alert>
     ),
   },

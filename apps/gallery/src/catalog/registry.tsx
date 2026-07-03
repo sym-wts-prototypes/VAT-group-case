@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { ArrowRight, Check } from 'lucide-react'
 import {
   Badge,
@@ -18,9 +18,6 @@ import {
   RadioGroupItem,
   Switch,
   Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
   Card,
   CardHeader,
   CardTitle,
@@ -52,6 +49,23 @@ import {
   DrawerDescription,
   DrawerFooter,
   DrawerClose,
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
   DataTable,
   ChartContainer,
   ChartTooltip,
@@ -64,9 +78,7 @@ import {
   SwitchField,
   OptionPills,
   RadioPills,
-  SegmentedTabs,
   FileDropzone,
-  type ButtonProps,
 } from '@wts/ui'
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
 
@@ -87,6 +99,25 @@ export interface CatalogExample {
 
 export type CatalogSource = 'shadcn' | 'shadcn-customized' | 'wts-custom' | 'foundation'
 
+export interface PlaygroundControl {
+  prop: string
+  label?: string
+  type: 'select' | 'boolean' | 'text'
+  options?: string[]
+  defaultValue: string | boolean
+  /** When provided, control is only shown if predicate returns true. */
+  visible?: (values: Record<string, any>) => boolean
+}
+
+export interface Playground {
+  controls: PlaygroundControl[]
+  render: (
+    props: Record<string, any>,
+    setValue: (prop: string, value: any) => void,
+  ) => ReactNode
+  code: (props: Record<string, any>) => string
+}
+
 export interface CatalogEntry {
   id: string
   name: string
@@ -102,46 +133,8 @@ export interface CatalogEntry {
   examples: CatalogExample[]
   /** Props table */
   props?: CatalogProp[]
-  /** Interactive playground */
-  Playground?: () => ReactNode
-}
-
-/* ── Playgrounds ── */
-
-function ButtonPlayground() {
-  const [variant, setVariant] = useState<ButtonProps['variant']>('default')
-  const [size, setSize] = useState<ButtonProps['size']>('default')
-  return (
-    <div className="flex flex-wrap items-end gap-4">
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        Variant
-        <Select value={variant ?? 'default'} onValueChange={(v) => setVariant(v as ButtonProps['variant'])}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {['default', 'brand', 'secondary', 'outline', 'ghost', 'link', 'destructive'].map((v) => (
-              <SelectItem key={v} value={v}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        Size
-        <Select value={size ?? 'default'} onValueChange={(v) => setSize(v as ButtonProps['size'])}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {['default', 'sm', 'lg', 'icon'].map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </label>
-      <div className="flex h-16 items-center rounded-lg border border-dashed px-6">
-        <Button variant={variant} size={size}>
-          {size === 'icon' ? <ArrowRight /> : 'Button'}
-        </Button>
-      </div>
-    </div>
-  )
+  /** Interactive playground with controls */
+  playground?: Playground
 }
 
 /* ── Catalog ── */
@@ -155,7 +148,48 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn-customized',
     installCommand: 'pnpm dlx shadcn@latest add button --cwd packages/ui --path src',
     importPath: `import { Button } from '@wts/ui'`,
-    Playground: ButtonPlayground,
+    playground: {
+      controls: [
+        { prop: 'variant', type: 'select', options: ['default', 'brand', 'secondary', 'outline', 'ghost', 'link', 'destructive'], defaultValue: 'default' },
+        { prop: 'size', type: 'select', options: ['default', 'sm', 'lg', 'icon'], defaultValue: 'default' },
+        { prop: 'label', type: 'text', defaultValue: 'Button' },
+        { prop: 'leftIcon', label: 'left icon', type: 'boolean', defaultValue: false },
+        { prop: 'rightIcon', label: 'right icon', type: 'boolean', defaultValue: false },
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+        { prop: 'loading', type: 'boolean', defaultValue: false },
+      ],
+      render: (p) => (
+        <Button variant={p.variant} size={p.size} disabled={p.disabled} loading={p.loading}>
+          {p.size === 'icon' ? (
+            <ArrowRight />
+          ) : (
+            <>
+              {p.leftIcon && <ArrowRight />}
+              {p.label || 'Button'}
+              {p.rightIcon && <ArrowRight />}
+            </>
+          )}
+        </Button>
+      ),
+      code: (p) => {
+        const a: string[] = []
+        if (p.variant !== 'default') a.push(`variant="${p.variant}"`)
+        if (p.size !== 'default') a.push(`size="${p.size}"`)
+        if (p.disabled) a.push('disabled')
+        if (p.loading) a.push('loading')
+        const attrs = a.length ? ' ' + a.join(' ') : ''
+        if (p.size === 'icon') {
+          return `<Button${attrs}>\n  <ArrowRight />\n</Button>`
+        }
+        const inner: string[] = []
+        if (p.leftIcon) inner.push('<ArrowRight />')
+        inner.push(p.label || 'Button')
+        if (p.rightIcon) inner.push('<ArrowRight />')
+        return inner.length === 1
+          ? `<Button${attrs}>${inner[0]}</Button>`
+          : `<Button${attrs}>\n  ${inner.join('\n  ')}\n</Button>`
+      },
+    },
     demo: {
       code: `<Button variant="brand">Continue</Button>`,
       render: () => <Button variant="brand">Continue</Button>,
@@ -247,6 +281,39 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn-customized',
     installCommand: 'pnpm dlx shadcn@latest add badge --cwd packages/ui --path src',
     importPath: `import { Badge } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'variant', type: 'select', options: ['soft', 'fill'], defaultValue: 'soft' },
+        { prop: 'tone', type: 'select', options: ['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'], defaultValue: 'default' },
+        { prop: 'size', type: 'select', options: ['sm', 'md', 'lg'], defaultValue: 'sm' },
+        { prop: 'label', type: 'text', defaultValue: 'Badge' },
+        { prop: 'leftIcon', label: 'left icon', type: 'boolean', defaultValue: false },
+        { prop: 'rightIcon', label: 'right icon', type: 'boolean', defaultValue: false },
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+      ],
+      render: (p) => (
+        <Badge variant={p.variant} tone={p.tone} size={p.size} disabled={p.disabled}>
+          {p.leftIcon && <Check />}
+          {p.label || 'Badge'}
+          {p.rightIcon && <Check />}
+        </Badge>
+      ),
+      code: (p) => {
+        const a: string[] = []
+        if (p.variant !== 'soft') a.push(`variant="${p.variant}"`)
+        if (p.tone !== 'default') a.push(`tone="${p.tone}"`)
+        if (p.size !== 'sm') a.push(`size="${p.size}"`)
+        if (p.disabled) a.push('disabled')
+        const attrs = a.length ? ' ' + a.join(' ') : ''
+        const inner: string[] = []
+        if (p.leftIcon) inner.push('<Check />')
+        inner.push(p.label || 'Badge')
+        if (p.rightIcon) inner.push('<Check />')
+        return inner.length === 1
+          ? `<Badge${attrs}>${inner[0]}</Badge>`
+          : `<Badge${attrs}>\n  ${inner.join('\n  ')}\n</Badge>`
+      },
+    },
     demo: {
       code: `<Badge variant="fill" tone="sky" size="md">In Review</Badge>`,
       render: () => <Badge variant="fill" tone="sky" size="md">In Review</Badge>,
@@ -315,39 +382,103 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'alert',
     name: 'Alert',
-    description: 'Displays a callout for important information. Supports info, success, warning, and destructive variants.',
+    description: 'Displays a callout for important information. Supports default, info, success, warning, and destructive variants with optional title, badge, action button, and close.',
     source: 'shadcn-customized',
     importPath: `import { Alert } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'variant', type: 'select', options: ['default', 'info', 'success', 'warning', 'destructive'], defaultValue: 'info' },
+        { prop: 'showIcon', label: 'icon', type: 'boolean', defaultValue: true },
+        { prop: 'showTitle', label: 'title', type: 'boolean', defaultValue: true },
+        { prop: 'showSubtitle', label: 'subtitle', type: 'boolean', defaultValue: true },
+        { prop: 'showBadge', label: 'badge', type: 'boolean', defaultValue: false },
+        { prop: 'showButton', label: 'button', type: 'boolean', defaultValue: false },
+        { prop: 'showClose', label: 'close', type: 'boolean', defaultValue: false },
+      ],
+      render: (p) => (
+        <Alert
+          variant={p.variant}
+          icon={p.showIcon ? undefined : null}
+          title={p.showTitle ? 'Alert Title' : undefined}
+          badge={p.showBadge ? <Badge className="border-border bg-background text-foreground">Additional Info</Badge> : undefined}
+          action={p.showButton ? <Button variant="outline" size="sm">Button</Button> : undefined}
+          onClose={p.showClose ? () => {} : undefined}
+          className="max-w-lg"
+        >
+          {p.showSubtitle ? 'This is an alert description.' : undefined}
+        </Alert>
+      ),
+      code: (p) => {
+        const a: string[] = []
+        if (p.variant !== 'info') a.push(`variant="${p.variant}"`)
+        if (!p.showIcon) a.push('icon={null}')
+        if (p.showTitle) a.push('title="Alert Title"')
+        if (p.showBadge) a.push('badge={<Badge variant="outline">Additional Info</Badge>}')
+        if (p.showButton) a.push('action={<Button variant="outline" size="sm">Button</Button>}')
+        if (p.showClose) a.push('onClose={() => dismiss()}')
+        const children = p.showSubtitle ? '\n  This is an alert description.\n' : ''
+        return `<Alert${a.length ? '\n  ' + a.join('\n  ') : ''}>${children}</Alert>`
+      },
+    },
     demo: {
-      code: `<Alert variant="info">Before sending for client approval, confirm each task.</Alert>`,
-      render: () => <Alert variant="info">Before sending for client approval, confirm each task is complete again.</Alert>,
+      code: `<Alert variant="info" title="Alert Title">This is an alert description.</Alert>`,
+      render: () => <Alert variant="info" title="Alert Title" className="max-w-lg">This is an alert description.</Alert>,
     },
     examples: [
       {
+        title: 'Default',
+        code: `<Alert variant="default" title="Alert Title">This is an alert description.</Alert>`,
+        render: () => <Alert variant="default" title="Alert Title" className="max-w-lg">This is an alert description.</Alert>,
+      },
+      {
         title: 'Info',
-        code: `<Alert variant="info">Informational message.</Alert>`,
-        render: () => <Alert variant="info">Before sending for client approval, confirm each task is complete again.</Alert>,
+        code: `<Alert variant="info" title="Neue Belegart angelegt">Bitte prüfen Sie die Zuordnung unter Einstellungen.</Alert>`,
+        render: () => <Alert variant="info" title="Neue Belegart angelegt" className="max-w-lg">Bitte prüfen Sie die Zuordnung unter Einstellungen.</Alert>,
       },
       {
         title: 'Success',
-        code: `<Alert variant="success" title="Approved">The client approved the data package.</Alert>`,
-        render: () => <Alert variant="success" title="Package approved">The client approved the data package.</Alert>,
+        code: `<Alert variant="success" title="Package approved">The client approved the data package.</Alert>`,
+        render: () => <Alert variant="success" title="Package approved" className="max-w-lg">The client approved the data package.</Alert>,
       },
       {
         title: 'Warning',
-        code: `<Alert variant="warning">Some assessments are still outstanding.</Alert>`,
-        render: () => <Alert variant="warning">Some assessments are still outstanding.</Alert>,
+        code: `<Alert variant="warning" title="Assessments outstanding">Some assessments are still outstanding.</Alert>`,
+        render: () => <Alert variant="warning" title="Assessments outstanding" className="max-w-lg">Some assessments are still outstanding.</Alert>,
       },
       {
         title: 'Destructive',
-        code: `<Alert variant="destructive" title="Failed">The protocol could not be confirmed.</Alert>`,
-        render: () => <Alert variant="destructive" title="Submission failed">The protocol could not be confirmed.</Alert>,
+        code: `<Alert variant="destructive" title="Submission failed">The protocol could not be confirmed.</Alert>`,
+        render: () => <Alert variant="destructive" title="Submission failed" className="max-w-lg">The protocol could not be confirmed.</Alert>,
+      },
+      {
+        title: 'Full Featured',
+        code: `<Alert\n  variant="info"\n  title="New update available"\n  badge={<Badge>v2.1</Badge>}\n  action={<Button variant="outline" size="sm">Update</Button>}\n  onClose={() => dismiss()}\n>\n  Version 2.1 includes performance improvements.\n</Alert>`,
+        render: () => (
+          <Alert
+            variant="info"
+            title="New update available"
+            badge={<Badge>v2.1</Badge>}
+            action={<Button variant="outline" size="sm">Update</Button>}
+            onClose={() => {}}
+            className="max-w-lg"
+          >
+            Version 2.1 includes performance improvements.
+          </Alert>
+        ),
+      },
+      {
+        title: 'No Icon',
+        code: `<Alert variant="warning" icon={null} title="Rate limit reached">Please wait before retrying.</Alert>`,
+        render: () => <Alert variant="warning" icon={null} title="Rate limit reached" className="max-w-lg">Please wait before retrying.</Alert>,
       },
     ],
     props: [
-      { name: 'variant', type: '"info" | "success" | "warning" | "destructive"', default: '"info"' },
+      { name: 'variant', type: '"default" | "info" | "success" | "warning" | "destructive"', default: '"info"' },
       { name: 'title', type: 'ReactNode' },
       { name: 'icon', type: 'ComponentType | null' },
+      { name: 'badge', type: 'ReactNode' },
+      { name: 'action', type: 'ReactNode' },
+      { name: 'onClose', type: '() => void' },
     ],
   },
   {
@@ -357,6 +488,21 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn',
     installCommand: 'pnpm dlx shadcn@latest add input --cwd packages/ui --path src',
     importPath: `import { Input } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'type', type: 'select', options: ['text', 'email', 'password', 'number', 'search'], defaultValue: 'text' },
+        { prop: 'placeholder', type: 'text', defaultValue: 'Email' },
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+      ],
+      render: (p) => <Input type={p.type} placeholder={p.placeholder} disabled={p.disabled} className="max-w-sm" />,
+      code: (p) => {
+        const a: string[] = []
+        if (p.type !== 'text') a.push(`type="${p.type}"`)
+        if (p.placeholder) a.push(`placeholder="${p.placeholder}"`)
+        if (p.disabled) a.push('disabled')
+        return `<Input${a.length ? ' ' + a.join(' ') : ''} />`
+      },
+    },
     demo: {
       code: `<Input placeholder="Email" />`,
       render: () => <Input placeholder="Email" className="max-w-sm" />,
@@ -402,6 +548,19 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn',
     installCommand: 'pnpm dlx shadcn@latest add textarea --cwd packages/ui --path src',
     importPath: `import { Textarea } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'placeholder', type: 'text', defaultValue: 'Add a comment…' },
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+      ],
+      render: (p) => <Textarea placeholder={p.placeholder} disabled={p.disabled} className="max-w-sm" />,
+      code: (p) => {
+        const a: string[] = []
+        if (p.placeholder) a.push(`placeholder="${p.placeholder}"`)
+        if (p.disabled) a.push('disabled')
+        return `<Textarea${a.length ? ' ' + a.join(' ') : ''} />`
+      },
+    },
     demo: {
       code: `<Textarea placeholder="Add a comment…" />`,
       render: () => <Textarea placeholder="Add a comment…" className="max-w-sm" />,
@@ -504,6 +663,28 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn',
     installCommand: 'pnpm dlx shadcn@latest add checkbox --cwd packages/ui --path src',
     importPath: `import { Checkbox } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'checked', label: 'checked', type: 'boolean', defaultValue: true },
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+      ],
+      render: (p, setValue) => (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={p.checked}
+            disabled={p.disabled}
+            onCheckedChange={(v) => setValue('checked', v === true)}
+          />
+          <Label>Accept terms and conditions</Label>
+        </div>
+      ),
+      code: (p) => {
+        const a: string[] = []
+        if (p.checked) a.push('defaultChecked')
+        if (p.disabled) a.push('disabled')
+        return `<div className="flex items-center gap-2">\n  <Checkbox id="terms"${a.length ? ' ' + a.join(' ') : ''} />\n  <Label htmlFor="terms">Accept terms</Label>\n</div>`
+      },
+    },
     demo: {
       code: `<div className="flex items-center gap-2">\n  <Checkbox id="terms" />\n  <Label htmlFor="terms">Accept terms</Label>\n</div>`,
       render: () => (
@@ -654,6 +835,64 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn',
     installCommand: 'pnpm dlx shadcn@latest add switch --cwd packages/ui --path src',
     importPath: `import { Switch } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'checked', label: 'active', type: 'boolean', defaultValue: true },
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+        { prop: 'showTitle', label: 'title', type: 'boolean', defaultValue: true },
+        {
+          prop: 'showDescription',
+          label: 'description',
+          type: 'boolean',
+          defaultValue: true,
+          visible: (v) => !!v.showTitle,
+        },
+        {
+          prop: 'textLeft',
+          label: 'text left',
+          type: 'boolean',
+          defaultValue: false,
+          visible: (v) => !!v.showTitle,
+        },
+      ],
+      render: (p, setValue) => {
+        if (p.showTitle) {
+          return (
+            <div className="max-w-sm">
+              <SwitchField
+                label="Email notifications"
+                description={p.showDescription ? 'Receive alerts when tasks change.' : undefined}
+                checked={p.checked}
+                disabled={p.disabled}
+                labelPosition={p.textLeft ? 'left' : 'right'}
+                onCheckedChange={(v) => setValue('checked', v)}
+              />
+            </div>
+          )
+        }
+        return (
+          <Switch
+            checked={p.checked}
+            disabled={p.disabled}
+            onCheckedChange={(v) => setValue('checked', v)}
+          />
+        )
+      },
+      code: (p) => {
+        if (p.showTitle) {
+          const a: string[] = [`  label="Email notifications"`]
+          if (p.showDescription) a.push('  description="Receive alerts when tasks change."')
+          if (p.checked) a.push('  defaultChecked')
+          if (p.disabled) a.push('  disabled')
+          if (p.textLeft) a.push('  labelPosition="left"')
+          return `<SwitchField\n${a.join('\n')}\n/>`
+        }
+        const a: string[] = []
+        if (p.checked) a.push('defaultChecked')
+        if (p.disabled) a.push('disabled')
+        return `<Switch${a.length ? ' ' + a.join(' ') : ''} />`
+      },
+    },
     demo: {
       code: `<div className="flex items-center gap-2">\n  <Switch id="notif" />\n  <Label htmlFor="notif">Notifications</Label>\n</div>`,
       render: () => (
@@ -713,6 +952,31 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn',
     installCommand: 'pnpm dlx shadcn@latest add separator --cwd packages/ui --path src',
     importPath: `import { Separator } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'orientation', type: 'select', options: ['horizontal', 'vertical'], defaultValue: 'horizontal' },
+      ],
+      render: (p) =>
+        p.orientation === 'vertical' ? (
+          <div className="flex h-8 items-center gap-3 text-sm">
+            <span>Creator</span>
+            <Separator orientation="vertical" />
+            <span>Reviewer</span>
+            <Separator orientation="vertical" />
+            <span>Partner</span>
+          </div>
+        ) : (
+          <div className="w-64 text-sm">
+            <p className="pb-3">Section one</p>
+            <Separator />
+            <p className="pt-3">Section two</p>
+          </div>
+        ),
+      code: (p) =>
+        p.orientation === 'vertical'
+          ? `<Separator orientation="vertical" />`
+          : `<Separator />`,
+    },
     demo: {
       code: `<Separator />`,
       render: () => (
@@ -743,66 +1007,86 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'tabs',
     name: 'Tabs',
-    description: 'A set of layered sections of content — known as tab panels — that are displayed one at a time.',
-    source: 'shadcn',
-    installCommand: 'pnpm dlx shadcn@latest add tabs --cwd packages/ui --path src',
-    importPath: `import { Tabs, TabsList, TabsTrigger, TabsContent } from '@wts/ui'`,
-    demo: {
-      code: `<Tabs defaultValue="cit">\n  <TabsList>\n    <TabsTrigger value="cit">CIT</TabsTrigger>\n    <TabsTrigger value="hr">HR</TabsTrigger>\n  </TabsList>\n  <TabsContent value="cit">…</TabsContent>\n</Tabs>`,
-      render: () => (
-        <Tabs defaultValue="cit" className="w-72">
-          <TabsList>
-            <TabsTrigger value="cit">CIT</TabsTrigger>
-            <TabsTrigger value="hr">HR</TabsTrigger>
-            <TabsTrigger value="vat">VAT</TabsTrigger>
-          </TabsList>
-          <TabsContent value="cit" className="text-sm text-muted-foreground">Corporate income tax workflow.</TabsContent>
-          <TabsContent value="hr" className="text-sm text-muted-foreground">Payroll tax workflow.</TabsContent>
-          <TabsContent value="vat" className="text-sm text-muted-foreground">VAT workflow.</TabsContent>
-        </Tabs>
-      ),
-    },
-    examples: [],
-    props: [],
-  },
-  {
-    id: 'segmented-tabs',
-    name: 'Segmented Tabs',
     description: 'Segmented control with muted background and shadow on selected. Optional count badge per tab.',
     source: 'wts-custom',
-    importPath: `import { SegmentedTabs } from '@wts/ui'`,
+    importPath: `import { Tabs } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'variant', type: 'select', options: ['button', 'line'], defaultValue: 'button' },
+        { prop: 'tabCount', label: 'tab count', type: 'select', options: ['2', '3', '4', '5', '6', '7', '8'], defaultValue: '3' },
+        { prop: 'showLabel', label: 'label', type: 'boolean', defaultValue: true },
+        { prop: 'showCounts', label: 'counts', type: 'boolean', defaultValue: true },
+      ],
+      render: (p, setValue) => {
+        const all = [
+          { value: 'cit', label: 'CIT', count: 12 },
+          { value: 'hr', label: 'HR', count: 5 },
+          { value: 'vat', label: 'VAT', count: 0 },
+          { value: 'gst', label: 'GST', count: 3 },
+          { value: 'pit', label: 'PIT', count: 8 },
+          { value: 'wht', label: 'WHT', count: 1 },
+          { value: 'dgt', label: 'DGT', count: 2 },
+          { value: 'mvt', label: 'MVT', count: 4 },
+        ]
+        const n = parseInt(p.tabCount, 10)
+        const options = all.slice(0, n).map((o) =>
+          p.showCounts ? o : { value: o.value, label: o.label }
+        )
+        const selected = options.find((o) => o.value === p.selected)?.value ?? options[0]?.value ?? 'cit'
+        return (
+          <Tabs
+            variant={p.variant}
+            label={p.showLabel ? 'Process' : undefined}
+            value={selected}
+            options={options}
+            onChange={(v) => setValue('selected', v)}
+          />
+        )
+      },
+      code: (p) => {
+        const all = [
+          { value: 'cit', label: 'CIT', count: 12 },
+          { value: 'hr', label: 'HR', count: 5 },
+          { value: 'vat', label: 'VAT', count: 0 },
+          { value: 'gst', label: 'GST', count: 3 },
+          { value: 'pit', label: 'PIT', count: 8 },
+          { value: 'wht', label: 'WHT', count: 1 },
+          { value: 'dgt', label: 'DGT', count: 2 },
+          { value: 'mvt', label: 'MVT', count: 4 },
+        ]
+        const n = parseInt(p.tabCount, 10)
+        const opts = all.slice(0, n).map((o) => {
+          const parts = [`value: '${o.value}'`, `label: '${o.label}'`]
+          if (p.showCounts) parts.push(`count: ${o.count}`)
+          return `  { ${parts.join(', ')} }`
+        }).join(',\n')
+        const a: string[] = []
+        if (p.variant !== 'button') a.push(`  variant="${p.variant}"`)
+        if (p.showLabel) a.push(`  label="Process"`)
+        a.push(`  value={value}`)
+        a.push(`  options={[\n${opts}\n  ]}`)
+        a.push(`  onChange={setValue}`)
+        return `<Tabs\n${a.join('\n')}\n/>`
+      },
+    },
     demo: {
-      code: `<SegmentedTabs\n  label="Process"\n  value="cit"\n  options={[\n    { value: 'cit', label: 'CIT' },\n    { value: 'hr', label: 'HR' },\n  ]}\n  onChange={setProcess}\n/>`,
+      code: `<Tabs label="Process" value="cit" options={[…]} onChange={setProcess} />`,
       render: () => (
-        <SegmentedTabs
+        <Tabs
           label="Process" value="cit"
           options={[{ value: 'cit', label: 'CIT' }, { value: 'hr', label: 'HR' }, { value: 'vat', label: 'VAT' }]}
           onChange={() => {}}
         />
       ),
     },
-    examples: [
-      {
-        title: 'With Count Badges',
-        code: `<SegmentedTabs\n  label="Status"\n  value="open"\n  options={[\n    { value: 'open', label: 'Open', count: 12 },\n    { value: 'closed', label: 'Closed', count: 5 },\n  ]}\n  onChange={…}\n/>`,
-        render: () => (
-          <SegmentedTabs
-            label="Status" value="open"
-            options={[
-              { value: 'open', label: 'Open', count: 12 },
-              { value: 'closed', label: 'Closed', count: 5 },
-              { value: 'draft', label: 'Draft', count: 0 },
-            ]}
-            onChange={() => {}}
-          />
-        ),
-      },
-    ],
+    examples: [],
     props: [
-      { name: 'label', type: 'string', default: 'required' },
+      { name: 'label', type: 'string' },
       { name: 'value', type: 'string', default: 'required' },
-      { name: 'options', type: 'SegmentedTabItem[]', default: 'required' },
+      { name: 'options', type: 'TabItem[]', default: 'required' },
       { name: 'onChange', type: '(value: string) => void', default: 'required' },
+      { name: 'options[].count', type: 'number' },
+      { name: 'options[].disabled', type: 'boolean' },
     ],
   },
   {
@@ -926,6 +1210,17 @@ export const CATALOG: CatalogEntry[] = [
     source: 'shadcn',
     installCommand: 'pnpm dlx shadcn@latest add calendar --cwd packages/ui --path src',
     importPath: `import { Calendar } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'mode', type: 'select', options: ['single', 'multiple', 'range'], defaultValue: 'single' },
+      ],
+      render: (p) => (
+        <div className="inline-block rounded-md border">
+          <Calendar mode={p.mode} />
+        </div>
+      ),
+      code: (p) => `<Calendar mode="${p.mode}" selected={date} onSelect={setDate} />`,
+    },
     demo: {
       code: `<Calendar mode="single" selected={date} onSelect={setDate} />`,
       render: () => (
@@ -969,6 +1264,77 @@ export const CATALOG: CatalogEntry[] = [
     },
     examples: [],
     props: [],
+  },
+  {
+    id: 'dialog',
+    name: 'Dialog',
+    description: 'A modal window for focused tasks. Centered overlay with title, description, content, and footer actions.',
+    source: 'shadcn',
+    installCommand: 'pnpm dlx shadcn@latest add dialog --cwd packages/ui --path src',
+    importPath: `import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@wts/ui'`,
+    demo: {
+      code: `<Dialog>\n  <DialogTrigger asChild><Button variant="outline">Open dialog</Button></DialogTrigger>\n  <DialogContent>\n    <DialogHeader>\n      <DialogTitle>Title</DialogTitle>\n      <DialogDescription>Description</DialogDescription>\n    </DialogHeader>\n    <DialogFooter>\n      <Button>Save</Button>\n    </DialogFooter>\n  </DialogContent>\n</Dialog>`,
+      render: () => (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline">Open dialog</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create organisation</DialogTitle>
+              <DialogDescription>Add a new organisation to the platform. You can edit details later.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button>Create</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ),
+    },
+    examples: [],
+    props: [
+      { name: 'open', type: 'boolean' },
+      { name: 'onOpenChange', type: '(open: boolean) => void' },
+      { name: 'modal', type: 'boolean', default: 'true' },
+    ],
+  },
+  {
+    id: 'alert-dialog',
+    name: 'Alert Dialog',
+    description: 'Confirmation modal for destructive or important actions. Cannot be dismissed by overlay click — requires explicit Cancel or Confirm.',
+    source: 'shadcn',
+    installCommand: 'pnpm dlx shadcn@latest add alert-dialog --cwd packages/ui --path src',
+    importPath: `import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@wts/ui'`,
+    demo: {
+      code: `<AlertDialog>\n  <AlertDialogTrigger asChild><Button variant="destructive">Disable</Button></AlertDialogTrigger>\n  <AlertDialogContent>\n    <AlertDialogHeader>\n      <AlertDialogTitle>Disable organisation?</AlertDialogTitle>\n      <AlertDialogDescription>This will revoke all access.</AlertDialogDescription>\n    </AlertDialogHeader>\n    <AlertDialogFooter>\n      <AlertDialogCancel>Cancel</AlertDialogCancel>\n      <AlertDialogAction>Disable</AlertDialogAction>\n    </AlertDialogFooter>\n  </AlertDialogContent>\n</AlertDialog>`,
+      render: () => (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive">Disable organisation</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable Merck KGaA?</AlertDialogTitle>
+              <AlertDialogDescription>
+                All user access to this organisation will be revoked. Engagements and entities will be preserved and can be restored by re-enabling the organisation.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction>Disable</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ),
+    },
+    examples: [],
+    props: [
+      { name: 'open', type: 'boolean' },
+      { name: 'onOpenChange', type: '(open: boolean) => void' },
+    ],
   },
   {
     id: 'data-table',
@@ -1058,6 +1424,19 @@ export const CATALOG: CatalogEntry[] = [
     description: 'Simple file upload area, drag-and-drop or click.',
     source: 'wts-custom',
     importPath: `import { Dropzone } from '@wts/ui'`,
+    playground: {
+      controls: [
+        { prop: 'disabled', type: 'boolean', defaultValue: false },
+        { prop: 'multiple', type: 'boolean', defaultValue: true },
+      ],
+      render: (p) => <div className="max-w-sm"><Dropzone hint="PDF, PNG or JPG up to 10MB" disabled={p.disabled} multiple={p.multiple} /></div>,
+      code: (p) => {
+        const a: string[] = ['onFiles={(files) => upload(files)}', 'hint="PDF, PNG or JPG up to 10MB"']
+        if (p.disabled) a.push('disabled')
+        if (!p.multiple) a.push('multiple={false}')
+        return `<Dropzone ${a.join(' ')} />`
+      },
+    },
     demo: {
       code: `<Dropzone onFiles={(files) => upload(files)} hint="PDF, PNG or JPG up to 10MB" />`,
       render: () => <div className="max-w-sm"><Dropzone hint="PDF, PNG or JPG up to 10MB" /></div>,
@@ -1111,121 +1490,233 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'colors',
     name: 'Colors',
-    description: 'Semantic color tokens from the WTS-ShadCn DS. Edit CSS variable values in tokens.css to rebrand.',
+    description: 'All semantic color tokens from the WTS-ShadCn DS, grouped by purpose. Edit CSS variable values in tokens.css to rebrand.',
     source: 'foundation',
     demo: {
-      code: `/* tokens.css */\n--primary: 240 6% 10%;\n--brand: 358 75% 52%;\n--destructive: 356 70% 52%;`,
+      code: `/* tokens.css — color tokens are HSL "H S% L%" strings */\n--background: 0 0% 100%;\n--foreground: 240 6% 10%;\n--primary: 240 6% 10%;\n--destructive: 356 70% 52%;\n--brand: 358 75% 52%;`,
       render: () => {
-        const swatches: [string, string][] = [
-          ['background', 'hsl(var(--background))'],
-          ['foreground', 'hsl(var(--foreground))'],
-          ['primary', 'hsl(var(--primary))'],
-          ['primary-fg', 'hsl(var(--primary-foreground))'],
-          ['secondary', 'hsl(var(--secondary))'],
-          ['muted', 'hsl(var(--muted))'],
-          ['muted-fg', 'hsl(var(--muted-foreground))'],
-          ['accent', 'hsl(var(--accent))'],
-          ['brand', 'hsl(var(--brand))'],
-          ['destructive', 'hsl(var(--destructive))'],
-          ['border', 'hsl(var(--border))'],
-          ['ring', 'hsl(var(--ring))'],
+        const groups: { title: string; swatches: [string, string][] }[] = [
+          {
+            title: 'Surface',
+            swatches: [
+              ['background', '--background'],
+              ['foreground', '--foreground'],
+              ['card', '--card'],
+              ['card-foreground', '--card-foreground'],
+              ['popover', '--popover'],
+              ['popover-foreground', '--popover-foreground'],
+            ],
+          },
+          {
+            title: 'Interactive',
+            swatches: [
+              ['primary', '--primary'],
+              ['primary-foreground', '--primary-foreground'],
+              ['secondary', '--secondary'],
+              ['secondary-foreground', '--secondary-foreground'],
+              ['accent', '--accent'],
+              ['accent-foreground', '--accent-foreground'],
+            ],
+          },
+          {
+            title: 'Status',
+            swatches: [
+              ['muted', '--muted'],
+              ['muted-foreground', '--muted-foreground'],
+              ['destructive', '--destructive'],
+              ['destructive-foreground', '--destructive-foreground'],
+            ],
+          },
+          {
+            title: 'Border & focus',
+            swatches: [
+              ['border', '--border'],
+              ['input', '--input'],
+              ['ring', '--ring'],
+              ['sidebar-border', '--sidebar-border'],
+              ['sidebar-ring', '--sidebar-ring'],
+            ],
+          },
+          {
+            title: 'WTS brand',
+            swatches: [
+              ['brand', '--brand'],
+              ['brand-foreground', '--brand-foreground'],
+              ['link', '--link'],
+              ['person-name', '--person-name'],
+            ],
+          },
         ]
         return (
-          <div className="grid grid-cols-4 gap-3">
-            {swatches.map(([name, color]) => (
-              <div key={name} className="flex flex-col items-center gap-1">
-                <div className="h-10 w-10 rounded-md border" style={{ backgroundColor: color }} />
-                <span className="text-[10px] text-muted-foreground">{name}</span>
+          <div className="flex flex-col gap-6 w-full">
+            {groups.map((g) => (
+              <div key={g.title} className="flex flex-col gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.title}</p>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {g.swatches.map(([name, varName]) => (
+                    <div key={name} className="flex items-center gap-2">
+                      <div
+                        className="h-9 w-9 shrink-0 rounded-md border"
+                        style={{ backgroundColor: `hsl(var(${varName}))` }}
+                      />
+                      <div className="flex flex-col leading-tight min-w-0">
+                        <span className="text-xs font-medium truncate">{name}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground truncate">{varName}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
+
+            <div className="flex flex-col gap-2 pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Badge tones (soft / fill)</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((t) => (
+                    <Badge key={t} tone={t}>{t}</Badge>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((t) => (
+                    <Badge key={t} variant="fill" tone={t}>{t}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )
       },
     },
-    examples: [
-      {
-        title: 'Badge Tones',
-        code: `<Badge variant="fill" tone="sky">fill</Badge>\n<Badge tone="sky">soft</Badge>`,
-        render: () => (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
-              {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((t) => (
-                <Badge key={t} variant="fill" tone={t}>{t}</Badge>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(['default', 'gray', 'sky', 'blue', 'green', 'orange', 'red', 'violet'] as const).map((t) => (
-                <Badge key={t} tone={t}>{t}</Badge>
-              ))}
-            </div>
-          </div>
-        ),
-      },
-    ],
+    examples: [],
   },
   {
     id: 'typography',
     name: 'Typography',
-    description: 'Type scale from the WTS-ShadCn Figma DS. Font: IBM Plex Sans. Adjust --text-* and --leading-* in tokens.css.',
+    description: 'Full type system from the WTS-ShadCn Figma DS. Font: IBM Plex Sans. Edit --text-*, --leading-*, --tracking-*, --font-* in tokens.css.',
     source: 'foundation',
     demo: {
-      code: `/* tokens.css */\n--text-4xl: 3rem;    /* H1 48px Bold */\n--text-3xl: 1.875rem; /* H2 30px SemiBold */\n--text-2xl: 1.5rem;  /* H3 24px SemiBold */`,
-      render: () => (
-        <div className="flex flex-col gap-3">
-          <p className="text-4xl font-bold tracking-tight">H1 — 48px Bold</p>
-          <p className="border-b pb-2 text-3xl font-semibold tracking-tight">H2 — 30px SemiBold</p>
-          <p className="text-2xl font-semibold tracking-tight">H3 — 24px SemiBold</p>
-          <p className="text-xl font-semibold tracking-tight">H4 — 20px SemiBold</p>
-        </div>
-      ),
+      code: `/* tokens.css */\n--font-sans: 'IBM Plex Sans', …;\n--font-display: 'Cera Pro', …;\n--text-xs: 0.75rem;  /* 12px */\n--text-sm: 0.875rem; /* 14px */\n--text-base: 1rem;   /* 16px */`,
+      render: () => {
+        const sizes: { token: string; cls: string; px: string }[] = [
+          { token: '--text-4xl', cls: 'text-4xl', px: '48px' },
+          { token: '--text-3xl', cls: 'text-3xl', px: '30px' },
+          { token: '--text-2xl', cls: 'text-2xl', px: '24px' },
+          { token: '--text-xl', cls: 'text-xl', px: '20px' },
+          { token: '--text-lg', cls: 'text-lg', px: '18px' },
+          { token: '--text-base', cls: 'text-base', px: '16px' },
+          { token: '--text-sm', cls: 'text-sm', px: '14px' },
+          { token: '--text-xs', cls: 'text-xs', px: '12px' },
+        ]
+        const weights = [
+          { name: 'Regular', value: '400', cls: 'font-normal' },
+          { name: 'Medium', value: '500', cls: 'font-medium' },
+          { name: 'SemiBold', value: '600', cls: 'font-semibold' },
+          { name: 'Bold', value: '700', cls: 'font-bold' },
+        ]
+        const leading = [
+          { token: '--leading-none', cls: 'leading-none', value: '1' },
+          { token: '--leading-tight', cls: 'leading-tight', value: '1.2' },
+          { token: '--leading-relaxed', cls: 'leading-relaxed', value: '1.625' },
+          { token: '--leading-normal', cls: 'leading-[1.75]', value: '1.75' },
+        ]
+        const tracking = [
+          { token: '--tracking-tight', cls: 'tracking-tight', value: '-0.025em' },
+          { token: '--tracking-normal', cls: 'tracking-normal', value: '0em' },
+        ]
+        return (
+          <div className="flex flex-col gap-6 w-full">
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Font families</p>
+              <p className="font-sans text-lg">IBM Plex Sans — <span className="text-muted-foreground font-mono text-xs">--font-sans</span></p>
+              <p className="font-display text-lg">Cera Pro — <span className="text-muted-foreground font-mono text-xs">--font-display</span></p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Size scale</p>
+              <div className="flex flex-col gap-1.5">
+                {sizes.map((s) => (
+                  <div key={s.token} className="flex items-baseline gap-4">
+                    <span className="w-20 shrink-0 font-mono text-[10px] text-muted-foreground">{s.token}</span>
+                    <span className="w-10 shrink-0 font-mono text-[10px] text-muted-foreground">{s.px}</span>
+                    <span className={`${s.cls} font-medium`}>Lorem ipsum</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Weights</p>
+              <div className="flex flex-col gap-1.5">
+                {weights.map((w) => (
+                  <div key={w.value} className="flex items-baseline gap-4">
+                    <span className="w-20 shrink-0 font-mono text-[10px] text-muted-foreground">{w.value}</span>
+                    <span className={`${w.cls} text-base`}>{w.name} — The quick brown fox</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Line height</p>
+              <div className="flex flex-col gap-1.5">
+                {leading.map((l) => (
+                  <div key={l.token} className="flex items-baseline gap-4">
+                    <span className="w-28 shrink-0 font-mono text-[10px] text-muted-foreground">{l.token}</span>
+                    <span className="w-10 shrink-0 font-mono text-[10px] text-muted-foreground">{l.value}</span>
+                    <span className={`${l.cls} text-sm max-w-md`}>The quick brown fox jumps over the lazy dog to demonstrate line-height at this scale.</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Letter spacing</p>
+              <div className="flex flex-col gap-1.5">
+                {tracking.map((t) => (
+                  <div key={t.token} className="flex items-baseline gap-4">
+                    <span className="w-28 shrink-0 font-mono text-[10px] text-muted-foreground">{t.token}</span>
+                    <span className="w-16 shrink-0 font-mono text-[10px] text-muted-foreground">{t.value}</span>
+                    <span className={`${t.cls} text-lg font-medium`}>Heading sample</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      },
     },
-    examples: [
-      {
-        title: 'Body Scale',
-        code: `--text-lg: 1.125rem; /* Large */\n--text-base: 1rem;   /* Paragraph */\n--text-sm: 0.875rem; /* Small */`,
-        render: () => (
-          <div className="flex flex-col gap-3">
-            <p className="text-xl text-muted-foreground">Lead — 20px Regular (muted)</p>
-            <p className="text-lg font-semibold">Large — 18px SemiBold</p>
-            <p className="text-base leading-7">Paragraph — 16px Regular, 28px line height. The quick brown fox jumps over the lazy dog to demonstrate paragraph text at the base size.</p>
-            <p className="text-sm font-medium">Small — 14px Medium</p>
-            <p className="text-xs text-muted-foreground">XS — 12px (captions, metadata)</p>
-          </div>
-        ),
-      },
-      {
-        title: 'Font Families',
-        code: `--font-sans: 'IBM Plex Sans', …;\n--font-display: 'Cera Pro', …;`,
-        render: () => (
-          <div className="flex flex-col gap-3">
-            <p className="font-sans text-lg">IBM Plex Sans — body text (font-sans)</p>
-            <p className="font-display text-lg">Cera Pro — display headings (font-display)</p>
-          </div>
-        ),
-      },
-    ],
+    examples: [],
   },
   {
     id: 'shadows',
     name: 'Shadows',
-    description: 'Elevation scale matching the WTS-ShadCn DS effect styles. Edit --shadow-* in tokens.css.',
+    description: 'Elevation scale matching the WTS-ShadCn DS effect styles. Synced with Figma shadow/* tokens. Edit --shadow-* in tokens.css.',
     source: 'foundation',
     demo: {
-      code: `/* tokens.css */\n--shadow-sm: 0 1px 2px …;\n--shadow: 0 1px 3px …;\n--shadow-md: 0 4px 6px …;\n--shadow-lg: 0 10px 15px …;\n--shadow-xl: 0 20px 25px …;\n--shadow-2xl: 0 25px 50px …;`,
+      code: `/* tokens.css — matches Figma shadow/* effect styles */\n--shadow-sm:   0 1px 2px 0 rgb(0 0 0 / 0.05);\n--shadow:      0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.1);\n--shadow-md:   0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);\n--shadow-lg:   0 4px 6px -2px rgb(0 0 0 / 0.05), 0 10px 15px -3px rgb(0 0 0 / 0.1);\n--shadow-xl:   0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);\n--shadow-2xl:  0 25px 50px -12px rgb(0 0 0 / 0.25);\n--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.06);`,
       render: () => {
-        const levels: [string, string][] = [
-          ['shadow-sm', 'sm'],
-          ['shadow', 'base'],
-          ['shadow-md', 'md'],
-          ['shadow-lg', 'lg'],
-          ['shadow-xl', 'xl'],
-          ['shadow-2xl', '2xl'],
-          ['shadow-inner', 'inner'],
+        const levels: { cls: string; token: string; figma?: string }[] = [
+          { cls: 'shadow-sm', token: '--shadow-sm', figma: 'shadow/sm' },
+          { cls: 'shadow', token: '--shadow', figma: 'shadow/base' },
+          { cls: 'shadow-md', token: '--shadow-md' },
+          { cls: 'shadow-lg', token: '--shadow-lg', figma: 'shadow/lg' },
+          { cls: 'shadow-xl', token: '--shadow-xl' },
+          { cls: 'shadow-2xl', token: '--shadow-2xl' },
+          { cls: 'shadow-inner', token: '--shadow-inner', figma: 'shadow/inner' },
         ]
         return (
-          <div className="flex flex-wrap gap-6 py-4">
-            {levels.map(([cls, label]) => (
-              <div key={cls} className={`flex h-20 w-24 items-center justify-center rounded-lg bg-background text-xs font-medium ${cls}`}>{label}</div>
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
+            {levels.map((l) => (
+              <div key={l.cls} className="flex flex-col items-center gap-2">
+                <div className={`flex h-16 w-20 items-center justify-center rounded-lg bg-background text-xs font-medium ${l.cls}`}>
+                  {l.cls.replace('shadow-', '').replace('shadow', 'base')}
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="font-mono text-[10px] text-muted-foreground">{l.token}</span>
+                  {l.figma && <span className="font-mono text-[10px] text-muted-foreground/70">{l.figma}</span>}
+                </div>
+              </div>
             ))}
           </div>
         )
@@ -1236,24 +1727,32 @@ export const CATALOG: CatalogEntry[] = [
   {
     id: 'radius',
     name: 'Border Radius',
-    description: 'Radius scale derived from --radius base value. Change --radius in tokens.css and all sizes adjust.',
+    description: 'Radius scale derived from --radius base value (synced with Figma border radius/lg). Change --radius in tokens.css and all sizes adjust proportionally.',
     source: 'foundation',
     demo: {
-      code: `/* tokens.css — change --radius to shift all levels */\n--radius: 0.5rem;\n--radius-sm: calc(var(--radius) - 4px);\n--radius-md: calc(var(--radius) - 2px);\n--radius-lg: var(--radius);\n--radius-xl: calc(var(--radius) + 4px);`,
+      code: `/* tokens.css — all levels derive from --radius */\n--radius: 0.5rem;                            /* 8px — Figma border radius/lg */\n--radius-sm: calc(var(--radius) - 4px);      /* 4px */\n--radius-md: calc(var(--radius) - 2px);      /* 6px — Figma border radius/default,md */\n--radius-lg: var(--radius);                  /* 8px */\n--radius-xl: calc(var(--radius) + 4px);      /* 12px */\n--radius-2xl: calc(var(--radius) + 8px);     /* 16px */\n--radius-full: 9999px;                       /* Figma border radius/full */`,
       render: () => {
-        const radii: [string, string][] = [
-          ['rounded-none', 'none'],
-          ['rounded-sm', 'sm'],
-          ['rounded-md', 'md'],
-          ['rounded-lg', 'lg'],
-          ['rounded-xl', 'xl'],
-          ['rounded-2xl', '2xl'],
-          ['rounded-full', 'full'],
+        const radii: { cls: string; token: string; px: string }[] = [
+          { cls: 'rounded-none', token: '—', px: '0' },
+          { cls: 'rounded-sm', token: '--radius-sm', px: '4px' },
+          { cls: 'rounded-md', token: '--radius-md', px: '6px' },
+          { cls: 'rounded-lg', token: '--radius-lg', px: '8px' },
+          { cls: 'rounded-xl', token: '--radius-xl', px: '12px' },
+          { cls: 'rounded-2xl', token: '--radius-2xl', px: '16px' },
+          { cls: 'rounded-full', token: '--radius-full', px: '9999px' },
         ]
         return (
-          <div className="flex flex-wrap gap-4">
-            {radii.map(([cls, label]) => (
-              <div key={cls} className={`flex h-16 w-16 items-center justify-center border bg-muted text-xs font-medium ${cls}`}>{label}</div>
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4">
+            {radii.map((r) => (
+              <div key={r.cls} className="flex flex-col items-center gap-2">
+                <div className={`flex h-14 w-14 items-center justify-center border bg-muted text-[10px] font-medium ${r.cls}`}>
+                  {r.cls.replace('rounded-', '')}
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="font-mono text-[10px] text-muted-foreground">{r.token}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground/70">{r.px}</span>
+                </div>
+              </div>
             ))}
           </div>
         )

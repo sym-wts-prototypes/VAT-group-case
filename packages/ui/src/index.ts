@@ -9,7 +9,32 @@ export { Label } from './label'
 export { Checkbox } from './checkbox'
 export { RadioGroup, RadioGroupItem } from './radio-group'
 export { Switch } from './switch'
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
+export { Tabs, type TabsProps, type TabItem } from './tabs'
+export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogTrigger,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from './dialog'
+export {
+  AlertDialog,
+  AlertDialogPortal,
+  AlertDialogOverlay,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from './alert-dialog'
 export {
   Card,
   CardHeader,
@@ -102,9 +127,4 @@ export {
   type RadioPillsProps,
   type RadioPillItem,
 } from './radio-pills'
-export {
-  SegmentedTabs,
-  type SegmentedTabsProps,
-  type SegmentedTabItem,
-} from './segmented-tabs'
 export { FileDropzone, type FileDropzoneProps } from './file-dropzone'

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 
+import { WtsAppShell } from '@wts/app-shell'
 import { ControlPanel } from '@/components/controls/ControlPanel'
-import { WtsAppShell } from '@/components/shell/WtsAppShell'
+import { useDemoStore } from '@/store/useDemoStore'
 
 import { PlaygroundMain } from './PlaygroundMain'
 
@@ -18,6 +19,7 @@ function isEditableTarget(target: EventTarget | null) {
 
 export function PlaygroundView() {
   const [controlsHidden, setControlsHidden] = useState(false)
+  const role = useDemoStore((state) => state.role)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -33,10 +35,12 @@ export function PlaygroundView() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  const sidebar = { role, activeItemId: 'home' as const }
+
   if (controlsHidden) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-background">
-        <WtsAppShell fullscreen className="min-h-0 flex-1">
+        <WtsAppShell fullscreen className="min-h-0 flex-1" sidebar={sidebar}>
           <PlaygroundMain />
         </WtsAppShell>
       </div>
@@ -54,7 +58,10 @@ export function PlaygroundView() {
         </div>
       </aside>
 
-      <WtsAppShell className="min-h-[min(720px,calc(100vh-2rem))] flex-1">
+      <WtsAppShell
+        className="min-h-[min(720px,calc(100vh-2rem))] flex-1"
+        sidebar={sidebar}
+      >
         <PlaygroundMain />
       </WtsAppShell>
     </div>

@@ -11,36 +11,39 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-import { Button } from '@wts/ui'
-import { cn } from '@wts/ui'
-import { useDemoStore } from '@/store/useDemoStore'
+import { Button, cn } from '@wts/ui'
 
-/** Figma WTS-ShadCn sidebar (15127:6194). */
-export const SIDEBAR_ACTIVE_ITEM_ID = 'case-management' as const
+import { navigateToPrototype } from './nav'
 
-type NavItemId =
+/** Identifier for the case-management sidebar item. */
+export const SIDEBAR_CASE_MANAGEMENT_ID = 'case-management' as const
+
+/** Identifier for the organisations sidebar item. */
+export const SIDEBAR_ORGANISATIONS_ID = 'organisations' as const
+
+export type SidebarItemId =
   | 'home'
   | 'control-center'
   | 'pm-dashboard'
-  | typeof SIDEBAR_ACTIVE_ITEM_ID
-  | 'organisations'
+  | typeof SIDEBAR_CASE_MANAGEMENT_ID
+  | typeof SIDEBAR_ORGANISATIONS_ID
 
 const NAV_ITEMS: Array<{
-  id: NavItemId
+  id: SidebarItemId
   icon: LucideIcon
   label: string
 }> = [
   { id: 'home', icon: Home, label: 'Home' },
   { id: 'control-center', icon: LayoutDashboard, label: 'Control Center' },
   { id: 'pm-dashboard', icon: BarChartBig, label: 'PM Tool Dashboard' },
-  { id: 'case-management', icon: Folder, label: 'Case Management' },
-  { id: 'organisations', icon: Building2, label: 'Organisations' },
+  { id: SIDEBAR_CASE_MANAGEMENT_ID, icon: Folder, label: 'Case Management' },
+  { id: SIDEBAR_ORGANISATIONS_ID, icon: Building2, label: 'Organisations' },
 ]
 
-const CLIENT_NAV_ITEM_IDS = new Set<NavItemId>([
+const CLIENT_ITEM_IDS = new Set<SidebarItemId>([
   'home',
-  'case-management',
-  'organisations',
+  SIDEBAR_CASE_MANAGEMENT_ID,
+  SIDEBAR_ORGANISATIONS_ID,
 ])
 
 /**
@@ -75,6 +78,7 @@ interface SidebarNavItemProps {
   label: string
   active?: boolean
   expanded: boolean
+  onClick?: () => void
 }
 
 function SidebarNavItem({
@@ -82,6 +86,7 @@ function SidebarNavItem({
   label,
   active,
   expanded,
+  onClick,
 }: SidebarNavItemProps) {
   if (!expanded) {
     return (
@@ -93,6 +98,7 @@ function SidebarNavItem({
           className="size-9 shrink-0"
           aria-label={label}
           aria-current={active ? 'page' : undefined}
+          onClick={onClick}
         >
           <Icon className="h-4 w-4" />
         </Button>
@@ -103,6 +109,7 @@ function SidebarNavItem({
   return (
     <button
       type="button"
+      onClick={onClick}
       className={cn(
         'flex h-9 w-full max-w-[204px] items-center overflow-hidden rounded-lg text-left',
         active
@@ -126,13 +133,46 @@ function SidebarNavItem({
   )
 }
 
-export function WtsSidebar({ className }: { className?: string }) {
+export interface WtsSidebarProps {
+  className?: string
+  /** Role of the current user — used to filter visible nav items (client role gets a subset). */
+  role?: string
+  /** Which item is highlighted as active. Defaults to 'home' to match Figma's empty-state default. */
+  activeItemId?: SidebarItemId
+  /** Override navigation behaviour. When omitted, sidebar uses default cross-prototype nav. */
+  onNavigate?: (itemId: SidebarItemId) => void
+  /** Hide the External Tools button (defaults: shown when role !== 'client'). */
+  hideExternalTools?: boolean
+}
+
+/** Figma WTS-ShadCn sidebar (15127:6194, app-shell 15907:3195). */
+export function WtsSidebar({
+  className,
+  role,
+  activeItemId = 'home',
+  onNavigate,
+  hideExternalTools,
+}: WtsSidebarProps) {
   const [expanded, setExpanded] = useState(false)
-  const role = useDemoStore((state) => state.role)
   const isClient = role === 'client'
   const navItems = isClient
-    ? NAV_ITEMS.filter((item) => CLIENT_NAV_ITEM_IDS.has(item.id))
+    ? NAV_ITEMS.filter((item) => CLIENT_ITEM_IDS.has(item.id))
     : NAV_ITEMS
+
+  const handleClick = (id: SidebarItemId) => {
+    if (onNavigate) {
+      onNavigate(id)
+      return
+    }
+    // Default behaviour: cross-prototype navigation for known prototype IDs.
+    if (id === SIDEBAR_CASE_MANAGEMENT_ID) {
+      navigateToPrototype('wts-process-extension')
+    } else if (id === SIDEBAR_ORGANISATIONS_ID) {
+      navigateToPrototype('organisations')
+    }
+  }
+
+  const showExternalTools = hideExternalTools == null ? !isClient : !hideExternalTools
 
   return (
     <aside
@@ -172,42 +212,43 @@ export function WtsSidebar({ className }: { className?: string }) {
               key={id}
               icon={icon}
               label={label}
-              active={id === SIDEBAR_ACTIVE_ITEM_ID}
+              active={id === activeItemId}
               expanded={expanded}
+              onClick={() => handleClick(id)}
             />
           ))}
         </nav>
 
-        {!isClient && (
+        {showExternalTools && (
           <div className={cn('shrink-0', expanded ? 'w-full' : '')}>
-          {expanded ? (
-            <div className="flex items-center gap-2.5">
-              <Button
-                type="button"
-                variant="default"
-                size="icon"
-                className="size-9 shrink-0 shadow-sm"
-                aria-label="External Tools"
-              >
-                <PocketKnife className="h-4 w-4" />
-              </Button>
-              <span className="truncate text-sm leading-5 text-foreground">
-                External Tools
-              </span>
-            </div>
-          ) : (
-            <RailTooltip label="External Tools" enabled>
-              <Button
-                type="button"
-                variant="default"
-                size="icon"
-                className="size-9 shadow-sm"
-                aria-label="External Tools"
-              >
-                <PocketKnife className="h-4 w-4" />
-              </Button>
-            </RailTooltip>
-          )}
+            {expanded ? (
+              <div className="flex items-center gap-2.5">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className="size-9 shrink-0 shadow-sm"
+                  aria-label="External Tools"
+                >
+                  <PocketKnife className="h-4 w-4" />
+                </Button>
+                <span className="truncate text-sm leading-5 text-foreground">
+                  External Tools
+                </span>
+              </div>
+            ) : (
+              <RailTooltip label="External Tools" enabled>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className="size-9 shadow-sm"
+                  aria-label="External Tools"
+                >
+                  <PocketKnife className="h-4 w-4" />
+                </Button>
+              </RailTooltip>
+            )}
           </div>
         )}
       </div>

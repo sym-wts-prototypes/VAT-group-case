@@ -1,5 +1,5 @@
 export {
-  SegmentedTabs as ProcessTabs,
-  type SegmentedTabsProps as ProcessTabsProps,
-  type SegmentedTabItem as ProcessTabItem,
+  Tabs as ProcessTabs,
+  type TabsProps as ProcessTabsProps,
+  type TabItem as ProcessTabItem,
 } from '@wts/ui'

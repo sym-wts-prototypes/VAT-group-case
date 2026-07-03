@@ -8,7 +8,7 @@ import {
   Engagement, LegalEntity, OrgUser, ActivityLogEntry, userEngagementCombos,
 } from "./org-details-data";
 import {
-  DetailCard, DetailRow, StatusBadge, Th, Td, EmptyBlock, UserTypeBadge, UserStatusBadge, RowActionsMenu,
+  DetailCard, DetailRow, StatusBadge, Th, Td, ThActions, TdActions, EmptyBlock, UserTypeBadge, UserStatusBadge, RowActionsMenu,
 } from "./org-workspace";
 import { EngagementStatusPill, ServiceLinesCell, ConnectEntityModal } from "./engagement-modals";
 import { AccessUserModal, AccessUserDraft } from "./access-user-modal";
@@ -171,7 +171,7 @@ export function EngagementDetailPage({
                     <Th>Jurisdiction</Th>
                     <Th>Status</Th>
                     <Th>Assigned Users</Th>
-                    <Th>Actions</Th>
+                    <ThActions>Actions</ThActions>
                   </tr>
                 </thead>
                 <tbody>
@@ -186,7 +186,7 @@ export function EngagementDetailPage({
                       <Td className="text-neutral-700">{e.jurisdiction ?? e.country}</Td>
                       <Td><StatusBadge variant={e.status === "Active" ? "active" : "disabled"}>{e.status}</StatusBadge></Td>
                       <Td className="text-neutral-700">{assignedUserCountFor(e.id)}</Td>
-                      <Td>
+                      <TdActions>
                         {canEdit ? (
                           <RowActionsMenu ariaLabel={`Actions for ${e.legalName}`}>
                             <DropdownMenuItem onSelect={() => onDisconnectEntity(e.id)} className="text-brand focus:text-brand focus:bg-red-50">
@@ -196,7 +196,7 @@ export function EngagementDetailPage({
                         ) : (
                           <span className="text-neutral-300">—</span>
                         )}
-                      </Td>
+                      </TdActions>
                     </tr>
                   ))}
                 </tbody>
@@ -238,7 +238,7 @@ export function EngagementDetailPage({
                     <Th>Legal Entities</Th>
                     <Th>Status</Th>
                     <Th>Invited By</Th>
-                    <Th>Actions</Th>
+                    <ThActions>Actions</ThActions>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,7 +251,7 @@ export function EngagementDetailPage({
                       <Td className="text-neutral-700">{userEntitiesHere(u).map((e) => e.legalName).join(", ") || "—"}</Td>
                       <Td><UserStatusBadge status={u.status} /></Td>
                       <Td className="text-neutral-600">{u.invitedBy}</Td>
-                      <Td>
+                      <TdActions>
                         {canEdit ? (
                           <RowActionsMenu ariaLabel={`Actions for ${u.email}`}>
                             <DropdownMenuItem onSelect={() => setUserModal({ mode: "edit", user: u })}>
@@ -264,7 +264,7 @@ export function EngagementDetailPage({
                         ) : (
                           <span className="text-neutral-300">—</span>
                         )}
-                      </Td>
+                      </TdActions>
                     </tr>
                   ))}
                 </tbody>

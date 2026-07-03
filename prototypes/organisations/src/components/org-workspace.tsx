@@ -1,20 +1,21 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, Plus, Building2, Users as UsersIcon, FileText,
   Pencil, Ban, MoreHorizontal, RotateCcw, UserPlus, CornerDownRight,
   Link2, Unlink, Activity, ClipboardList, X, AlertTriangle,
-  ChevronLeft, ChevronRight, Check, MapPin, Trash2,
+  Check, MapPin, Trash2,
 } from "lucide-react";
-import { Badge, Button, Tabs, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, cn } from "@wts/ui";
+import { Badge, Button, EmptyState, Tabs, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, cn } from "@wts/ui";
 import { Organization } from "./organizations-data";
 import {
   LegalEntity, OrgUser, Engagement, VatRegistration, ActivityLogEntry, AccessScope,
   EntityStatus, EngagementStatus,
-  LEGAL_ENTITIES, ENGAGEMENTS, USERS, VAT_REGISTRATIONS, ACTIVITY_LOG,
-  entitiesForOrg, engagementsForOrg, computeEngagementStatus, userEngagementCombos, engagementLabel,
-  Group, GroupType, groupsForOrg, today as todayIso, countryCodeFor, registrationById, registrationsForEntity, UserRole,
+  LEGAL_ENTITIES, ENGAGEMENTS, USERS, VAT_REGISTRATIONS, ACTIVITY_LOG, GROUPS,
+  computeEngagementStatus, userEngagementCombos, engagementLabel,
+  Group, GroupType, today as todayIso, countryCodeFor, registrationById, registrationsForEntity, UserRole,
   EntityIdentifier, entityIdentifiers, identifierLabel,
 } from "./org-details-data";
+import { OrgWorkspaceData } from "./demo-data";
 import { can } from "./permissions";
 import { GroupsTab, EntityGroupMembershipsSection } from "./groups-tab";
 import { CreateGroupModal, AddMembersModal, CreateGroupDraft } from "./group-modals";
@@ -34,13 +35,26 @@ import {
 // Super Admin workspace.
 type WorkspaceTab = "entities" | "engagements" | "users" | "groups" | "activity" | "org-details";
 
-export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admin" }: {
+// Default seed = the hand-authored "mixed" world, used when no dataset is injected
+// (e.g. the standalone admin/user workspaces).
+const DEFAULT_WORKSPACE_DATA: OrgWorkspaceData = {
+  legalEntities: LEGAL_ENTITIES,
+  engagements: ENGAGEMENTS,
+  users: USERS,
+  vatRegistrations: VAT_REGISTRATIONS,
+  groups: GROUPS,
+  activityLog: ACTIVITY_LOG,
+};
+
+export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admin", data = DEFAULT_WORKSPACE_DATA }: {
   org: Organization;
   onBack: () => void;
   // V7 — the acting lens. Every role sees every tab and all content; capability-gated
   // buttons decide who can perform each write action. Defaults to Super Admin so this
   // component still renders the full experience when used standalone.
   actingRole?: UserRole;
+  // Injected seed dataset (empty / mixed / full). Defaults to the mixed world.
+  data?: OrgWorkspaceData;
 }) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("entities");
   // Local copy so Edit / Disable from the Organization Details tab reflect live.
@@ -64,33 +78,33 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
     userManage: can(actingRole, "user.manage"),
   };
 
-  // Entity state
-  const [entities, setEntities] = useState<LegalEntity[]>(() => LEGAL_ENTITIES.filter((e) => e.orgId === org.id));
+  // Entity state — seeded from the injected dataset, filtered to this org.
+  const [entities, setEntities] = useState<LegalEntity[]>(() => data.legalEntities.filter((e) => e.orgId === org.id));
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(() => {
-    const first = LEGAL_ENTITIES.find((e) => e.orgId === org.id);
+    const first = data.legalEntities.find((e) => e.orgId === org.id);
     return first ? first.id : null;
   });
 
   // Engagement state
-  const [engagements, setEngagements] = useState<Engagement[]>(() => engagementsForOrg(org.id));
+  const [engagements, setEngagements] = useState<Engagement[]>(() => data.engagements.filter((e) => e.orgId === org.id));
   const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null);
 
   // User state — a user belongs to this org if any of their legal entities is in
   // the org, or they are a WTS super admin with access to all entities.
   const [users, setUsers] = useState<OrgUser[]>(() => {
-    const orgEntityIds = new Set(LEGAL_ENTITIES.filter((e) => e.orgId === org.id).map((e) => e.id));
-    return USERS.filter((u) => u.allEntities || u.entityIds.some((id) => orgEntityIds.has(id)));
+    const orgEntityIds = new Set(data.legalEntities.filter((e) => e.orgId === org.id).map((e) => e.id));
+    return data.users.filter((u) => u.allEntities || u.entityIds.some((id) => orgEntityIds.has(id)));
   });
 
   // VAT state (managed only through entity modals)
   const [vatRegs, setVatRegs] = useState<VatRegistration[]>(() =>
-    VAT_REGISTRATIONS.filter((v) => LEGAL_ENTITIES.some((e) => e.orgId === org.id && e.id === v.entityId))
+    data.vatRegistrations.filter((v) => data.legalEntities.some((e) => e.orgId === org.id && e.id === v.entityId))
   );
 
   // Group state
-  const [groups, setGroups] = useState<Group[]>(() => groupsForOrg(org.id));
+  const [groups, setGroups] = useState<Group[]>(() => data.groups.filter((g) => g.orgId === org.id));
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() => {
-    const first = groupsForOrg(org.id)[0];
+    const first = data.groups.find((g) => g.orgId === org.id);
     return first ? first.id : null;
   });
   const [groupModal, setGroupModal] = useState<
@@ -100,7 +114,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
 
   // Activity log
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(() =>
-    ACTIVITY_LOG.filter((a) => a.orgId === org.id)
+    data.activityLog.filter((a) => a.orgId === org.id)
   );
 
   // Entity modals
@@ -124,6 +138,15 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
 
   const selectedEntity = entities.find((e) => e.id === selectedEntityId) ?? null;
   const selectedEngagement = engagements.find((e) => e.id === selectedEngagementId) ?? null;
+
+  // A freshly-created org has no legal entities yet: Engagements + Groups are gated
+  // on having at least one entity, so those tabs are disabled until the first is added.
+  const noEntities = entities.length === 0;
+  useEffect(() => {
+    if (noEntities && (activeTab === "engagements" || activeTab === "groups")) {
+      setActiveTab("entities");
+    }
+  }, [noEntities, activeTab]);
 
   // The acting user in this prototype is always the WTS Super Admin.
   // V11-G — optional {previous, current} pair for change events. Left off for pure
@@ -244,14 +267,14 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
     const id = `grp-${Date.now()}`;
     const newGroup: Group = {
       id, orgId: org.id, name: draft.name, type: draft.type, jurisdiction: draft.jurisdiction,
-      members: draft.memberEntityIds.map((eid) => ({
-        entityId: eid, vatRegistrationId: vatRegForMember(draft.type, draft.jurisdiction, eid),
-        representative: eid === draft.representativeId, validFrom: draft.validFrom, validTo: null,
+      members: draft.members.map((m) => ({
+        entityId: m.entityId, vatRegistrationId: vatRegForMember(draft.type, draft.jurisdiction, m.entityId),
+        representative: m.entityId === draft.representativeId, validFrom: m.validFrom, validTo: m.validTo,
       })),
     };
     setGroups((prev) => {
       let next = [...prev, newGroup];
-      for (const eid of draft.memberEntityIds) next = supersede(next, eid, draft.type, id);
+      for (const m of draft.members) next = supersede(next, m.entityId, draft.type, id);
       return next;
     });
     setSelectedGroupId(id);
@@ -282,7 +305,14 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   // deleting the row, so the member moves to the Inactive list as a past member. The rep
   // guard (rule 1) still holds: the current representative can't be removed until promoted.
   function removeMember(groupId: string, entityId: string) {
-    const now = todayIso();
+    // End the membership effective yesterday. `periodStatus` only treats a membership as
+    // "Ended" when validTo < today (strict), so end-dating to today would leave it Active;
+    // using yesterday makes the member immediately Ended → it moves to Inactive Members.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const end = yesterday.toISOString().slice(0, 10);
+    const group = groups.find((g) => g.id === groupId);
+    const memberName = entities.find((e) => e.id === entityId)?.legalName ?? entityId;
     setGroups((prev) => prev.map((g) => {
       if (g.id !== groupId) return g;
       return {
@@ -291,10 +321,11 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           if (m.entityId !== entityId) return m;
           if (m.representative) return m; // guarded — must promote another first
           if (m.validTo != null) return m; // already ended
-          return { ...m, validTo: now };
+          return { ...m, validTo: end };
         }),
       };
     }));
+    if (group) addLogEntry(`Removed "${memberName}" from group "${group.name}"`);
   }
 
   // V11-E — delete an entire group.
@@ -438,6 +469,9 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
     setEngagements((prev) => [...prev, { ...base, status: computeEngagementStatus(base) }]);
     addLogEntry(`Created engagement ${draft.contractRef}`);
     setCreateEngOpen(false);
+    // Treat a newly created engagement as "new": open it so the user lands on its
+    // (empty) detail page and can connect legal entities / users next.
+    setSelectedEngagementId(id);
   }
 
   function handleEditEngagement(draft: EngagementDraft) {
@@ -565,7 +599,11 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   function setEngStatus(id: string, status: EngagementStatus) {
     const eng = engagements.find((e) => e.id === id);
     setEngagements((prev) => prev.map((e) => e.id === id ? { ...e, status } : e));
-    if (eng) addLogEntry(`${status === "Disabled" ? "Disabled" : "Re-enabled"} engagement ${eng.contractRef}`);
+    if (eng) addLogEntry(
+      `${status === "Disabled" ? "Disabled" : "Re-enabled"} engagement ${eng.contractRef}`,
+      entityNamesLabel(eng.entityIds),
+      { previous: eng.status, current: status },
+    );
   }
 
   function assignEngagementsToEntity(entityId: string, engIds: string[]) {
@@ -599,18 +637,23 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
 
   // Organization handlers (Organization Details tab)
   function handleOrgSubmit(data: { name: string; description: string; status: any; logoUrl?: string }) {
+    const nameChanged = data.name !== org.name;
     setOrg((o) => ({ ...o, name: data.name, description: data.description, status: data.status, logoUrl: data.logoUrl }));
-    addLogEntry("Updated organization details");
+    addLogEntry(
+      "Updated organization details",
+      "—",
+      nameChanged ? { previous: org.name, current: data.name } : undefined,
+    );
     setEditOrgOpen(false);
   }
   function handleOrgDisable() {
+    addLogEntry("Disabled organization", "—", { previous: org.status, current: "Disabled" });
     setOrg((o) => ({ ...o, status: "Disabled" }));
-    addLogEntry("Disabled organization");
     setDisableOrgOpen(false);
   }
   function handleOrgEnable() {
+    addLogEntry("Re-enabled organization", "—", { previous: org.status, current: "Active" });
     setOrg((o) => ({ ...o, status: "Active" }));
-    addLogEntry("Re-enabled organization");
   }
 
   return (
@@ -663,11 +706,11 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           value={activeTab}
           onChange={(v) => setActiveTab(v as WorkspaceTab)}
           options={[
-            { value: "entities", label: <span className="inline-flex items-center gap-1.5"><Building2 className="size-4" /> Legal Entities</span> },
-            { value: "engagements", label: <span className="inline-flex items-center gap-1.5"><FileText className="size-4" /> Engagements</span> },
-            { value: "users", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Users</span> },
-            { value: "groups", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Groups</span> },
-            { value: "activity", label: <span className="inline-flex items-center gap-1.5"><Activity className="size-4" /> Activity Log</span> },
+            { value: "entities", label: <span className="inline-flex items-center gap-1.5"><Building2 className="size-4" /> Legal Entities</span>, count: entities.length },
+            { value: "engagements", label: <span className="inline-flex items-center gap-1.5"><FileText className="size-4" /> Engagements</span>, count: engagements.length, disabled: noEntities },
+            { value: "users", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Users</span>, count: users.length },
+            { value: "groups", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Groups</span>, count: groups.length, disabled: noEntities },
+            { value: "activity", label: <span className="inline-flex items-center gap-1.5"><Activity className="size-4" /> Activity Log</span>, count: activityLog.length },
             { value: "org-details", label: <span className="inline-flex items-center gap-1.5"><ClipboardList className="size-4" /> Organization Details</span> },
           ]}
         />
@@ -724,7 +767,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
         )}
 
         {activeTab === "engagements" && (
-          <div className="px-8 py-6 w-full">
+          <div className="flex grow flex-col px-8 py-6 w-full">
             <EngagementsTab
               engagements={engagements}
               entities={entities}
@@ -740,7 +783,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
         )}
 
         {activeTab === "users" && (
-          <div className="px-8 py-6 w-full">
+          <div className={cn("flex grow flex-col w-full", users.length === 0 ? "p-6" : "px-8 py-6")}>
             <UsersTab
               users={users}
               entities={entities}
@@ -758,7 +801,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
         )}
 
         {activeTab === "activity" && (
-          <div className="px-8 py-6 w-full">
+          <div className={cn("flex grow flex-col w-full", activityLog.length === 0 ? "p-6" : "px-8 py-6")}>
             <ActivityLogTab log={activityLog} />
           </div>
         )}
@@ -851,8 +894,13 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           engagement={reenableEngTarget}
           onCancel={() => setReenableEngTarget(null)}
           onConfirm={() => {
+            const current = computeEngagementStatus({ ...reenableEngTarget, status: "Active" });
             setEngagements((prev) => prev.map((e) => e.id === reenableEngTarget.id ? { ...e, status: computeEngagementStatus({ ...e, status: "Active" }) } : e));
-            addLogEntry(`Re-enabled engagement ${reenableEngTarget.contractRef}`);
+            addLogEntry(
+              `Re-enabled engagement ${reenableEngTarget.contractRef}`,
+              entityNamesLabel(reenableEngTarget.entityIds),
+              { previous: reenableEngTarget.status, current },
+            );
             setReenableEngTarget(null);
           }}
         />
@@ -949,7 +997,6 @@ function EntitiesTab({
   onOpenGroup: (id: string) => void;
   caps: WorkspaceCaps;
 }) {
-  const [hierarchyCollapsed, setHierarchyCollapsed] = useState(false);
   const childrenOf = (id: string) => entities.filter((e) => e.parentId === id);
   // Roots = entities with no parent (or whose parent isn't part of this org's set)
   const roots = entities.filter((e) => !e.parentId || !entities.some((x) => x.id === e.parentId));
@@ -963,112 +1010,59 @@ function EntitiesTab({
       </React.Fragment>
     );
   }
-  function renderRail(node: LegalEntity, depth: number): React.ReactNode {
+  // Freshly-created org (no entities): show a single prompt-only empty state — no
+  // sidebar, no repeated actions. The single CTA is the only way to add the first entity.
+  if (entities.length === 0) {
     return (
-      <React.Fragment key={node.id}>
-        <button
-          type="button"
-          title={node.legalName}
-          onClick={() => onSelect(node.id)}
-          className={`items-center flex justify-center w-8 h-8 rounded-md ${selectedId === node.id ? "bg-[rgba(200,16,46,0.12)] text-brand" : "text-neutral-400 hover:bg-neutral-100"}`}
-        >
-          {depth === 0 ? <Building2 className="w-4 h-4" /> : <CornerDownRight className="w-3.5 h-3.5" />}
-        </button>
-        {childrenOf(node.id).map((c) => renderRail(c, depth + 1))}
-      </React.Fragment>
+      <div className="flex grow flex-col bg-white p-6" style={{ minHeight: "calc(100vh - 200px)" }}>
+        <EmptyBlock
+          icon={<Building2 />}
+          title="No legal entities yet"
+          text="This organization was just created. Add your first legal entity to get started — engagements and groups unlock once an entity exists."
+          cta={caps.entityCreate ? "Add Legal Entity" : undefined}
+          onCta={caps.entityCreate ? onAdd : undefined}
+        />
+      </div>
     );
   }
-
   return (
     <div className="flex grow overflow-hidden" style={{ minHeight: "calc(100vh - 200px)" }}>
-      {/* Left: Entity Hierarchy */}
-      <div
-        className="flex flex-col border-r border-neutral-200 shrink-0 bg-white transition-[width] duration-200 overflow-hidden"
-        style={{ width: hierarchyCollapsed ? 48 : 288 }}
-      >
-        {hierarchyCollapsed ? (
-          /* Collapsed icon rail */
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-center p-2 border-b border-neutral-100">
-              <button
-                type="button"
-                aria-label="Expand entity hierarchy"
-                onClick={() => setHierarchyCollapsed(false)}
-                className="items-center flex justify-center w-8 h-8 text-neutral-400 hover:bg-neutral-100 rounded-md"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex flex-col grow overflow-auto p-1.5 gap-0.5 items-center">
-              {entities.length === 0 ? (
-                <Building2 className="w-4 h-4 text-neutral-300 mt-4" />
-              ) : (
-                roots.map((r) => renderRail(r, 0))
-              )}
-            </div>
+      {/* Left: Entity Hierarchy — always visible (no collapse) */}
+      <div className="flex w-[288px] flex-col border-r border-neutral-200 shrink-0 bg-white overflow-hidden">
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-100 gap-2">
+            <p className="text-neutral-400 text-[11px] leading-[16px] uppercase tracking-wide font-medium pl-1 shrink-0">Legal Entities</p>
             {caps.entityCreate && (
-              <div className="border-t border-neutral-200 p-1.5">
-                <button
-                  type="button"
-                  title="Add Legal Entity"
-                  onClick={onAdd}
-                  className="items-center flex justify-center w-8 h-8 text-neutral-400 hover:bg-neutral-100 rounded-md mx-auto"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+              <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+                <Plus className="size-4" /> Add Legal Entity
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-col grow overflow-auto p-3 gap-2">
+            {entities.length === 0 ? (
+              <div className="flex flex-col items-center text-center gap-2 py-10 px-4">
+                <Building2 className="w-7 h-7 text-neutral-300" />
+                <p className="text-neutral-500 text-[13px] leading-[18px]">No legal entities yet.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {roots.map((r) => renderTree(r, 0))}
               </div>
             )}
           </div>
-        ) : (
-          /* Expanded state */
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-100 gap-2">
-              <p className="text-neutral-400 text-[11px] leading-[16px] uppercase tracking-wide font-medium pl-1 shrink-0">Legal Entities</p>
-              <button
-                type="button"
-                aria-label="Collapse entity hierarchy"
-                onClick={() => setHierarchyCollapsed(true)}
-                className="items-center flex justify-center w-7 h-7 text-neutral-400 hover:bg-neutral-100 rounded-md shrink-0"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex flex-col grow overflow-auto p-3 gap-2">
-              {entities.length === 0 ? (
-                <div className="flex flex-col items-center text-center gap-2 py-10 px-4">
-                  <Building2 className="w-7 h-7 text-neutral-300" />
-                  <p className="text-neutral-500 text-[13px] leading-[18px]">No legal entities yet.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-0.5">
-                  {roots.map((r) => renderTree(r, 0))}
-                </div>
-              )}
-              {caps.entityCreate && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onAdd}
-                className="mt-1 border-dashed"
-              >
-                <Plus className="size-4" /> Add Legal Entity
-              </Button>
-              )}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Right: Selected Entity Detail */}
       <div className="flex flex-col grow overflow-auto bg-white">
         {!selectedEntity ? (
-          <div className="flex items-center justify-center grow py-20 px-6">
+          <div className="flex grow flex-col p-6">
             <EmptyBlock
-              icon={<Building2 className="w-7 h-7 text-neutral-300" />}
+              icon={<Building2 />}
               title="No legal entity selected"
               text="Select a legal entity from the hierarchy to view its details, or add a new one."
-              cta="Add Legal Entity"
-              onCta={onAdd}
+              cta={caps.entityCreate ? "Add Legal Entity" : undefined}
+              onCta={caps.entityCreate ? onAdd : undefined}
             />
           </div>
         ) : (
@@ -1304,8 +1298,8 @@ export function EntityEngagementsSection({
                 <Th>Status</Th>
                 <Th>Start Date</Th>
                 <Th>End Date</Th>
-                <Th>Service Line · Case Types</Th>
-                <Th>Actions</Th>
+                <Th>Service Lines</Th>
+                <ThActions>Actions</ThActions>
               </tr>
             </thead>
             <tbody>
@@ -1322,7 +1316,7 @@ export function EntityEngagementsSection({
                   <Td className="text-neutral-700">{eng.startDate}</Td>
                   <Td className="text-neutral-700">{eng.endDate ?? "—"}</Td>
                   <Td className="text-neutral-700"><ServiceLinesCell serviceLines={eng.serviceLines} /></Td>
-                  <Td>
+                  <TdActions>
                     {canManage ? (
                       <RowActionsMenu ariaLabel={`Actions for engagement ${eng.contractRef}`}>
                         <DropdownMenuItem onSelect={() => onRemove(eng)} className="text-brand focus:text-brand focus:bg-red-50">
@@ -1332,7 +1326,7 @@ export function EntityEngagementsSection({
                     ) : (
                       <span className="text-neutral-300">—</span>
                     )}
-                  </Td>
+                  </TdActions>
                 </tr>
               ))}
             </tbody>
@@ -1386,7 +1380,7 @@ export function EntityUsersSection({
           <table className="w-full min-w-[720px] text-[14px] leading-[20px]">
             <thead>
               <tr className="border-b border-neutral-200 text-neutral-500 text-left bg-neutral-50">
-                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Role</Th><Th>Status</Th><Th>Invited By</Th><Th>Actions</Th>
+                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Role</Th><Th>Status</Th><Th>Invited By</Th><ThActions>Actions</ThActions>
               </tr>
             </thead>
             <tbody>
@@ -1398,13 +1392,13 @@ export function EntityUsersSection({
                   <Td className="text-neutral-700">{u.role}</Td>
                   <Td><UserStatusBadge status={u.status} /></Td>
                   <Td className="text-neutral-600">{u.invitedBy}</Td>
-                  <Td>
+                  <TdActions>
                     {canManage ? (
                       <UserRowActions user={u} onEdit={onEdit} onApprove={onApprove} onReject={onReject} onRemove={onRemove} />
                     ) : (
                       <span className="text-neutral-300">—</span>
                     )}
-                  </Td>
+                  </TdActions>
                 </tr>
               ))}
             </tbody>
@@ -1493,7 +1487,7 @@ export function EngagementsTab({
   canManage?: boolean;
 }) {
   return (
-    <div>
+    <div className="flex grow flex-col">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-primary text-[22px] leading-[28px]" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Engagements</h2>
@@ -1520,9 +1514,9 @@ export function EngagementsTab({
                 <Th>Status</Th>
                 <Th>Start Date</Th>
                 <Th>End Date</Th>
-                <Th>Service Line · Case Types</Th>
+                <Th>Service Lines</Th>
                 <Th>Connected Legal Entities</Th>
-                <Th>Actions</Th>
+                <ThActions>Actions</ThActions>
               </tr>
             </thead>
             <tbody>
@@ -1536,7 +1530,7 @@ export function EngagementsTab({
                   <Td className="text-neutral-700">{eng.endDate ?? "—"}</Td>
                   <Td className="text-neutral-700"><ServiceLinesCell serviceLines={eng.serviceLines} /></Td>
                   <Td><span className="text-neutral-700">{eng.entityIds.length}</span></Td>
-                  <Td>
+                  <TdActions>
                     {!canManage ? (
                       <span className="text-neutral-300">—</span>
                     ) : (
@@ -1555,7 +1549,7 @@ export function EngagementsTab({
                         )}
                       </RowActionsMenu>
                     )}
-                  </Td>
+                  </TdActions>
                 </tr>
               ))}
             </tbody>
@@ -1628,8 +1622,15 @@ function UsersTab({
     return u.entityIds.map((id) => entityMap.get(id) ?? id);
   }
 
+  // Empty state stands alone — no title/subtitle header above it.
+  if (users.length === 0) {
+    return (
+      <EmptyBlock icon={<UsersIcon />} title="No users yet" text="No users are associated with this organization." cta={canInvite ? "Add User" : undefined} onCta={canInvite ? onAdd : undefined} />
+    );
+  }
+
   return (
-    <div>
+    <div className="flex grow flex-col">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-primary text-[22px] leading-[28px]" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Users</h2>
@@ -1652,7 +1653,7 @@ function UsersTab({
           <table className="w-full min-w-[720px] text-[14px] leading-[20px]">
             <thead>
               <tr className="border-b border-neutral-200 text-neutral-500 text-left bg-neutral-50">
-                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Roles</Th><Th>Legal Entities</Th><Th>Engagements</Th><Th>Scope</Th><Th>Status</Th><Th>Invited By</Th><Th>Actions</Th>
+                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Roles</Th><Th>Legal Entities</Th><Th>Engagements</Th><Th>Scope</Th><Th>Status</Th><Th>Invited By</Th><ThActions>Actions</ThActions>
               </tr>
             </thead>
             <tbody>
@@ -1712,13 +1713,13 @@ function UsersTab({
                   <Td><UserScopeCell user={u} /></Td>
                   <Td><UserStatusBadge status={u.status} /></Td>
                   <Td className="text-neutral-600">{u.invitedBy}</Td>
-                  <Td>
+                  <TdActions>
                     {canManage ? (
                       <UserRowActions user={u} onEdit={onEditUser} onApprove={onApproveUser} onReject={onRejectUser} onRemove={onRemoveUser} />
                     ) : (
                       <span className="text-neutral-300">—</span>
                     )}
-                  </Td>
+                  </TdActions>
                 </tr>
                 );
               })}
@@ -1732,8 +1733,15 @@ function UsersTab({
 
 /* ─── TAB 4 — Activity Log ───────────────────────────────────────────────── */
 function ActivityLogTab({ log }: { log: ActivityLogEntry[] }) {
+  // Empty state stands alone — no title/subtitle header above it.
+  if (log.length === 0) {
+    return (
+      <EmptyBlock icon={<Activity />} title="No activity yet" text="Actions taken on this organization will appear here." />
+    );
+  }
+
   return (
-    <div>
+    <div className="flex grow flex-col">
       <div className="mb-4">
         <h2 className="text-primary text-[22px] leading-[28px]" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>Activity Log</h2>
         <p className="text-neutral-500 text-[13px] leading-[18px] mt-0.5">Chronological audit trail for this organization.</p>
@@ -2065,6 +2073,24 @@ export function Td({ children, className }: { children: React.ReactNode; classNa
   return <td className={`px-4 py-3 align-top ${className ?? ""}`}>{children}</td>;
 }
 
+// Sticky, right-aligned Actions column — stays pinned to the right edge while a wide
+// table scrolls horizontally, so the 3-dot menu is always reachable. The inset shadow
+// draws a subtle left divider; the opaque bg hides the scrolling content beneath.
+export function ThActions({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="sticky right-0 z-20 bg-neutral-50 px-4 py-3 text-right text-[13px] leading-[18px] whitespace-nowrap shadow-[inset_1px_0_0_0_rgba(0,0,0,0.06)]">
+      {children}
+    </th>
+  );
+}
+export function TdActions({ children }: { children: React.ReactNode }) {
+  return (
+    <td className="sticky right-0 z-10 bg-white px-4 py-3 align-top shadow-[inset_1px_0_0_0_rgba(0,0,0,0.06)]">
+      <div className="flex justify-end">{children}</div>
+    </td>
+  );
+}
+
 // Compact cell: shows the first item + a "+N" chip that expands to the full list.
 function TruncatedCell({
   items, emptyText, expandedItems,
@@ -2111,19 +2137,22 @@ function MenuItem({ icon, label, onClick, danger }: { icon: React.ReactNode; lab
   );
 }
 export function EmptyBlock({ icon, title, text, cta, onCta }: { icon: React.ReactNode; title: string; text: string; cta?: string; onCta?: () => void }) {
+  const normalizedIcon = React.isValidElement(icon)
+    ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "size-6 text-muted-foreground" })
+    : icon;
   return (
-    <div className="border border-dashed border-neutral-200 rounded-lg bg-neutral-50/50 flex flex-col items-center text-center gap-3 py-12 px-6">
-      <div className="items-center flex justify-center w-14 h-14 rounded-full bg-white border border-neutral-200">{icon}</div>
-      <div className="flex flex-col gap-1 max-w-[360px]">
-        <h3 className="text-neutral-900 text-[16px] leading-[22px]" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>{title}</h3>
-        <p className="text-neutral-500 text-[14px] leading-[20px]">{text}</p>
-      </div>
-      {cta && onCta && (
-        <button type="button" onClick={onCta} className="items-center flex gap-2 bg-primary text-white text-[14px] leading-[20px] px-4 py-2 rounded-lg hover:opacity-90">
-          <Plus className="w-4 h-4" /> {cta}
-        </button>
-      )}
-    </div>
+    <EmptyState
+      icon={normalizedIcon}
+      title={title}
+      description={text}
+      action={
+        cta && onCta ? (
+          <Button onClick={onCta}>
+            <Plus className="h-4 w-4" /> {cta}
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }
 

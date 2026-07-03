@@ -9,11 +9,14 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 
 import type { Role } from '@/components/role-switcher'
+import type { DataMode } from '@/components/demo-data'
 
 interface OrgState {
   role: Role
+  dataMode: DataMode
   selectedOrgId: string | null
   setRole: (role: Role) => void
+  setDataMode: (mode: DataMode) => void
   setSelectedOrgId: (id: string | null) => void
 }
 
@@ -46,8 +49,11 @@ function toHash({ role, selectedOrgId }: { role: Role; selectedOrgId: string | n
 
 export const useOrgStore = create<OrgState>((set) => ({
   role: 'Super Admin',
+  dataMode: 'mixed',
   selectedOrgId: null,
   setRole: (role) => set({ role, selectedOrgId: null }),
+  // Switching dataset returns to the organisation list so the new seed is visible.
+  setDataMode: (dataMode) => set({ dataMode, selectedOrgId: null }),
   setSelectedOrgId: (selectedOrgId) => set({ selectedOrgId }),
 }))
 

@@ -1,28 +1,40 @@
 import { useMemo, useState } from 'react'
 import { Plus, Building2 } from 'lucide-react'
-import { Button } from '@wts/ui'
+import { Button, EmptyState as UiEmptyState } from '@wts/ui'
 
 import {
   Organization,
   OrgStatus,
-  INITIAL_ORGANIZATIONS,
 } from './organizations-data'
 import { OrganizationCard } from './organization-card'
 import { OrganizationPanel, PanelMode } from './organization-panel'
 import { DisableDialog } from './disable-dialog'
 
-const today = () => new Date().toISOString().slice(0, 10)
+export interface OrgFormData {
+  name: string
+  description: string
+  status: OrgStatus
+  logoUrl?: string
+}
 
 export function OrganizationsPage({
+  orgs,
   onOpenOrg,
   canManage = true,
   visibleOrgIds,
+  onCreateOrg,
+  onUpdateOrg,
+  onSetOrgStatus,
 }: {
+  orgs: Organization[]
   onOpenOrg: (o: Organization) => void
   canManage?: boolean
   visibleOrgIds?: string[]
+  // Mutations are owned by the parent so newly created / edited orgs stay openable.
+  onCreateOrg: (data: OrgFormData) => void
+  onUpdateOrg: (id: string, data: OrgFormData) => void
+  onSetOrgStatus: (id: string, status: OrgStatus) => void
 }) {
-  const [orgs, setOrgs] = useState<Organization[]>(INITIAL_ORGANIZATIONS)
   const [panel, setPanel] = useState<{ mode: PanelMode; org: Organization | null } | null>(null)
   const [disableTarget, setDisableTarget] = useState<Organization | null>(null)
 
@@ -31,43 +43,11 @@ export function OrganizationsPage({
     return [...visible].sort((a, b) => a.name.localeCompare(b.name))
   }, [orgs, visibleOrgIds])
 
-  function setStatus(id: string, status: OrgStatus) {
-    setOrgs((prev) =>
-      prev.map((o) =>
-        o.id === id ? { ...o, status, lastModified: today(), lastModifiedBy: 'Super Admin' } : o,
-      ),
-    )
-  }
-
-  function handleSubmit(data: { name: string; description: string; status: OrgStatus; logoUrl?: string }) {
+  function handleSubmit(data: OrgFormData) {
     if (panel?.mode === 'create') {
-      const initials = data.name.trim().slice(0, 2).toUpperCase()
-      setOrgs((prev) => [
-        {
-          id: `org-${Date.now()}`,
-          name: data.name,
-          initials,
-          logoUrl: data.logoUrl,
-          tags: [],
-          legalEntities: 0,
-          activeEngagements: 0,
-          status: data.status,
-          description: data.description,
-          createdDate: today(),
-          lastModified: today(),
-          lastModifiedBy: 'Super Admin',
-        },
-        ...prev,
-      ])
+      onCreateOrg(data)
     } else if (panel?.mode === 'edit' && panel.org) {
-      const id = panel.org.id
-      setOrgs((prev) =>
-        prev.map((o) =>
-          o.id === id
-            ? { ...o, name: data.name, description: data.description, status: data.status, logoUrl: data.logoUrl, lastModified: today(), lastModifiedBy: 'Super Admin' }
-            : o,
-        ),
-      )
+      onUpdateOrg(panel.org.id, data)
     }
     setPanel(null)
   }
@@ -112,7 +92,7 @@ export function OrganizationsPage({
               onView={(o) => onOpenOrg(o)}
               onEdit={(o) => setPanel({ mode: 'edit', org: o })}
               onDisable={(o) => setDisableTarget(o)}
-              onEnable={(o) => setStatus(o.id, 'Active')}
+              onEnable={(o) => onSetOrgStatus(o.id, 'Active')}
             />
           ))}
         </div>
@@ -132,7 +112,7 @@ export function OrganizationsPage({
           org={disableTarget}
           onCancel={() => setDisableTarget(null)}
           onConfirm={() => {
-            setStatus(disableTarget.id, 'Disabled')
+            onSetOrgStatus(disableTarget.id, 'Disabled')
             setDisableTarget(null)
           }}
         />
@@ -143,26 +123,24 @@ export function OrganizationsPage({
 
 function EmptyState({ onCreate }: { onCreate?: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-      <div className="flex size-20 items-center justify-center rounded-full border border-border bg-muted/40">
-        <Building2 className="size-8 text-muted-foreground" />
-      </div>
-      <div className="flex max-w-[420px] flex-col gap-1.5">
-        <h2 className="font-display text-xl font-bold tracking-tight text-foreground">
-          No organizations yet
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {onCreate
+    <div className="px-6 py-16">
+      <UiEmptyState
+        icon={<Building2 className="size-6 text-muted-foreground" />}
+        title="No organizations yet"
+        description={
+          onCreate
             ? 'No organizations have been created yet. Create your first organization to get started.'
-            : 'You have not been assigned to any organizations yet.'}
-        </p>
-      </div>
-      {onCreate && (
-        <Button type="button" onClick={onCreate}>
-          <Plus className="size-4" />
-          Create Organization
-        </Button>
-      )}
+            : 'You have not been assigned to any organizations yet.'
+        }
+        action={
+          onCreate ? (
+            <Button type="button" onClick={onCreate}>
+              <Plus className="size-4" />
+              Create Organization
+            </Button>
+          ) : undefined
+        }
+      />
     </div>
   )
 }

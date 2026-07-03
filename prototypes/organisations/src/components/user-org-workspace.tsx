@@ -222,7 +222,7 @@ export function UserOrgWorkspace({ org, onBack }: { org: Organization; onBack: (
                     <table className="w-full min-w-[720px] text-[14px] leading-[20px]">
                       <thead>
                         <tr className="border-b border-neutral-200 text-neutral-500 text-left bg-neutral-50">
-                          <Th>Contract Reference</Th><Th>Status</Th><Th>Start Date</Th><Th>End Date</Th><Th>Service Line · Case Types</Th>
+                          <Th>Contract Reference</Th><Th>Status</Th><Th>Start Date</Th><Th>End Date</Th><Th>Service Lines</Th>
                         </tr>
                       </thead>
                       <tbody>

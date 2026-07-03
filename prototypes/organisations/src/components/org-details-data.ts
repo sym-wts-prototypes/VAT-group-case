@@ -148,9 +148,14 @@ export interface OrgUser {
   dateAdded: string;
 }
 
+// Frequency of a service line on an engagement (how often the work recurs).
+export type ServiceFrequency = "Monthly" | "Quarterly" | "Yearly";
+export const SERVICE_FREQUENCIES: ServiceFrequency[] = ["Monthly", "Quarterly", "Yearly"];
+
 export interface ServiceLineAssignment {
   serviceLine: string;   // key from SERVICE_CATALOGUE (VAT, CIT, HR Tax, …)
   caseTypes: string[];   // selected case types within that service line
+  frequency?: ServiceFrequency; // how often this service line recurs (Monthly/Quarterly/Yearly)
 }
 
 export interface Engagement {
@@ -260,36 +265,29 @@ export const LEGAL_ENTITIES: LegalEntity[] = [
     address: "Industriestraße 12", city: "Stuttgart", postalCode: "70565", country: "Germany", countryCode: "DE",
     fiscalYearStart: "1 April", fiscalYearEnd: "31 March", type: "HQ", status: "Disabled",
   },
-  // Provinzial
-  {
-    id: "pr-1", orgId: "provinzial", legalName: "Provinzial Versicherung AG", legalForm: "AG",
-    clientId: "K700554", vatId: "DE 119558022", taxAuthority: "Düsseldorf-Mitte",
-    address: "Provinzialplatz 1", city: "Düsseldorf", postalCode: "40195", country: "Germany", countryCode: "DE",
-    fiscalYearStart: "1 January", fiscalYearEnd: "31 December", type: "HQ", status: "Active",
-  },
+  // Provinzial — intentionally empty (freshly-created org; add first legal entity via UI).
 ];
 
 export const ENGAGEMENTS: Engagement[] = [
   // Electronic Arts — 6 engagements per spec
-  { id: "eng-ea-1", orgId: "ea", contractRef: "09059", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"] }], status: "Active", startDate: "01/01/2024", endDate: "31/12/2026", entityIds: ["ea-1"] },
-  { id: "eng-ea-2", orgId: "ea", contractRef: "04314", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"] }], status: "Active", startDate: "01/01/2025", endDate: "31/12/2025", entityIds: [] },
-  { id: "eng-ea-3", orgId: "ea", contractRef: "04325", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"] }], status: "Active", startDate: "01/01/2026", endDate: null, entityIds: ["ea-1"] },
-  { id: "eng-ea-4", orgId: "ea", contractRef: "03398", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"] }], status: "Expired", startDate: "01/01/2023", endDate: "31/12/2023", entityIds: ["ea-1"] },
-  { id: "eng-ea-5", orgId: "ea", contractRef: "00371", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"] }], status: "Active", startDate: "01/04/2024", endDate: null, entityIds: ["ea-1"] },
-  { id: "eng-ea-6", orgId: "ea", contractRef: "07823", serviceLines: [{ serviceLine: "HR Tax", caseTypes: ["HR Audit Yearly"] }], status: "Active", startDate: "01/04/2025", endDate: null, entityIds: [] },
+  { id: "eng-ea-1", orgId: "ea", contractRef: "09059", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"], frequency: "Yearly" }], status: "Active", startDate: "01/01/2024", endDate: "31/12/2026", entityIds: ["ea-1"] },
+  { id: "eng-ea-2", orgId: "ea", contractRef: "04314", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"], frequency: "Yearly" }], status: "Active", startDate: "01/01/2025", endDate: "31/12/2025", entityIds: [] },
+  { id: "eng-ea-3", orgId: "ea", contractRef: "04325", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"], frequency: "Yearly" }], status: "Active", startDate: "01/01/2026", endDate: null, entityIds: ["ea-1"] },
+  { id: "eng-ea-4", orgId: "ea", contractRef: "03398", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"], frequency: "Yearly" }], status: "Expired", startDate: "01/01/2023", endDate: "31/12/2023", entityIds: ["ea-1"] },
+  { id: "eng-ea-5", orgId: "ea", contractRef: "00371", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"], frequency: "Monthly" }], status: "Active", startDate: "01/04/2024", endDate: null, entityIds: ["ea-1"] },
+  { id: "eng-ea-6", orgId: "ea", contractRef: "07823", serviceLines: [{ serviceLine: "HR Tax", caseTypes: ["HR Audit Yearly"], frequency: "Yearly" }], status: "Active", startDate: "01/04/2025", endDate: null, entityIds: [] },
   // EUROPIPE
-  { id: "eng-eu-1", orgId: "europipe", contractRef: "11204", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly", "Trade Tax Return"] }, { serviceLine: "VAT", caseTypes: ["VAT Return"] }], status: "Active", startDate: "01/01/2025", endDate: "31/12/2027", entityIds: ["eu-1", "eu-2"] },
-  { id: "eng-eu-2", orgId: "europipe", contractRef: "11288", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"] }], status: "Active", startDate: "01/07/2026", endDate: null, entityIds: ["eu-2"] },
+  { id: "eng-eu-1", orgId: "europipe", contractRef: "11204", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly", "Trade Tax Return"], frequency: "Yearly" }, { serviceLine: "VAT", caseTypes: ["VAT Return"], frequency: "Quarterly" }], status: "Active", startDate: "01/01/2025", endDate: "31/12/2027", entityIds: ["eu-1", "eu-2"] },
+  { id: "eng-eu-2", orgId: "europipe", contractRef: "11288", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"], frequency: "Monthly" }], status: "Active", startDate: "01/07/2026", endDate: null, entityIds: ["eu-2"] },
   // Porsche
-  { id: "eng-po-1", orgId: "porsche", contractRef: "20451", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"] }], status: "Active", startDate: "01/01/2024", endDate: "31/12/2026", entityIds: ["po-1", "po-2"] },
-  { id: "eng-po-2", orgId: "porsche", contractRef: "20518", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"] }], status: "Active", startDate: "01/01/2025", endDate: null, entityIds: ["po-1"] },
+  { id: "eng-po-1", orgId: "porsche", contractRef: "20451", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"], frequency: "Yearly" }], status: "Active", startDate: "01/01/2024", endDate: "31/12/2026", entityIds: ["po-1", "po-2"] },
+  { id: "eng-po-2", orgId: "porsche", contractRef: "20518", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"], frequency: "Quarterly" }], status: "Active", startDate: "01/01/2025", endDate: null, entityIds: ["po-1"] },
   // Merck
-  { id: "eng-me-1", orgId: "merck", contractRef: "30119", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"] }], status: "Active", startDate: "01/01/2025", endDate: null, entityIds: ["me-1"] },
-  { id: "eng-me-2", orgId: "merck", contractRef: "30120", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"] }], status: "Expired", startDate: "01/01/2023", endDate: "31/12/2024", entityIds: ["me-2"] },
+  { id: "eng-me-1", orgId: "merck", contractRef: "30119", serviceLines: [{ serviceLine: "CIT", caseTypes: ["CIT Return Yearly"], frequency: "Yearly" }], status: "Active", startDate: "01/01/2025", endDate: null, entityIds: ["me-1"] },
+  { id: "eng-me-2", orgId: "merck", contractRef: "30120", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"], frequency: "Monthly" }], status: "Expired", startDate: "01/01/2023", endDate: "31/12/2024", entityIds: ["me-2"] },
   // SMR
-  { id: "eng-smr-1", orgId: "smr", contractRef: "40087", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"] }], status: "Active", startDate: "01/04/2025", endDate: null, entityIds: ["smr-1"] },
-  // Provinzial
-  { id: "eng-pr-1", orgId: "provinzial", contractRef: "50230", serviceLines: [{ serviceLine: "HR Tax", caseTypes: ["HR Audit Yearly"] }], status: "Active", startDate: "01/01/2025", endDate: null, entityIds: ["pr-1"] },
+  { id: "eng-smr-1", orgId: "smr", contractRef: "40087", serviceLines: [{ serviceLine: "VAT", caseTypes: ["VAT Return"], frequency: "Quarterly" }], status: "Active", startDate: "01/04/2025", endDate: null, entityIds: ["smr-1"] },
+  // Provinzial — intentionally empty (freshly-created org).
 ];
 
 export const USERS: OrgUser[] = [
@@ -324,8 +322,7 @@ export const USERS: OrgUser[] = [
   // Merck
   { id: "u9", entityIds: ["me-1"], name: "Sofia Rossi", email: "sofia.rossi@wts.com", userType: "Internal", role: "Organisation Admin", roles: ["Organisation Admin"], status: "Active", invitedBy: "Thomas Becker", dateAdded: "2025-08-14" },
   { id: "u10", entityIds: ["me-1", "me-2"], name: "Markus Weber", email: "markus.weber@merck.com", userType: "External", role: "Contributor", status: "Active", invitedBy: "Sofia Rossi", dateAdded: "2026-02-19" },
-  // Provinzial
-  { id: "u11", entityIds: ["pr-1"], name: "Anna Müller", email: "anna.mueller@wts.com", userType: "Internal", role: "Organisation Admin", roles: ["Organisation Admin"], status: "Active", invitedBy: "Thomas Becker", dateAdded: "2026-02-09" },
+  // Provinzial — intentionally empty (freshly-created org).
 ];
 
 // Change 1 — a VAT registration is a first-class, individually identifiable object with a
@@ -387,11 +384,14 @@ export const ACTIVITY_LOG: ActivityLogEntry[] = [
   { id: "log-5", orgId: "ea", timestamp: "18.03.2026 14:15", userEmail: "anna.mueller@wts.com", legalEntity: "Electronic Arts GmbH", action: "Assigned engagement 09059 to Electronic Arts GmbH" },
   { id: "log-6", orgId: "ea", timestamp: "20.03.2026 09:00", userEmail: "anna.mueller@wts.com", legalEntity: "Electronic Arts GmbH", action: "Added user lukas.schmidt@ea.com" },
   { id: "log-7", orgId: "ea", timestamp: "22.03.2026 16:45", userEmail: "sarah.klein@wts.com", legalEntity: "—", action: "Created engagement 04314" },
-  { id: "log-8", orgId: "ea", timestamp: "25.03.2026 08:30", userEmail: "sarah.klein@wts.com", legalEntity: "—", action: "Updated organization details" },
+  // Edit events carry a before → after delta; creations above intentionally leave them blank.
+  { id: "log-8", orgId: "ea", timestamp: "25.03.2026 08:30", userEmail: "sarah.klein@wts.com", legalEntity: "—", action: "Updated organization details", previous: "EA Games", current: "Electronic Arts" },
   { id: "log-9", orgId: "europipe", timestamp: "10.02.2026 09:00", userEmail: "markus.weber@wts.com", legalEntity: "EUROPIPE GmbH", action: 'Created legal entity "EUROPIPE GmbH"' },
   { id: "log-10", orgId: "europipe", timestamp: "12.02.2026 11:30", userEmail: "markus.weber@wts.com", legalEntity: "—", action: "Created engagement 11204" },
   { id: "log-11", orgId: "europipe", timestamp: "15.02.2026 13:00", userEmail: "julia.hoffmann@wts.com", legalEntity: "Mülheim Pipecoatings GmbH (MPC)", action: 'Created legal entity "Mülheim Pipecoatings GmbH (MPC)"' },
   { id: "log-12", orgId: "europipe", timestamp: "18.02.2026 09:45", userEmail: "julia.hoffmann@wts.com", legalEntity: "EUROPIPE GmbH", action: "Added user sofia.rossi@europipe.com" },
+  { id: "log-13", orgId: "europipe", timestamp: "22.02.2026 10:15", userEmail: "julia.hoffmann@wts.com", legalEntity: "—", action: 'Changed representative of "DE VAT Group"', previous: "Mülheim Pipecoatings GmbH (MPC)", current: "EUROPIPE GmbH" },
+  { id: "log-14", orgId: "europipe", timestamp: "28.02.2026 14:40", userEmail: "markus.weber@wts.com", legalEntity: "—", action: "Re-enabled engagement 11288", previous: "Disabled", current: "Active" },
 ];
 
 export const LEGAL_FORMS = ["GmbH", "AG", "KGaA", "GmbH & Co. KG", "SE", "UG (haftungsbeschränkt)", "OHG"];

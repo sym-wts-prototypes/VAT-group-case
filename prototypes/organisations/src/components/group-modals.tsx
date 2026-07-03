@@ -36,13 +36,18 @@ import {
 // V10-G — only VAT + CIT remain; CIT reuses the violet tone that used to be Income tax.
 const groupTypeTone = (t: GroupType) => (t === 'VAT' ? 'blue' : 'violet')
 
+export interface CreateGroupMemberDraft {
+  entityId: string
+  validFrom: string
+  validTo: string | null
+}
+
 export interface CreateGroupDraft {
   name: string
   type: GroupType
   jurisdiction: string
-  memberEntityIds: string[]
+  members: CreateGroupMemberDraft[]
   representativeId: string
-  validFrom: string
 }
 
 /* ─── Create Group ───────────────────────────────────────────────────────── */
@@ -70,7 +75,10 @@ export function CreateGroupModal({
   const initialType: GroupType = (prefill?.type && !DISABLED_GROUP_TYPES.includes(prefill.type)) ? prefill.type : (enabledTypes[0] ?? 'VAT')
   const [type, setType] = useState<GroupType>(initialType)
   const [jurisdiction, setJurisdiction] = useState(prefill?.jurisdiction ?? 'Germany')
-  const [selected, setSelected] = useState<string[]>(prefill?.memberEntityId ? [prefill.memberEntityId] : [])
+  const [members, setMembers] = useState<CreateGroupMemberDraft[]>(
+    prefill?.memberEntityId ? [{ entityId: prefill.memberEntityId, validFrom: today(), validTo: null }] : [],
+  )
+  const selected = members.map((m) => m.entityId)
   const [repId, setRepId] = useState<string>(prefill?.memberEntityId ?? '')
   // V10-E — group name is pre-filled from the representative's legal name and stays in
   // lockstep until the user hand-edits it. Once edited, we stop overwriting on rep change.
@@ -90,15 +98,26 @@ export function CreateGroupModal({
   const duplicates = groups.filter((g) => g.orgId === orgId && g.type === type && g.jurisdiction === jurisdiction)
 
   const toggleMember = (id: string) => {
-    setSelected((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-      if (next.length === 1) setRepId(next[0])
-      else if (!next.includes(repId)) setRepId('')
+    setMembers((prev) => {
+      const exists = prev.some((m) => m.entityId === id)
+      const next = exists
+        ? prev.filter((m) => m.entityId !== id)
+        : [...prev, { entityId: id, validFrom: today(), validTo: null }]
+      if (next.length === 1) setRepId(next[0].entityId)
+      else if (!next.some((m) => m.entityId === repId)) setRepId('')
       return next
     })
   }
 
-  const canCreate = !!name.trim() && selected.length >= 1 && !!repId && selected.includes(repId)
+  const updateMember = (id: string, patch: Partial<CreateGroupMemberDraft>) =>
+    setMembers((prev) => prev.map((m) => (m.entityId === id ? { ...m, ...patch } : m)))
+
+  const canCreate =
+    !!name.trim() &&
+    members.length >= 1 &&
+    members.every((m) => !!m.validFrom) &&
+    !!repId &&
+    selected.includes(repId)
 
   const submit = () => {
     if (!canCreate) return
@@ -106,9 +125,8 @@ export function CreateGroupModal({
       name: name.trim(),
       type,
       jurisdiction,
-      memberEntityIds: selected,
+      members,
       representativeId: repId,
-      validFrom: today(),
     })
   }
 
@@ -118,7 +136,7 @@ export function CreateGroupModal({
         <DialogHeader>
           <DialogTitle className="font-display text-xl font-bold tracking-tight">Create Group</DialogTitle>
           <DialogDescription>
-            Members start today. There is no separate group start date.
+            Set each member's active-from date and an optional active-to date.
           </DialogDescription>
         </DialogHeader>
 
@@ -212,20 +230,40 @@ export function CreateGroupModal({
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Members</Label>
-            <div className="flex max-h-[220px] flex-col divide-y divide-neutral-100 overflow-auto rounded-lg border border-neutral-200">
+            <div className="flex max-h-[300px] flex-col divide-y divide-neutral-100 overflow-auto rounded-lg border border-neutral-200">
               {orgEntities.length === 0 ? (
                 <p className="px-3 py-4 text-[13px] text-neutral-500">No legal entities available.</p>
               ) : (
                 orgEntities.map((e) => {
-                  const checked = selected.includes(e.id)
+                  const member = members.find((m) => m.entityId === e.id)
+                  const checked = !!member
                   return (
-                    <label
-                      key={e.id}
-                      className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-neutral-50"
-                    >
-                      <Checkbox checked={checked} onCheckedChange={() => toggleMember(e.id)} />
-                      <span className="text-[14px] leading-5 text-neutral-900">{e.legalName}</span>
-                    </label>
+                    <div key={e.id} className="flex flex-col gap-2 px-3 py-2.5 hover:bg-neutral-50">
+                      <label className="flex cursor-pointer items-center gap-3">
+                        <Checkbox checked={checked} onCheckedChange={() => toggleMember(e.id)} />
+                        <span className="text-[14px] leading-5 text-neutral-900">{e.legalName}</span>
+                      </label>
+                      {checked && member && (
+                        <div className="grid grid-cols-2 gap-3 pl-7">
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-[12px] text-neutral-500">Active from</Label>
+                            <Input
+                              type="date"
+                              value={member.validFrom}
+                              onChange={(ev) => updateMember(e.id, { validFrom: ev.target.value })}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-[12px] text-neutral-500">Active to (optional)</Label>
+                            <Input
+                              type="date"
+                              value={member.validTo ?? ''}
+                              onChange={(ev) => updateMember(e.id, { validTo: ev.target.value || null })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )
                 })
               )}

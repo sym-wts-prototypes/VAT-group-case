@@ -38,7 +38,14 @@ export function WtsAppShell({
       <WtsTopNav />
       <div className="flex min-h-0 flex-1">
         <WtsSidebar {...sidebar} />
-        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <div
+          className={cn(
+            'relative flex min-w-0 flex-1 flex-col bg-background',
+            // Fullscreen pins the shell to the viewport, so the content area must own
+            // the vertical scroll. Non-fullscreen keeps clipping (the page scrolls).
+            fullscreen ? 'overflow-y-auto' : 'overflow-hidden',
+          )}
+        >
           {children}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { WtsAppShell } from '@wts/app-shell'
+import { SIDEBAR_ORGANISATIONS_ID, WtsAppShell } from '@wts/app-shell'
 
 import { ControlPanel } from '@/components/controls/ControlPanel'
 
@@ -34,7 +34,14 @@ export function PlaygroundView() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const sidebar = { activeItemId: 'home' as const }
+  // Tell the embedding gallery to hide its chrome so fullscreen fills the whole window.
+  useEffect(() => {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'wts:fullscreen', value: controlsHidden }, '*')
+    }
+  }, [controlsHidden])
+
+  const sidebar = { activeItemId: SIDEBAR_ORGANISATIONS_ID }
 
   if (controlsHidden) {
     return (

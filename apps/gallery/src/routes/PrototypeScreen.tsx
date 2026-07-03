@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Layers, ExternalLink, Figma, Check } from 'lucide-react'
 import { entryUrl, screenUrl } from '@wts/prototype-kit'
@@ -12,7 +12,20 @@ export function PrototypeScreen() {
   const prototype = getPrototype(prototypeId)
   const [activeId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // When the embedded prototype toggles fullscreen (Cmd/Ctrl+Shift+H), it posts a
+  // message; we drop all gallery chrome and let the iframe cover the whole window.
+  const [immersive, setImmersive] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'wts:fullscreen') {
+        setImmersive(Boolean(event.data.value))
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
 
   const currentScreen = useMemo(() => {
     if (!prototype) return undefined
@@ -55,7 +68,10 @@ export function PrototypeScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-3 border-b bg-background px-4">
+      <div
+        className="flex h-11 shrink-0 items-center gap-3 border-b bg-background px-4"
+        hidden={immersive}
+      >
         <Link to="/" className="text-xs text-muted-foreground hover:underline">
           ← All prototypes
         </Link>
@@ -107,7 +123,13 @@ export function PrototypeScreen() {
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>
-      <div className="min-h-0 flex-1 bg-muted/40">
+      <div
+        className={
+          immersive
+            ? 'fixed inset-0 z-50 bg-background'
+            : 'min-h-0 flex-1 bg-muted/40'
+        }
+      >
         <iframe
           ref={iframeRef}
           key={prototype.id}

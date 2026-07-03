@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, Ban, AlertTriangle, ChevronDown, Check, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@wts/ui";
-import { Engagement, EngagementStatus, LegalEntity, ServiceLineAssignment, SERVICE_CATALOGUE } from "./org-details-data";
+import { Engagement, EngagementStatus, LegalEntity, ServiceLineAssignment, ServiceFrequency, SERVICE_CATALOGUE, SERVICE_FREQUENCIES } from "./org-details-data";
 
 /* ─── Shared modal shell ─────────────────────────────────────────────────── */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -124,57 +124,78 @@ export interface EngagementDraft {
   endDate: string;
 }
 
-/* ─── Service Lines editor — chip multi-select ─────────────────────────────
-   V8-A — every service line is a togglable badge. Case types were removed from the
-   engagement form, so a row is now just `{ serviceLine, caseTypes: [] }`; downstream
-   consumers keep working via the empty `caseTypes` array. */
+/* ─── Service Lines editor — add-row list (mirrors the Legal Entity TIN VAT add) ──
+   Each row is a Service Line + Frequency pair; rows are added freely without
+   constraints (duplicates allowed), like the entity's VAT-registration editor. */
 function ServiceLinesEditor({ rows, onChange }: { rows: ServiceLineAssignment[]; onChange: (rows: ServiceLineAssignment[]) => void }) {
-  const selected = new Set(rows.map((r) => r.serviceLine));
-  function toggle(key: string) {
-    if (selected.has(key)) {
-      onChange(rows.filter((r) => r.serviceLine !== key));
-    } else {
-      onChange([...rows, { serviceLine: key, caseTypes: [] }]);
-    }
+  function addRow() {
+    onChange([...rows, { serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }]);
+  }
+  function updateRow(i: number, patch: Partial<ServiceLineAssignment>) {
+    onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function removeRow(i: number) {
+    onChange(rows.filter((_, idx) => idx !== i));
   }
   return (
     <div>
-      <span className="text-neutral-700 text-[14px] leading-[20px] font-medium block mb-3">Service Lines</span>
-      <div className="flex flex-wrap gap-2">
-        {SERVICE_CATALOGUE.map((s) => {
-          const on = selected.has(s.key);
-          return (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => toggle(s.key)}
-              aria-pressed={on}
-              className={`items-center inline-flex gap-1.5 px-3 py-1.5 rounded-full border text-[13px] leading-[18px] transition-colors ${
-                on
-                  ? "bg-primary text-white border-primary"
-                  : "bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50"
-              }`}
-            >
-              {s.label}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-neutral-700 text-[14px] leading-[20px] font-medium">Service Lines</span>
+        <button
+          type="button"
+          onClick={addRow}
+          className="items-center flex gap-1.5 text-[13px] leading-[18px] text-brand hover:opacity-80"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add service line
+        </button>
       </div>
-      {rows.length === 0 && (
-        <p className="text-neutral-400 text-[12px] leading-[16px] mt-2">Select one or more service lines.</p>
+      {rows.length === 0 ? (
+        <p className="text-neutral-400 text-[13px] leading-[18px]">
+          No service lines added yet. Use <span className="font-medium">Add service line</span> to add one.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-[2fr_1fr_36px] gap-2 text-[12px] leading-[16px] text-neutral-500 font-medium px-1">
+            <span>Service Line</span>
+            <span>Frequency</span>
+            <span />
+          </div>
+          {rows.map((row, i) => (
+            <div key={i} className="grid grid-cols-[2fr_1fr_36px] gap-2 items-center">
+              <Select value={row.serviceLine} onChange={(v) => updateRow(i, { serviceLine: v })}>
+                {SERVICE_CATALOGUE.map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
+              </Select>
+              <Select value={row.frequency ?? "Yearly"} onChange={(v) => updateRow(i, { frequency: v as ServiceFrequency })}>
+                {SERVICE_FREQUENCIES.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </Select>
+              <button
+                type="button"
+                onClick={() => removeRow(i)}
+                aria-label="Remove service line"
+                className="items-center flex justify-center w-9 h-9 text-neutral-400 hover:text-brand hover:bg-red-50 rounded-lg border border-neutral-200"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-/* ─── Service Lines display cell — chip-style, one per selected line (V8-A) ─ */
+/* ─── Service Lines display cell — chip per line, showing frequency when set ─ */
 export function ServiceLinesCell({ serviceLines }: { serviceLines: ServiceLineAssignment[] }) {
   if (!serviceLines || serviceLines.length === 0) return <span className="text-neutral-400">—</span>;
   return (
     <span className="flex flex-wrap gap-1">
       {serviceLines.map((s, i) => (
         <span key={i} className="items-center inline-flex bg-neutral-50 border border-neutral-200 text-neutral-700 text-[12px] leading-[16px] px-2 py-0.5 rounded-full font-medium">
-          {s.serviceLine}
+          {s.serviceLine}{s.frequency ? ` · ${s.frequency}` : ""}
         </span>
       ))}
     </span>
@@ -183,7 +204,7 @@ export function ServiceLinesCell({ serviceLines }: { serviceLines: ServiceLineAs
 
 /* ─── Create Engagement Modal ────────────────────────────────────────────── */
 export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (d: EngagementDraft) => void }) {
-  const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [] }], status: "Active", startDate: "", endDate: "" });
+  const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }], status: "Active", startDate: "", endDate: "" });
   const set = (k: keyof EngagementDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
   // V8-A — case types were removed from the engagement form; a row is valid on its service line alone.
   const valid = draft.contractRef.trim() && draft.startDate && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine);
@@ -221,7 +242,7 @@ export function EditEngagementModal({
 }: { engagement: Engagement; entities: LegalEntity[]; onClose: () => void; onSubmit: (d: EngagementDraft) => void; onOpenEntity?: (id: string) => void }) {
   const [draft, setDraft] = useState<EngagementDraft>({
     contractRef: engagement.contractRef,
-    serviceLines: engagement.serviceLines.map((s) => ({ serviceLine: s.serviceLine, caseTypes: [...s.caseTypes] })),
+    serviceLines: engagement.serviceLines.map((s) => ({ serviceLine: s.serviceLine, caseTypes: [...s.caseTypes], frequency: s.frequency })),
     status: engagement.status,
     startDate: toInputDate(engagement.startDate),
     endDate: engagement.endDate ? toInputDate(engagement.endDate) : "",
@@ -360,7 +381,7 @@ export function AssignEngagementModal({
                   <th className="px-3 py-2.5 text-[13px]">Status</th>
                   <th className="px-3 py-2.5 text-[13px]">Start Date</th>
                   <th className="px-3 py-2.5 text-[13px]">End Date</th>
-                  <th className="px-3 py-2.5 text-[13px]">Service Line · Case Types</th>
+                  <th className="px-3 py-2.5 text-[13px]">Service Lines</th>
                 </tr>
               </thead>
               <tbody>

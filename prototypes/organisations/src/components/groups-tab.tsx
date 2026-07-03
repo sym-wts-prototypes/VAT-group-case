@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  EmptyState,
   cn,
 } from '@wts/ui'
 
@@ -104,14 +105,40 @@ export function GroupsTab({
 }: GroupsTabProps) {
   const selected = groups.find((g) => g.id === selectedId) ?? null
 
+  // No groups yet: show a single prompt-only empty state — no sidebar, no repeated
+  // actions. The single CTA is the only way to create the first group.
+  if (groups.length === 0) {
+    return (
+      <div className="flex grow flex-col bg-white p-6" style={{ minHeight: 'calc(100vh - 200px)' }}>
+        <EmptyState
+          icon={<Building2 className="size-6 text-muted-foreground" />}
+          title="No groups yet"
+          description="Create the first VAT or CIT group for this organization to consolidate its legal entities."
+          action={
+            canManage ? (
+              <Button onClick={onAddGroup}>
+                <Plus className="h-4 w-4" /> Add Group
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex grow overflow-hidden" style={{ minHeight: 'calc(100vh - 200px)' }}>
       {/* Left: group list */}
       <div className="flex w-[288px] shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-white">
-        <div className="flex items-center justify-between border-b border-neutral-100 px-3 py-2.5">
-          <p className="pl-1 text-[11px] font-medium uppercase leading-4 tracking-wide text-neutral-400">
+        <div className="flex items-center justify-between gap-2 border-b border-neutral-100 px-3 py-2.5">
+          <p className="pl-1 text-[11px] font-medium uppercase leading-4 tracking-wide text-neutral-400 shrink-0">
             Groups
           </p>
+          {canManage && (
+            <Button type="button" variant="outline" size="sm" onClick={onAddGroup}>
+              <Plus className="size-4" /> Add Group
+            </Button>
+          )}
         </div>
         <div className="flex grow flex-col gap-2 overflow-auto p-3">
           {groups.length === 0 ? (
@@ -147,25 +174,18 @@ export function GroupsTab({
               })}
             </div>
           )}
-          {canManage && (
-            <Button type="button" variant="outline" onClick={onAddGroup} className="mt-1 border-dashed">
-              <Plus className="size-4" /> Add group
-            </Button>
-          )}
         </div>
       </div>
 
       {/* Right: group detail */}
       <div className="flex grow flex-col overflow-auto bg-white">
         {!selected ? (
-          <div className="flex grow items-center justify-center px-6 py-20">
-            <div className="flex max-w-[360px] flex-col items-center gap-2 text-center">
-              <Building2 className="h-7 w-7 text-neutral-300" />
-              <p className="font-display text-[16px] font-bold text-primary">No group selected</p>
-              <p className="text-[14px] leading-5 text-neutral-500">
-                Select a group from the list to view its members, or add a new one.
-              </p>
-            </div>
+          <div className="flex grow flex-col p-6">
+            <EmptyState
+              icon={<Building2 className="size-6 text-muted-foreground" />}
+              title="No group selected"
+              description="Select a group from the list to view its members, or add a new one."
+            />
           </div>
         ) : (
           <GroupDetail

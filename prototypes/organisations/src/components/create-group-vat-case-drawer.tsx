@@ -18,6 +18,7 @@ import {
 import { LegalEntity } from './org-details-data'
 import { COUNTRIES, Group, registrationsForEntity, representativeOf } from './org-details-data'
 import { SelectableUser, UserSelect } from './user-select'
+import { VatSchedulerModal } from './vat-scheduler-modal'
 
 // VAT-only slice of the reference platform's "Create case" drawer (see
 // reference/WTS20Platform/src/components/case-management/create-case-drawer.tsx). Service
@@ -65,6 +66,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
   const [reviewerId, setReviewerId] = useState<string | undefined>(DEFAULT_REVIEWER_ID)
   const [partnerIds, setPartnerIds] = useState<string[]>([])
   const [clientId, setClientId] = useState<string | undefined>(DEFAULT_CLIENT_ID)
+  const [schedulerOpen, setSchedulerOpen] = useState(false)
 
   // Reset to a fresh prefill every time the drawer opens, rather than persisting stale
   // picks from a previous open (mirrors the reference drawer's reset-on-close behavior).
@@ -97,13 +99,16 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
 
   const caseNamePreview = caseType ? `VAT | ${caseType}` : null
 
+  const creatorName = DUMMY_USERS.find((u) => u.id === creatorId)?.name ?? ''
+  const reviewerName = DUMMY_USERS.find((u) => u.id === reviewerId)?.name ?? ''
+  const partnerNames = partnerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const clientName = DUMMY_USERS.find((u) => u.id === clientId)?.name ?? ''
+
   const handleClose = () => onOpenChange(false)
 
-  const handleSubmit = () => {
+  const handleOpenScheduler = () => {
     if (!canCreate) return
-    // No backend yet — the reference's VAT-scheduler follow-on modal is a separate,
-    // larger piece of work deferred for a later pass. For now, creating just closes.
-    handleClose()
+    setSchedulerOpen(true)
   }
 
   return (
@@ -249,7 +254,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
             size="lg"
             className="w-full"
             disabled={!canCreate}
-            onClick={handleSubmit}
+            onClick={handleOpenScheduler}
             data-testid="create-vat-case-submit"
           >
             VAT Scheduler
@@ -266,6 +271,21 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
           </Button>
         </SheetFooter>
       </SheetContent>
+
+      <VatSchedulerModal
+        open={schedulerOpen}
+        onOpenChange={setSchedulerOpen}
+        onCreated={handleClose}
+        legalEntityName={legalEntityName}
+        jurisdiction={jurisdiction}
+        vatRegistration={vatRegistration}
+        projectCode={projectCode}
+        caseTypeLabel={caseType}
+        creatorName={creatorName}
+        reviewerName={reviewerName}
+        partnerNames={partnerNames}
+        clientName={clientName}
+      />
     </Sheet>
   )
 }

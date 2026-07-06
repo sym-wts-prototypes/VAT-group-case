@@ -56,6 +56,10 @@ interface DemoState {
   bucketMarkAsDoneChecked: boolean
   /** Client bucket ↔ WTS category (Category 1 / Category 2). */
   selectedRequirementCategoryId: string
+  // Playground-only toggle — swaps PlaygroundMain over to the Case Management page.
+  // Deliberately not synced to the URL hash: the hash format above only carries
+  // process/role/headerType/phase, and this is a demo toggle, not worth deep-linking yet.
+  showCaseManagement: boolean
   setProcess: (p: Process) => void
   setRole: (r: Role) => void
   setHeaderType: (h: HeaderType) => void
@@ -68,6 +72,7 @@ interface DemoState {
   setPackageReviewOutcome: (outcome: PackageReviewOutcome) => void
   setBucketMarkAsDoneChecked: (checked: boolean) => void
   setSelectedRequirementCategoryId: (id: string) => void
+  setShowCaseManagement: (show: boolean) => void
 }
 
 const DEFAULTS = {
@@ -84,6 +89,7 @@ const DEFAULTS = {
   packageReviewOutcome: 'default' as PackageReviewOutcome,
   bucketMarkAsDoneChecked: false,
   selectedRequirementCategoryId: DEFAULT_REQUIREMENT_CATEGORY_ID,
+  showCaseManagement: false,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -296,6 +302,7 @@ const initialState = reconcile(parseHash(), {
   setPackageReviewOutcome: () => {},
   setBucketMarkAsDoneChecked: () => {},
   setSelectedRequirementCategoryId: () => {},
+  setShowCaseManagement: () => {},
 })
 
 export const useDemoStore = create<DemoState>((set) => ({
@@ -333,6 +340,8 @@ export const useDemoStore = create<DemoState>((set) => ({
     set((prev) => ({ ...prev, bucketMarkAsDoneChecked })),
   setSelectedRequirementCategoryId: (selectedRequirementCategoryId) =>
     set((prev) => ({ ...prev, selectedRequirementCategoryId })),
+  setShowCaseManagement: (showCaseManagement) =>
+    set((prev) => ({ ...prev, showCaseManagement })),
 }))
 
 export function useHashSync() {

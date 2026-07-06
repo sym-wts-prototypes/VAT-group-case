@@ -2,6 +2,9 @@ import { useState } from 'react'
 
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
+import { CaseManagementPage } from '@/components/case-management-page'
+import { GROUPS, LEGAL_ENTITIES } from '@/components/org-details-data'
+import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
@@ -38,12 +41,18 @@ export function PlaygroundMain() {
     packageReviewOutcome,
     bucketMarkAsDoneChecked,
     selectedRequirementCategoryId,
+    showCaseManagement,
     setHeaderType,
     setBucketMarkAsDoneChecked,
     setSelectedRequirementCategoryId,
     setPhase,
   } = useDemoStore()
   const [closeCaseOpen, setCloseCaseOpen] = useState(false)
+
+  if (showCaseManagement) {
+    return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
+  }
+
   const ctx = { process, platform, role, headerType, phase }
   const resolved = resolveHeader(ctx)
   const packageBannerState =

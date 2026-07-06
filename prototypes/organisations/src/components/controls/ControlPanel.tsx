@@ -1,5 +1,5 @@
 import { ShieldCheck, Building, Briefcase, User, CircleDashed, Shuffle, Database } from 'lucide-react'
-import { cn, Switch } from '@wts/ui'
+import { cn } from '@wts/ui'
 
 import { useOrgStore } from '@/store/useOrgStore'
 import type { DataMode } from '@/components/demo-data'
@@ -28,8 +28,6 @@ export function ControlPanel() {
   const setRole = useOrgStore((state) => state.setRole)
   const dataMode = useOrgStore((state) => state.dataMode)
   const setDataMode = useOrgStore((state) => state.setDataMode)
-  const showCaseManagement = useOrgStore((state) => state.showCaseManagement)
-  const setShowCaseManagement = useOrgStore((state) => state.setShowCaseManagement)
   const description = ROLES.find((r) => r.value === role)?.description
   const dataDescription = DATA_MODES.find((m) => m.value === dataMode)?.description
 
@@ -107,19 +105,6 @@ export function ControlPanel() {
             {dataDescription}
           </p>
         )}
-      </div>
-
-      <div className="flex flex-col gap-1.5 border-t border-border pt-4">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          View
-        </span>
-        <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-          <span className="text-[13px] font-medium text-foreground">Case Management page</span>
-          <Switch checked={showCaseManagement} onCheckedChange={setShowCaseManagement} />
-        </label>
-        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-          Swaps in the full case list, independent of the organisations/groups scenario above.
-        </p>
       </div>
     </div>
   )

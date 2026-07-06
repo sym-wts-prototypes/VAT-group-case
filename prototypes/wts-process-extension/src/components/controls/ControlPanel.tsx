@@ -17,7 +17,7 @@ import {
 import { useDemoStore } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
-import { CheckboxField } from '@wts/ui'
+import { CheckboxField, Switch } from '@wts/ui'
 import { OptionPills } from './OptionPills'
 import { PhaseRadios } from './PhaseRadios'
 import { ProcessTabs } from './ProcessTabs'
@@ -60,6 +60,7 @@ export function ControlPanel() {
     assessmentsState,
     protocolConfirmationChecked,
     packageReviewOutcome,
+    showCaseManagement,
     setProcess,
     setRole,
     setHeaderType,
@@ -70,6 +71,7 @@ export function ControlPanel() {
     setAssessmentsState,
     setProtocolConfirmationChecked,
     setPackageReviewOutcome,
+    setShowCaseManagement,
   } = useDemoStore()
 
   const showTasksDoneControl = isCaseTasksGateActive(
@@ -216,6 +218,19 @@ export function ControlPanel() {
           onCheckedChange={setApprovedChecked}
         />
       )}
+
+      <div className="flex flex-col gap-1.5 border-t border-border pt-4">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          View
+        </span>
+        <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+          <span className="text-[13px] font-medium text-foreground">Case Management page</span>
+          <Switch checked={showCaseManagement} onCheckedChange={setShowCaseManagement} />
+        </label>
+        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+          Swaps in the full case list, independent of the CIT Assessment &amp; Closure demo above.
+        </p>
+      </div>
     </div>
   )
 }

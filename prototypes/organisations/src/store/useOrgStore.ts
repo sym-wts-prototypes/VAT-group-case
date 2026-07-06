@@ -15,14 +15,9 @@ interface OrgState {
   role: Role
   dataMode: DataMode
   selectedOrgId: string | null
-  // Playground-only toggle — swaps the whole view over to the Case Management page.
-  // Deliberately not synced to the URL hash: the hash format below only carries
-  // role + selectedOrgId, and this is a demo toggle, not something worth deep-linking yet.
-  showCaseManagement: boolean
   setRole: (role: Role) => void
   setDataMode: (mode: DataMode) => void
   setSelectedOrgId: (id: string | null) => void
-  setShowCaseManagement: (show: boolean) => void
 }
 
 const ROLE_TO_SLUG: Record<Role, string> = {
@@ -56,12 +51,10 @@ export const useOrgStore = create<OrgState>((set) => ({
   role: 'Super Admin',
   dataMode: 'mixed',
   selectedOrgId: null,
-  showCaseManagement: false,
   setRole: (role) => set({ role, selectedOrgId: null }),
   // Switching dataset returns to the organisation list so the new seed is visible.
   setDataMode: (dataMode) => set({ dataMode, selectedOrgId: null }),
   setSelectedOrgId: (selectedOrgId) => set({ selectedOrgId }),
-  setShowCaseManagement: (showCaseManagement) => set({ showCaseManagement }),
 }))
 
 /** Hook: two-way sync between store and window.location.hash. */

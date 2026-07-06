@@ -71,6 +71,22 @@ export {
   DrawerDescription,
 } from './drawer'
 export {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from './sheet'
+export { Popover, PopoverTrigger, PopoverContent } from './popover'
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip'
+export { DatePicker, type DatePickerProps } from './date-picker'
+export { DateRangePicker, type DateRangePickerProps } from './date-range-picker'
+export {
   Table,
   TableHeader,
   TableBody,

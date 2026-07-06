@@ -26,22 +26,27 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | Checkbox | shadcn (Radix) | `checkbox.figma.tsx` | Bare control; see CheckboxField for card layout |
 | CheckboxField | WTS custom | `checkbox.figma.tsx` | Card layout (label + description) wrapping Checkbox |
 | DataTable | WTS custom | `data-table.figma.tsx` | TanStack Table |
-| Drawer | shadcn | `drawer.figma.tsx` | vaul |
+| DatePicker | WTS custom | — | Single date; Popover + Calendar composite |
+| DateRangePicker | WTS custom | — | Date range; Popover + Calendar (`mode="range"`) composite |
+| Drawer | shadcn | `drawer.figma.tsx` | vaul; bottom-anchored only — use Sheet for a side panel |
 | DropdownMenu | shadcn | `dropdown-menu.figma.tsx` | |
 | Dropzone | WTS custom | — | Simple drag-and-drop area |
 | FileDropzone | WTS custom | — | Rich: validation, progress bar, error, template download |
 | Input | shadcn | `input.figma.tsx` | |
 | Label | shadcn | — | |
 | OptionPills | WTS custom | — | Pill-styled radio group (filled primary when selected) |
+| Popover | shadcn (Radix) | — | Floating panel primitive; backs DatePicker/DateRangePicker |
 | RadioGroup | shadcn (Radix) | — | Bare Radix radio group |
 | RadioPills | WTS custom | — | Vertical native-radio group with label |
 | SegmentedTabs | WTS custom | — | Segmented control with optional count badge |
 | Select | shadcn | `select.figma.tsx` | |
 | SelectField | WTS custom | — | Select with label/info/description/error |
 | Separator | shadcn | `separator.figma.tsx` | |
+| Sheet | shadcn (Radix dialog) | — | Side-anchored panel (drawer); `side` = top/bottom/left/right |
 | Stepper | WTS custom | — | Horizontal; finished/inProgress/notStarted/disabled states |
 | Switch | shadcn (Radix) | `switch.figma.tsx` | Bare control; see SwitchField for card layout |
 | SwitchField | WTS custom | `switch.figma.tsx` | Card layout (label + description + labelPosition) |
 | Table | shadcn | `table.figma.tsx` | |
 | Tabs | shadcn (Radix) | — | Generic Radix tabs; see SegmentedTabs for project pattern |
 | Textarea | shadcn | `textarea.figma.tsx` | |
+| Tooltip | shadcn (Radix) | — | Wrap trigger in `TooltipProvider` |

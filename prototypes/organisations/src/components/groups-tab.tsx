@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, Crown, MoreHorizontal, Plus, Trash2, UserPlus, X } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Crown, FileText, MoreHorizontal, Plus, Trash2, UserPlus, X } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -12,6 +12,7 @@ import {
   cn,
 } from '@wts/ui'
 
+import { CreateGroupVatCaseDrawer } from './create-group-vat-case-drawer'
 import { LegalEntity } from './org-details-data'
 import {
   ConsolidationStatus,
@@ -224,6 +225,9 @@ function GroupDetail({
   const inactives = inactiveMembers(group)
   const start = groupStart(group)
   const isGermanVat = group.type === 'VAT' && group.jurisdiction === 'Germany'
+  // Create-group-VAT-case drawer — VAT groups only, mirrors the reference platform's
+  // Create Case drawer (VAT branch). See create-group-vat-case-drawer.tsx.
+  const [vatCaseOpen, setVatCaseOpen] = useState(false)
   // V11-E — confirmation dialog state. One pending action at a time.
   const [confirm, setConfirm] = useState<
     | { kind: 'promote'; entityId: string; entityName: string }
@@ -272,27 +276,37 @@ function GroupDetail({
           </p>
         )}
         </div>
-        {/* V11-E — group-level 3-dot menu with Delete group action. */}
-        {/* modal={false} — the Delete item opens a ConfirmDialog; avoids Radix leaving
-            `pointer-events: none` stuck on <body> when menu-close races dialog-open. */}
-        {canManage && onDeleteGroup && (
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger
-              aria-label={`Actions for group ${group.name}`}
-              className="items-center flex justify-center w-8 h-8 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[160px]">
-              <DropdownMenuItem
-                onSelect={() => setConfirm({ kind: 'delete' })}
-                className="text-brand focus:text-brand focus:bg-red-50"
+        <div className="flex items-center gap-2">
+          {/* Placeholder VAT-case creation entry point — VAT groups only. Opens a drawer
+              cloning the reference platform's Create Case drawer (VAT branch); expect this
+              to change as the feature is built out further. */}
+          {canManage && group.type === 'VAT' && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setVatCaseOpen(true)}>
+              <FileText className="size-4" /> Create a group VAT case
+            </Button>
+          )}
+          {/* V11-E — group-level 3-dot menu with Delete group action. */}
+          {/* modal={false} — the Delete item opens a ConfirmDialog; avoids Radix leaving
+              `pointer-events: none` stuck on <body> when menu-close races dialog-open. */}
+          {canManage && onDeleteGroup && (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger
+                aria-label={`Actions for group ${group.name}`}
+                className="items-center flex justify-center w-8 h-8 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Delete group
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                <MoreHorizontal className="w-4 h-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuItem
+                  onSelect={() => setConfirm({ kind: 'delete' })}
+                  className="text-brand focus:text-brand focus:bg-red-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete group
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {/* Representative callout */}
@@ -475,6 +489,13 @@ function GroupDetail({
             )}
           </>
         }
+      />
+
+      <CreateGroupVatCaseDrawer
+        open={vatCaseOpen}
+        onOpenChange={setVatCaseOpen}
+        group={group}
+        entities={entities}
       />
     </div>
   )

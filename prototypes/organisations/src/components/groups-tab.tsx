@@ -273,8 +273,10 @@ function GroupDetail({
         )}
         </div>
         {/* V11-E — group-level 3-dot menu with Delete group action. */}
+        {/* modal={false} — the Delete item opens a ConfirmDialog; avoids Radix leaving
+            `pointer-events: none` stuck on <body> when menu-close races dialog-open. */}
         {canManage && onDeleteGroup && (
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger
               aria-label={`Actions for group ${group.name}`}
               className="items-center flex justify-center w-8 h-8 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"

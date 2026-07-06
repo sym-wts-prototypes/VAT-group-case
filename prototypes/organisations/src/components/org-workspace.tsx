@@ -1462,7 +1462,10 @@ export function EntityUsersSection({
 // to the document body so it renders above overflow containers (fixes the last-row clipping).
 export function RowActionsMenu({ children, ariaLabel = "Row actions" }: { children: React.ReactNode; ariaLabel?: string }) {
   return (
-    <DropdownMenu>
+    // modal={false} — several items open a confirmation dialog via onSelect. In modal
+    // mode Radix locks body pointer-events, and closing the menu + opening the dialog can
+    // race, leaving `pointer-events: none` stuck on <body> so no menu opens afterwards.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         aria-label={ariaLabel}
         className="items-center flex justify-center w-8 h-8 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"

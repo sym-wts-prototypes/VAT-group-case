@@ -85,7 +85,9 @@ export function OrganizationCard({
 
         {showActions && (
           <div onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
+            {/* modal={false} — the Disable item opens a ConfirmDialog; avoids Radix leaving
+                `pointer-events: none` on <body> when menu-close races dialog-open. */}
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"

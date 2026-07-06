@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { InfoIcon, Minus, Plus, UploadIcon } from 'lucide-react'
+import { InfoIcon, Minus, Plus, Search, UploadIcon } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -97,6 +98,7 @@ export function VatSchedulerModal({
   const [templateFileName, setTemplateFileName] = useState<string | undefined>(undefined)
   // Client Approval rule per legal entity — defaults to skipped (false/absent) for everyone.
   const [approvalByEntityId, setApprovalByEntityId] = useState<Record<string, boolean>>({})
+  const [entitySearch, setEntitySearch] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -111,10 +113,19 @@ export function VatSchedulerModal({
     setDeadlineExtension(false)
     setTemplateFileName(undefined)
     setApprovalByEntityId({})
+    setEntitySearch('')
   }, [open])
 
   const toggleApproval = (entityId: string) =>
     setApprovalByEntityId((prev) => ({ ...prev, [entityId]: !prev[entityId] }))
+
+  const visibleGroupMembers = useMemo(() => {
+    const q = entitySearch.trim().toLowerCase()
+    if (!q) return groupMembers
+    return groupMembers.filter((m) => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
+  }, [groupMembers, entitySearch])
+
+  const approvedCount = groupMembers.filter((m) => approvalByEntityId[m.id]).length
 
   const schedulePayload = useMemo(
     () => ({
@@ -194,10 +205,6 @@ export function VatSchedulerModal({
             <DialogDescription className="sr-only">VAT Group Scheduler</DialogDescription>
           </DialogHeader>
 
-          <p className="border-b px-6 py-3 text-muted-foreground text-sm">
-            This will create cases for the selected time period for each member of the selected group.
-          </p>
-
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -207,21 +214,35 @@ export function VatSchedulerModal({
           >
             {/* Client Approval rule per legal entity in the group — defaults to skipped */}
             <div className="flex flex-col gap-2">
-              <p className="font-medium text-foreground text-sm">Legal entities</p>
-              <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
-                {groupMembers.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between gap-4 px-3 py-2.5">
-                    <span className="text-foreground text-sm">{m.name}</span>
-                    <label className="flex cursor-pointer items-center gap-2 text-muted-foreground text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-medium text-foreground text-sm">Select Legal Entities that require Client Approval</p>
+                <div className="relative w-56 shrink-0">
+                  <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={entitySearch}
+                    onChange={(e) => setEntitySearch(e.target.value)}
+                    placeholder="Search legal entities…"
+                    className="h-8 pl-8"
+                  />
+                </div>
+              </div>
+              <div className="max-h-60 overflow-y-auto rounded-md border border-border">
+                <div className="flex flex-col divide-y divide-border">
+                  {visibleGroupMembers.map((m) => (
+                    <div key={m.id} className="flex items-center justify-between gap-4 px-3 py-2.5">
+                      <span className="text-foreground text-sm">{m.name}</span>
                       <Checkbox
+                        aria-label={`Requires Client Approval — ${m.name}`}
                         checked={!!approvalByEntityId[m.id]}
                         onCheckedChange={() => toggleApproval(m.id)}
                       />
-                      Requires Client Approval
-                    </label>
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
+              <p className="text-right text-muted-foreground text-sm">
+                {approvedCount} of {groupMembers.length} require approval
+              </p>
             </div>
 
             {/* Frequency + Scheduled period */}

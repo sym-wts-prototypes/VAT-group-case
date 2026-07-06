@@ -46,6 +46,8 @@ const SummaryRow = ({ label, value }: { label: string; value: string }) => (
 export interface GroupMember {
   id: string
   name: string
+  /** The group's single Representative Legal Entity — badged, informational only. */
+  isRepresentative?: boolean
 }
 
 export interface VatSchedulerModalProps {
@@ -230,7 +232,14 @@ export function VatSchedulerModal({
                 <div className="flex flex-col divide-y divide-border">
                   {visibleGroupMembers.map((m) => (
                     <div key={m.id} className="flex items-center justify-between gap-4 px-3 py-2.5">
-                      <span className="text-foreground text-sm">{m.name}</span>
+                      <span className="flex items-center gap-2 text-foreground text-sm">
+                        {m.name}
+                        {m.isRepresentative && (
+                          <Badge variant="soft" tone="blue" size="sm">
+                            Representative
+                          </Badge>
+                        )}
+                      </span>
                       <Checkbox
                         aria-label={`Requires Client Approval — ${m.name}`}
                         checked={!!approvalByEntityId[m.id]}

@@ -400,7 +400,7 @@ export const COUNTRIES = ["Germany", "Austria", "Belgium", "Switzerland", "Italy
 // Country → ISO-ish display code (matches the WTS mock; Poland shows "PO").
 export const COUNTRY_CODES: Record<string, string> = {
   Germany: "DE", Austria: "AT", Belgium: "BE", Switzerland: "CH", Italy: "IT",
-  France: "FR", Hungary: "HU", Netherlands: "NL", Spain: "ES", Poland: "PO",
+  France: "FR", Hungary: "HU", Netherlands: "NL", Spain: "ES", Poland: "PL",
 };
 export function countryCodeFor(country: string): string {
   return COUNTRY_CODES[country] ?? country.slice(0, 2).toUpperCase();

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useOrgStore } from '@/store/useOrgStore'
 import { Organization, OrgStatus } from '@/components/organizations-data'
 import { getDataset, OrgWorkspaceData } from '@/components/demo-data'
+import { CaseManagementPage } from '@/components/case-management-page'
 import { OrganizationsPage, OrgFormData } from '@/components/organizations-page'
 import { OrgWorkspace } from '@/components/org-workspace'
 
@@ -13,6 +14,7 @@ export function PlaygroundMain() {
   const dataMode = useOrgStore((state) => state.dataMode)
   const selectedOrgId = useOrgStore((state) => state.selectedOrgId)
   const setSelectedOrgId = useOrgStore((state) => state.setSelectedOrgId)
+  const showCaseManagement = useOrgStore((state) => state.showCaseManagement)
 
   const dataset = useMemo(() => getDataset(dataMode), [dataMode])
 
@@ -78,6 +80,10 @@ export function PlaygroundMain() {
     vatRegistrations: dataset.vatRegistrations,
     groups: dataset.groups,
     activityLog: dataset.activityLog,
+  }
+
+  if (showCaseManagement) {
+    return <CaseManagementPage organisations={orgs} groups={dataset.groups} entities={dataset.legalEntities} />
   }
 
   return selectedOrg ? (

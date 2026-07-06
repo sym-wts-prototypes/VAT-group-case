@@ -17,7 +17,7 @@ import {
 
 import { LegalEntity } from './org-details-data'
 import { activeMembers, COUNTRIES, Group, registrationsForEntity, representativeOf } from './org-details-data'
-import { INITIAL_ORGANIZATIONS } from './organizations-data'
+import { Organization } from './organizations-data'
 import { SelectableUser, UserSelect } from './user-select'
 import { VatSchedulerModal } from './vat-scheduler-modal'
 
@@ -47,20 +47,52 @@ const DEFAULT_CLIENT_ID = 'oscar-wilson'
 export interface CreateGroupVatCaseDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  group: Group
+  /**
+   * When provided, the drawer opens "locked" into this group's context (entry point: a
+   * specific group's detail view) — Organisation and Group are read-only. When omitted, the
+   * drawer opens "unlocked" (entry point: the general Case Management page) — the user picks
+   * an Organisation, then one of its VAT groups, from `organisations`/`groups`.
+   */
+  group?: Group
   entities: LegalEntity[]
+  organisations: Organization[]
+  groups: Group[]
 }
 
-export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }: CreateGroupVatCaseDrawerProps) {
-  const orgEntities = useMemo(() => entities.filter((e) => e.orgId === group.orgId), [entities, group.orgId])
-  // Legal entity and group are both fixed by the entry point (this drawer only ever opens
-  // from one specific group's detail view) — neither is user-editable.
-  const legalEntityId = useMemo(() => {
-    const rep = representativeOf(group)
-    return rep?.entityId ?? orgEntities[0]?.id ?? ''
-  }, [group, orgEntities])
+export function CreateGroupVatCaseDrawer({
+  open,
+  onOpenChange,
+  group,
+  entities,
+  organisations,
+  groups,
+}: CreateGroupVatCaseDrawerProps) {
+  const isLocked = !!group
 
-  const [jurisdiction, setJurisdiction] = useState(group.jurisdiction)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(group?.orgId)
+  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(group?.id)
+
+  const activeOrgId = group?.orgId ?? selectedOrgId
+  const activeGroup = group ?? groups.find((g) => g.id === selectedGroupId)
+
+  const orgEntities = useMemo(
+    () => (activeOrgId ? entities.filter((e) => e.orgId === activeOrgId) : []),
+    [entities, activeOrgId],
+  )
+
+  // Unlocked mode only: VAT groups belonging to whichever organisation is currently selected.
+  const availableGroups = useMemo(
+    () => (selectedOrgId ? groups.filter((g) => g.orgId === selectedOrgId && g.type === 'VAT') : []),
+    [groups, selectedOrgId],
+  )
+
+  const legalEntityId = useMemo(() => {
+    if (!activeGroup) return ''
+    const rep = representativeOf(activeGroup)
+    return rep?.entityId ?? orgEntities[0]?.id ?? ''
+  }, [activeGroup, orgEntities])
+
+  const [jurisdiction, setJurisdiction] = useState(group?.jurisdiction ?? '')
   const [caseType, setCaseType] = useState(CASE_TYPE_OPTIONS[0])
   const [projectCode, setProjectCode] = useState('')
   const [creatorId, setCreatorId] = useState<string | undefined>(DEFAULT_CREATOR_ID)
@@ -73,31 +105,43 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
   // picks from a previous open (mirrors the reference drawer's reset-on-close behavior).
   useEffect(() => {
     if (!open) return
-    setJurisdiction(group.jurisdiction)
+    setSelectedOrgId(group?.orgId)
+    setSelectedGroupId(group?.id)
     setCaseType(CASE_TYPE_OPTIONS[0])
     setProjectCode('')
     setCreatorId(DEFAULT_CREATOR_ID)
     setReviewerId(DEFAULT_REVIEWER_ID)
     setPartnerIds([])
     setClientId(DEFAULT_CLIENT_ID)
-  }, [open, group.jurisdiction])
+  }, [open, group])
+
+  // Jurisdiction follows whichever group is active — on open in locked mode, and whenever the
+  // user picks a different group in unlocked mode. Not reset alongside the fields above, so
+  // it doesn't stomp a manual edit if this effect hasn't re-fired.
+  useEffect(() => {
+    setJurisdiction(activeGroup?.jurisdiction ?? '')
+  }, [activeGroup])
 
   const legalEntity = orgEntities.find((e) => e.id === legalEntityId)
   const legalEntityName = legalEntity?.legalName ?? ''
   // The drawer/modal show the higher-level Organisation (e.g. "EUROPIPE"), never the
   // technical legal entity name (e.g. "EUROPIPE GmbH — DE registration").
-  const organisationName = INITIAL_ORGANIZATIONS.find((o) => o.id === group.orgId)?.name ?? legalEntityName
+  const organisationName = activeOrgId
+    ? (organisations.find((o) => o.id === activeOrgId)?.name ?? legalEntityName)
+    : ''
 
-  // Legal entities in the group — shown in the scheduler's Client Approval checklist,
-  // where individual entity names ARE shown (unlike the Organisation summary field above).
-  const groupMembers = useMemo(
-    () =>
-      activeMembers(group).map((m) => ({
-        id: m.entityId,
-        name: entities.find((e) => e.id === m.entityId)?.legalName ?? m.entityId,
-      })),
-    [group, entities],
-  )
+  // Legal entities in the group — shown in the scheduler's Client Approval checklist, where
+  // individual entity names ARE shown (unlike the Organisation summary field above). The
+  // group's representative is flagged so the scheduler can badge it.
+  const groupMembers = useMemo(() => {
+    if (!activeGroup) return []
+    const representativeId = representativeOf(activeGroup)?.entityId
+    return activeMembers(activeGroup).map((m) => ({
+      id: m.entityId,
+      name: entities.find((e) => e.id === m.entityId)?.legalName ?? m.entityId,
+      isRepresentative: m.entityId === representativeId,
+    }))
+  }, [activeGroup, entities])
 
   const vatRegistration = useMemo(() => {
     if (!legalEntityId) return ''
@@ -110,7 +154,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
   const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== creatorId)
 
   // Partner is optional and excluded on purpose — every other field here is required.
-  const canCreate = !!legalEntityId && !!group.id && !!caseType && !!creatorId && !!reviewerId && !!clientId
+  const canCreate = !!activeGroup && !!legalEntityId && !!caseType && !!creatorId && !!reviewerId && !!clientId
 
   const caseNamePreview = caseType ? `VAT | ${caseType}` : null
 
@@ -136,19 +180,55 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Organisation</Label>
-            <Input value={organisationName} disabled readOnly data-testid="create-vat-case-legal-entity" />
+            {isLocked ? (
+              <Input value={organisationName} disabled readOnly data-testid="create-vat-case-legal-entity" />
+            ) : (
+              <Select
+                value={selectedOrgId}
+                onValueChange={(val) => {
+                  setSelectedOrgId(val)
+                  setSelectedGroupId(undefined)
+                }}
+              >
+                <SelectTrigger data-testid="create-vat-case-legal-entity">
+                  <SelectValue placeholder="Select an organisation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organisations.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Select group</Label>
-            <Select value={group.id} disabled>
-              <SelectTrigger data-testid="create-vat-case-group">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={group.id}>{group.name}</SelectItem>
-              </SelectContent>
-            </Select>
+            {isLocked ? (
+              <Select value={group.id} disabled>
+                <SelectTrigger data-testid="create-vat-case-group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={group.id}>{group.name}</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select value={selectedGroupId} onValueChange={setSelectedGroupId} disabled={!selectedOrgId}>
+                <SelectTrigger data-testid="create-vat-case-group">
+                  <SelectValue placeholder={selectedOrgId ? 'Select a VAT group' : 'Select an organisation first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableGroups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -292,7 +372,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
         onOpenChange={setSchedulerOpen}
         onCreated={handleClose}
         organisationName={organisationName}
-        groupName={group.name}
+        groupName={activeGroup?.name ?? ''}
         jurisdiction={jurisdiction}
         vatRegistration={vatRegistration}
         projectCode={projectCode}

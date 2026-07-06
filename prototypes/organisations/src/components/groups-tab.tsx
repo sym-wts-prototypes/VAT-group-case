@@ -14,6 +14,7 @@ import {
 
 import { CreateGroupVatCaseDrawer } from './create-group-vat-case-drawer'
 import { LegalEntity } from './org-details-data'
+import { INITIAL_ORGANIZATIONS } from './organizations-data'
 import {
   ConsolidationStatus,
   Group,
@@ -185,6 +186,7 @@ export function GroupsTab({
           <GroupDetail
             group={selected}
             entities={entities}
+            groups={groups}
             onAddMembers={onAddMembers}
             onRemoveMember={onRemoveMember}
             onPromoteRep={onPromoteRep}
@@ -202,6 +204,7 @@ export function GroupsTab({
 function GroupDetail({
   group,
   entities,
+  groups,
   onAddMembers,
   onRemoveMember,
   onPromoteRep,
@@ -212,6 +215,7 @@ function GroupDetail({
 }: {
   group: Group
   entities: LegalEntity[]
+  groups: Group[]
   onAddMembers: (group: Group) => void
   onRemoveMember: (groupId: string, entityId: string) => void
   onPromoteRep: (groupId: string, entityId: string) => void
@@ -496,6 +500,8 @@ function GroupDetail({
         onOpenChange={setVatCaseOpen}
         group={group}
         entities={entities}
+        groups={groups}
+        organisations={INITIAL_ORGANIZATIONS}
       />
     </div>
   )

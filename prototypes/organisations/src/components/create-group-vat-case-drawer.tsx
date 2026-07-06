@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Badge,
   Button,
   Input,
   Label,
@@ -11,14 +10,13 @@ import {
   SelectValue,
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@wts/ui'
 
 import { LegalEntity } from './org-details-data'
-import { COUNTRIES, Group, SERVICE_CATALOGUE, registrationsForEntity, representativeOf } from './org-details-data'
+import { COUNTRIES, Group, registrationsForEntity, representativeOf } from './org-details-data'
 import { SelectableUser, UserSelect } from './user-select'
 
 // VAT-only slice of the reference platform's "Create case" drawer (see
@@ -26,7 +24,7 @@ import { SelectableUser, UserSelect } from './user-select'
 // line is fixed to VAT here since this button only exists on VAT groups — the CIT/HR-only
 // fields (fiscal year range, internal/statutory deadlines) don't apply and are omitted.
 // The reference's follow-on "VAT scheduler" modal is intentionally out of scope for now.
-const VAT_CASE_TYPES = SERVICE_CATALOGUE.find((s) => s.key === 'VAT')?.caseTypes ?? []
+const CASE_TYPE_OPTIONS = ['Return']
 
 // Dummy directory for the Creator/Reviewer/Partner/Client pickers — placeholder data until
 // this wires into a real user directory.
@@ -53,19 +51,19 @@ export interface CreateGroupVatCaseDrawerProps {
 
 export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }: CreateGroupVatCaseDrawerProps) {
   const orgEntities = useMemo(() => entities.filter((e) => e.orgId === group.orgId), [entities, group.orgId])
-  // Legal entity is fixed to the group's representative — this drawer is always opened
-  // from a specific legal entity's context, so it isn't user-editable.
+  // Legal entity and group are both fixed by the entry point (this drawer only ever opens
+  // from one specific group's detail view) — neither is user-editable.
   const legalEntityId = useMemo(() => {
     const rep = representativeOf(group)
     return rep?.entityId ?? orgEntities[0]?.id ?? ''
   }, [group, orgEntities])
 
   const [jurisdiction, setJurisdiction] = useState(group.jurisdiction)
-  const [caseType, setCaseType] = useState(VAT_CASE_TYPES[0] ?? '')
+  const [caseType, setCaseType] = useState(CASE_TYPE_OPTIONS[0])
   const [projectCode, setProjectCode] = useState('')
   const [creatorId, setCreatorId] = useState<string | undefined>(DEFAULT_CREATOR_ID)
   const [reviewerId, setReviewerId] = useState<string | undefined>(DEFAULT_REVIEWER_ID)
-  const [partnerId, setPartnerId] = useState<string | undefined>(undefined)
+  const [partnerIds, setPartnerIds] = useState<string[]>([])
   const [clientId, setClientId] = useState<string | undefined>(DEFAULT_CLIENT_ID)
 
   // Reset to a fresh prefill every time the drawer opens, rather than persisting stale
@@ -73,11 +71,11 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
   useEffect(() => {
     if (!open) return
     setJurisdiction(group.jurisdiction)
-    setCaseType(VAT_CASE_TYPES[0] ?? '')
+    setCaseType(CASE_TYPE_OPTIONS[0])
     setProjectCode('')
     setCreatorId(DEFAULT_CREATOR_ID)
     setReviewerId(DEFAULT_REVIEWER_ID)
-    setPartnerId(undefined)
+    setPartnerIds([])
     setClientId(DEFAULT_CLIENT_ID)
   }, [open, group.jurisdiction])
 
@@ -94,7 +92,8 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
   const creatorOptions = DUMMY_USERS.filter((u) => u.id !== reviewerId)
   const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== creatorId)
 
-  const canCreate = !!legalEntityId && !!jurisdiction && !!caseType && !!creatorId && !!reviewerId
+  // Partner is optional and excluded on purpose — every other field here is required.
+  const canCreate = !!legalEntityId && !!group.id && !!caseType && !!creatorId && !!reviewerId && !!clientId
 
   const caseNamePreview = caseType ? `VAT | ${caseType}` : null
 
@@ -111,16 +110,25 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b px-6 pb-4 pt-6">
-          <SheetTitle className="font-display text-lg font-semibold">Create a group VAT case</SheetTitle>
-          <SheetDescription>
-            Creates the consolidated VAT case for {group.name}.
-          </SheetDescription>
+          <SheetTitle className="font-display text-lg font-semibold">Create a group case</SheetTitle>
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Legal entity</Label>
             <Input value={legalEntityName} disabled readOnly data-testid="create-vat-case-legal-entity" />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Select group</Label>
+            <Select value={group.id} disabled>
+              <SelectTrigger data-testid="create-vat-case-group">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={group.id}>{group.name}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -140,10 +148,10 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
               <Label className="text-sm">Case type</Label>
               <Select value={caseType} onValueChange={setCaseType}>
                 <SelectTrigger data-testid="create-vat-case-type">
-                  <SelectValue placeholder="Select a case type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {VAT_CASE_TYPES.map((t) => (
+                  {CASE_TYPE_OPTIONS.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>
@@ -209,17 +217,16 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
               Partner <span className="font-normal text-neutral-400">(optional)</span>
             </Label>
             <UserSelect
+              multiple
               users={DUMMY_USERS}
-              value={partnerId}
-              onChange={setPartnerId}
+              value={partnerIds}
+              onChange={setPartnerIds}
               data-testid="create-vat-case-partner"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">
-              Client <span className="font-normal text-neutral-400">(optional)</span>
-            </Label>
+            <Label className="text-sm">Client</Label>
             <UserSelect
               users={DUMMY_USERS}
               value={clientId}
@@ -230,13 +237,8 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
 
           {caseNamePreview && (
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-              <span className="text-[12px] text-neutral-500">Case name</span>
-              <p className="flex items-center gap-2 text-[14px] font-medium text-neutral-900">
-                {legalEntityName}
-                <Badge tone="blue" size="sm">
-                  {caseNamePreview}
-                </Badge>
-              </p>
+              <p className="text-[12px] text-neutral-500">Case name</p>
+              <p className="text-[14px] font-semibold text-neutral-900">{caseNamePreview}</p>
             </div>
           )}
         </div>

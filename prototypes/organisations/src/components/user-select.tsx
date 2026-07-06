@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import { Badge, Button, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@wts/ui'
+import { Badge, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@wts/ui'
 
 export interface SelectableUser {
   id: string
@@ -8,23 +8,37 @@ export interface SelectableUser {
   email: string
 }
 
-export interface UserSelectProps {
+interface UserSelectBaseProps {
   id?: string
   users: SelectableUser[]
-  value?: string
-  onChange: (id: string | undefined) => void
   placeholder?: string
   'data-testid'?: string
 }
 
+export interface UserSelectSingleProps extends UserSelectBaseProps {
+  multiple?: false
+  value?: string
+  onChange: (id: string | undefined) => void
+}
+
+export interface UserSelectMultiProps extends UserSelectBaseProps {
+  multiple: true
+  value: string[]
+  onChange: (ids: string[]) => void
+}
+
+export type UserSelectProps = UserSelectSingleProps | UserSelectMultiProps
+
 // Single reusable searchable-combobox used for Creator, Reviewer, Partner, and Client —
 // keeps all four "pick a person" fields on one interaction pattern instead of a Select for
-// some and a checkbox list for others.
-export function UserSelect({ id, users, value, onChange, placeholder = 'Search by name or email…', ...props }: UserSelectProps) {
+// some and a checkbox list for others. Partner is the only multi-select instance today.
+export function UserSelect(props: UserSelectProps) {
+  const { id, users, placeholder = 'Search by name or email…', multiple } = props
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const selected = users.find((u) => u.id === value)
+  const selectedIds = multiple ? props.value : props.value ? [props.value] : []
+  const selectedUsers = users.filter((u) => selectedIds.includes(u.id))
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -33,15 +47,25 @@ export function UserSelect({ id, users, value, onChange, placeholder = 'Search b
   }, [users, query])
 
   const select = (userId: string) => {
-    onChange(userId)
+    if (multiple) {
+      props.onChange(selectedIds.includes(userId) ? selectedIds : [...selectedIds, userId])
+    } else {
+      props.onChange(userId)
+    }
     setOpen(false)
     setQuery('')
   }
 
-  const clear = (e: React.MouseEvent) => {
+  const remove = (userId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    onChange(undefined)
+    if (multiple) {
+      props.onChange(selectedIds.filter((id) => id !== userId))
+    } else {
+      props.onChange(undefined)
+    }
   }
+
+  const restProps = { 'data-testid': props['data-testid'] }
 
   return (
     <Popover
@@ -56,17 +80,19 @@ export function UserSelect({ id, users, value, onChange, placeholder = 'Search b
           id={id}
           type="button"
           className={cn(
-            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-header-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-header-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
           )}
-          {...props}
+          {...restProps}
         >
-          {selected ? (
-            <Badge variant="fill" tone="default" size="sm" className="gap-1.5">
-              {selected.name}
-              <X className="size-3" onClick={clear} />
-            </Badge>
+          {selectedUsers.length > 0 ? (
+            selectedUsers.map((u) => (
+              <Badge key={u.id} variant="fill" tone="default" size="sm" className="gap-1.5">
+                {u.name}
+                <X className="size-3" onClick={(e) => remove(u.id, e)} />
+              </Badge>
+            ))
           ) : (
-            <span className="text-muted-foreground">{placeholder === 'Search by name or email…' ? 'Select…' : placeholder}</span>
+            <span className="text-muted-foreground">Select…</span>
           )}
         </button>
       </PopoverTrigger>
@@ -92,7 +118,7 @@ export function UserSelect({ id, users, value, onChange, placeholder = 'Search b
                 onClick={() => select(u.id)}
                 className={cn(
                   'flex flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-accent',
-                  u.id === value && 'bg-accent',
+                  selectedIds.includes(u.id) && 'bg-accent',
                 )}
               >
                 <span className="text-[13px] font-medium text-foreground">{u.name}</span>

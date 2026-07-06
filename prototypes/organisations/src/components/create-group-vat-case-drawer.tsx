@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Badge,
   Button,
-  Checkbox,
   Input,
   Label,
   Select,
@@ -19,14 +18,8 @@ import {
 } from '@wts/ui'
 
 import { LegalEntity } from './org-details-data'
-import {
-  COUNTRIES,
-  Group,
-  SERVICE_CATALOGUE,
-  registrationsForEntity,
-  representativeOf,
-  usersForEntity,
-} from './org-details-data'
+import { COUNTRIES, Group, SERVICE_CATALOGUE, registrationsForEntity, representativeOf } from './org-details-data'
+import { SelectableUser, UserSelect } from './user-select'
 
 // VAT-only slice of the reference platform's "Create case" drawer (see
 // reference/WTS20Platform/src/components/case-management/create-case-drawer.tsx). Service
@@ -34,6 +27,22 @@ import {
 // fields (fiscal year range, internal/statutory deadlines) don't apply and are omitted.
 // The reference's follow-on "VAT scheduler" modal is intentionally out of scope for now.
 const VAT_CASE_TYPES = SERVICE_CATALOGUE.find((s) => s.key === 'VAT')?.caseTypes ?? []
+
+// Dummy directory for the Creator/Reviewer/Partner/Client pickers — placeholder data until
+// this wires into a real user directory.
+const DUMMY_USERS: SelectableUser[] = [
+  { id: 'maria-fischer', name: 'Maria Fischer', email: 'maria.fischer@example.com' },
+  { id: 'jordan-miller', name: 'Jordan Miller', email: 'jordan.miller@example.com' },
+  { id: 'oscar-wilson', name: 'Oscar Wilson', email: 'oscar.wilson@example.com' },
+  { id: 'emma-johnson', name: 'Emma Johnson', email: 'emma.johnson@example.com' },
+  { id: 'lucas-brown', name: 'Lucas Brown', email: 'lucas.brown@example.com' },
+  { id: 'sophie-martin', name: 'Sophie Martin', email: 'sophie.martin@example.com' },
+  { id: 'noah-davis', name: 'Noah Davis', email: 'noah.davis@example.com' },
+  { id: 'olivia-taylor', name: 'Olivia Taylor', email: 'olivia.taylor@example.com' },
+]
+const DEFAULT_CREATOR_ID = 'maria-fischer'
+const DEFAULT_REVIEWER_ID = 'jordan-miller'
+const DEFAULT_CLIENT_ID = 'oscar-wilson'
 
 export interface CreateGroupVatCaseDrawerProps {
   open: boolean
@@ -44,33 +53,33 @@ export interface CreateGroupVatCaseDrawerProps {
 
 export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }: CreateGroupVatCaseDrawerProps) {
   const orgEntities = useMemo(() => entities.filter((e) => e.orgId === group.orgId), [entities, group.orgId])
-  const defaultEntityId = useMemo(() => {
+  // Legal entity is fixed to the group's representative — this drawer is always opened
+  // from a specific legal entity's context, so it isn't user-editable.
+  const legalEntityId = useMemo(() => {
     const rep = representativeOf(group)
     return rep?.entityId ?? orgEntities[0]?.id ?? ''
   }, [group, orgEntities])
 
-  const [legalEntityId, setLegalEntityId] = useState(defaultEntityId)
   const [jurisdiction, setJurisdiction] = useState(group.jurisdiction)
   const [caseType, setCaseType] = useState(VAT_CASE_TYPES[0] ?? '')
   const [projectCode, setProjectCode] = useState('')
-  const [creatorId, setCreatorId] = useState('')
-  const [reviewerId, setReviewerId] = useState('')
-  const [partnerId, setPartnerId] = useState('')
-  const [clientContactIds, setClientContactIds] = useState<string[]>([])
+  const [creatorId, setCreatorId] = useState<string | undefined>(DEFAULT_CREATOR_ID)
+  const [reviewerId, setReviewerId] = useState<string | undefined>(DEFAULT_REVIEWER_ID)
+  const [partnerId, setPartnerId] = useState<string | undefined>(undefined)
+  const [clientId, setClientId] = useState<string | undefined>(DEFAULT_CLIENT_ID)
 
   // Reset to a fresh prefill every time the drawer opens, rather than persisting stale
   // picks from a previous open (mirrors the reference drawer's reset-on-close behavior).
   useEffect(() => {
     if (!open) return
-    setLegalEntityId(defaultEntityId)
     setJurisdiction(group.jurisdiction)
     setCaseType(VAT_CASE_TYPES[0] ?? '')
     setProjectCode('')
-    setCreatorId('')
-    setReviewerId('')
-    setPartnerId('')
-    setClientContactIds([])
-  }, [open, defaultEntityId, group.jurisdiction])
+    setCreatorId(DEFAULT_CREATOR_ID)
+    setReviewerId(DEFAULT_REVIEWER_ID)
+    setPartnerId(undefined)
+    setClientId(DEFAULT_CLIENT_ID)
+  }, [open, group.jurisdiction])
 
   const legalEntity = orgEntities.find((e) => e.id === legalEntityId)
   const legalEntityName = legalEntity?.legalName ?? ''
@@ -82,15 +91,8 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
     return reg?.vatNumber ?? ''
   }, [legalEntityId, jurisdiction])
 
-  const entityUsers = useMemo(() => (legalEntityId ? usersForEntity(legalEntityId) : []), [legalEntityId])
-  const internalUsers = entityUsers.filter((u) => u.userType === 'Internal')
-  const externalUsers = entityUsers.filter((u) => u.userType === 'External')
-
-  const creatorOptions = internalUsers.filter((u) => u.id !== reviewerId)
-  const reviewerOptions = internalUsers.filter((u) => u.id !== creatorId)
-
-  const toggleClientContact = (id: string) =>
-    setClientContactIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const creatorOptions = DUMMY_USERS.filter((u) => u.id !== reviewerId)
+  const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== creatorId)
 
   const canCreate = !!legalEntityId && !!jurisdiction && !!caseType && !!creatorId && !!reviewerId
 
@@ -118,18 +120,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Legal entity</Label>
-            <Select value={legalEntityId} onValueChange={setLegalEntityId}>
-              <SelectTrigger data-testid="create-vat-case-legal-entity">
-                <SelectValue placeholder="Select a legal entity" />
-              </SelectTrigger>
-              <SelectContent>
-                {orgEntities.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.legalName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input value={legalEntityName} disabled readOnly data-testid="create-vat-case-legal-entity" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -195,76 +186,46 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Creator</Label>
-            <Select value={creatorId} onValueChange={setCreatorId}>
-              <SelectTrigger data-testid="create-vat-case-creator">
-                <SelectValue placeholder="Select a creator" />
-              </SelectTrigger>
-              <SelectContent>
-                {creatorOptions.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name} <span className="text-neutral-400">— {u.email}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <UserSelect
+              users={creatorOptions}
+              value={creatorId}
+              onChange={setCreatorId}
+              data-testid="create-vat-case-creator"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Reviewer</Label>
-            <Select value={reviewerId} onValueChange={setReviewerId}>
-              <SelectTrigger data-testid="create-vat-case-reviewer">
-                <SelectValue placeholder="Select a reviewer" />
-              </SelectTrigger>
-              <SelectContent>
-                {reviewerOptions.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name} <span className="text-neutral-400">— {u.email}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <UserSelect
+              users={reviewerOptions}
+              value={reviewerId}
+              onChange={setReviewerId}
+              data-testid="create-vat-case-reviewer"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">
               Partner <span className="font-normal text-neutral-400">(optional)</span>
             </Label>
-            <Select value={partnerId} onValueChange={setPartnerId}>
-              <SelectTrigger data-testid="create-vat-case-partner">
-                <SelectValue placeholder="Select a partner" />
-              </SelectTrigger>
-              <SelectContent>
-                {internalUsers.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name} <span className="text-neutral-400">— {u.email}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <UserSelect
+              users={DUMMY_USERS}
+              value={partnerId}
+              onChange={setPartnerId}
+              data-testid="create-vat-case-partner"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">
-              Client contacts <span className="font-normal text-neutral-400">(optional)</span>
+              Client <span className="font-normal text-neutral-400">(optional)</span>
             </Label>
-            <div className="flex max-h-[160px] flex-col divide-y divide-neutral-100 overflow-auto rounded-lg border border-neutral-200">
-              {externalUsers.length === 0 ? (
-                <p className="px-3 py-3 text-[13px] text-neutral-500">No client contacts for this entity.</p>
-              ) : (
-                externalUsers.map((u) => (
-                  <label key={u.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-neutral-50">
-                    <Checkbox
-                      checked={clientContactIds.includes(u.id)}
-                      onCheckedChange={() => toggleClientContact(u.id)}
-                    />
-                    <span className="flex flex-col">
-                      <span className="text-[14px] leading-5 text-neutral-900">{u.name}</span>
-                      <span className="text-[12px] leading-4 text-neutral-500">{u.email}</span>
-                    </span>
-                  </label>
-                ))
-              )}
-            </div>
+            <UserSelect
+              users={DUMMY_USERS}
+              value={clientId}
+              onChange={setClientId}
+              data-testid="create-vat-case-client"
+            />
           </div>
 
           {caseNamePreview && (
@@ -289,7 +250,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
             onClick={handleSubmit}
             data-testid="create-vat-case-submit"
           >
-            Create case
+            VAT Scheduler
           </Button>
           <Button
             type="button"

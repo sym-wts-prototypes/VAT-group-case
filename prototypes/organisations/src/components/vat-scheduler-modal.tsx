@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { InfoIcon, Minus, Plus, UploadIcon } from 'lucide-react'
 import {
   Badge,
@@ -42,13 +42,19 @@ const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   </div>
 )
 
+export interface GroupMember {
+  id: string
+  name: string
+}
+
 export interface VatSchedulerModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Closes the parent Create Case drawer once a schedule is "created". */
   onCreated: () => void
   /** Drawer-collected values — shown read-only in the left summary panel. */
-  legalEntityName: string
+  organisationName: string
+  groupName: string
   jurisdiction: string
   vatRegistration: string
   projectCode: string
@@ -57,13 +63,16 @@ export interface VatSchedulerModalProps {
   reviewerName: string
   partnerNames: string[]
   clientName: string
+  /** Legal entities belonging to the selected group — each gets a Client Approval toggle. */
+  groupMembers: GroupMember[]
 }
 
 export function VatSchedulerModal({
   open,
   onOpenChange,
   onCreated,
-  legalEntityName,
+  organisationName,
+  groupName,
   jurisdiction,
   vatRegistration,
   projectCode,
@@ -72,6 +81,7 @@ export function VatSchedulerModal({
   reviewerName,
   partnerNames,
   clientName,
+  groupMembers,
 }: VatSchedulerModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -85,6 +95,8 @@ export function VatSchedulerModal({
   const [statutoryDeadlineDay, setStatutoryDeadlineDay] = useState<number | undefined>(undefined)
   const [deadlineExtension, setDeadlineExtension] = useState(false)
   const [templateFileName, setTemplateFileName] = useState<string | undefined>(undefined)
+  // Client Approval rule per legal entity — defaults to skipped (false/absent) for everyone.
+  const [approvalByEntityId, setApprovalByEntityId] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (!open) return
@@ -98,7 +110,22 @@ export function VatSchedulerModal({
     setStatutoryDeadlineDay(undefined)
     setDeadlineExtension(false)
     setTemplateFileName(undefined)
+    setApprovalByEntityId({})
   }, [open])
+
+  const toggleApproval = (entityId: string) =>
+    setApprovalByEntityId((prev) => ({ ...prev, [entityId]: !prev[entityId] }))
+
+  const schedulePayload = useMemo(
+    () => ({
+      group: groupName,
+      entities: groupMembers.map((m) => ({
+        name: m.name,
+        requiresClientApproval: !!approvalByEntityId[m.id],
+      })),
+    }),
+    [groupName, groupMembers, approvalByEntityId],
+  )
 
   const isMonthly = frequency === 'Monthly'
 
@@ -114,7 +141,10 @@ export function VatSchedulerModal({
 
   const handleSubmit = () => {
     if (!canSubmit) return
-    // No backend yet — mirrors what the drawer's submit used to do.
+    // No backend yet — mirrors what the drawer's submit used to do. The structured
+    // group/entity/requiresClientApproval payload has nowhere to go yet, so it's logged
+    // here to demonstrate the data model this modal produces.
+    console.log('VAT group schedule payload', schedulePayload)
     onOpenChange(false)
     onCreated()
   }
@@ -138,9 +168,10 @@ export function VatSchedulerModal({
       <DialogContent className="flex max-w-5xl flex-row gap-0 overflow-hidden p-0">
         {/* Left sidebar: read-only summary of the Create Case drawer selections */}
         <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r bg-muted/30 px-6 py-5">
-          <h3 className="font-semibold text-foreground text-sm">Case details</h3>
+          <h3 className="font-semibold text-foreground text-sm">Group case details</h3>
           <div className="flex flex-col gap-5">
-            <SummaryRow label="Legal entity" value={legalEntityName} />
+            <SummaryRow label="Organisation" value={organisationName} />
+            <SummaryRow label="Group" value={groupName} />
             <SummaryRow label="Jurisdiction" value={jurisdiction} />
             <SummaryRow label="VAT Registration" value={vatRegistration} />
             <SummaryRow label="Project code" value={projectCode} />
@@ -154,14 +185,18 @@ export function VatSchedulerModal({
         {/* Right column: header, scheduling form, footer */}
         <div className="flex min-w-0 flex-1 flex-col">
           <DialogHeader className="flex-row items-center gap-2.5 border-b px-6 py-5">
-            <DialogTitle className="text-lg">VAT Scheduler</DialogTitle>
+            <DialogTitle className="text-lg">VAT Group Scheduler</DialogTitle>
             {caseTypeLabel && (
               <Badge variant="soft" tone="blue" size="sm">
                 {caseTypeLabel}
               </Badge>
             )}
-            <DialogDescription className="sr-only">VAT Scheduler</DialogDescription>
+            <DialogDescription className="sr-only">VAT Group Scheduler</DialogDescription>
           </DialogHeader>
+
+          <p className="border-b px-6 py-3 text-muted-foreground text-sm">
+            This will create cases for the selected time period for each member of the selected group.
+          </p>
 
           <form
             onSubmit={(e) => {
@@ -170,6 +205,25 @@ export function VatSchedulerModal({
             }}
             className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6"
           >
+            {/* Client Approval rule per legal entity in the group — defaults to skipped */}
+            <div className="flex flex-col gap-2">
+              <p className="font-medium text-foreground text-sm">Legal entities</p>
+              <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
+                {groupMembers.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-4 px-3 py-2.5">
+                    <span className="text-foreground text-sm">{m.name}</span>
+                    <label className="flex cursor-pointer items-center gap-2 text-muted-foreground text-sm">
+                      <Checkbox
+                        checked={!!approvalByEntityId[m.id]}
+                        onCheckedChange={() => toggleApproval(m.id)}
+                      />
+                      Requires Client Approval
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Frequency + Scheduled period */}
             <div className="grid grid-cols-3 gap-3">
               <div className="flex flex-col gap-2">

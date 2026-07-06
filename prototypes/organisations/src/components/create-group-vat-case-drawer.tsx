@@ -16,7 +16,8 @@ import {
 } from '@wts/ui'
 
 import { LegalEntity } from './org-details-data'
-import { COUNTRIES, Group, registrationsForEntity, representativeOf } from './org-details-data'
+import { activeMembers, COUNTRIES, Group, registrationsForEntity, representativeOf } from './org-details-data'
+import { INITIAL_ORGANIZATIONS } from './organizations-data'
 import { SelectableUser, UserSelect } from './user-select'
 import { VatSchedulerModal } from './vat-scheduler-modal'
 
@@ -83,6 +84,20 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
 
   const legalEntity = orgEntities.find((e) => e.id === legalEntityId)
   const legalEntityName = legalEntity?.legalName ?? ''
+  // The drawer/modal show the higher-level Organisation (e.g. "EUROPIPE"), never the
+  // technical legal entity name (e.g. "EUROPIPE GmbH — DE registration").
+  const organisationName = INITIAL_ORGANIZATIONS.find((o) => o.id === group.orgId)?.name ?? legalEntityName
+
+  // Legal entities in the group — shown in the scheduler's Client Approval checklist,
+  // where individual entity names ARE shown (unlike the Organisation summary field above).
+  const groupMembers = useMemo(
+    () =>
+      activeMembers(group).map((m) => ({
+        id: m.entityId,
+        name: entities.find((e) => e.id === m.entityId)?.legalName ?? m.entityId,
+      })),
+    [group, entities],
+  )
 
   const vatRegistration = useMemo(() => {
     if (!legalEntityId) return ''
@@ -120,8 +135,8 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Legal entity</Label>
-            <Input value={legalEntityName} disabled readOnly data-testid="create-vat-case-legal-entity" />
+            <Label className="text-sm">Organisation</Label>
+            <Input value={organisationName} disabled readOnly data-testid="create-vat-case-legal-entity" />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -276,7 +291,8 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
         open={schedulerOpen}
         onOpenChange={setSchedulerOpen}
         onCreated={handleClose}
-        legalEntityName={legalEntityName}
+        organisationName={organisationName}
+        groupName={group.name}
         jurisdiction={jurisdiction}
         vatRegistration={vatRegistration}
         projectCode={projectCode}
@@ -285,6 +301,7 @@ export function CreateGroupVatCaseDrawer({ open, onOpenChange, group, entities }
         reviewerName={reviewerName}
         partnerNames={partnerNames}
         clientName={clientName}
+        groupMembers={groupMembers}
       />
     </Sheet>
   )

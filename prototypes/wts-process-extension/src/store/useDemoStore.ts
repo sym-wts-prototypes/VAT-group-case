@@ -89,7 +89,7 @@ const DEFAULTS = {
   packageReviewOutcome: 'default' as PackageReviewOutcome,
   bucketMarkAsDoneChecked: false,
   selectedRequirementCategoryId: DEFAULT_REQUIREMENT_CATEGORY_ID,
-  showCaseManagement: false,
+  showCaseManagement: true,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)

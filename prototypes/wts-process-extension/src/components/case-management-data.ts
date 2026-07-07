@@ -40,7 +40,7 @@ export interface Case {
   caseType: string
   frequency: 'Monthly' | 'Quarterly' | 'Yearly'
   jurisdiction: string
-  myRole: 'Creator' | 'Reviewer' | 'Partner'
+  myRole: 'Creator' | 'Reviewer' | 'Partner' | 'Client'
   status: CaseStatus
   statutoryDeadline: string // ISO date
   nextDeadline: string | null // ISO date
@@ -226,5 +226,33 @@ export const DUMMY_CASES: Case[] = [
     statutoryDeadline: '2026-11-20',
     nextDeadline: null,
     latestActivity: { actor: 'Noah Davis', description: 'Requirement added' },
+  },
+  {
+    id: 'CIT-DE-2026-0071',
+    client: 'Porsche Werkzeugbau GmbH',
+    caseName: 'CIT - Return - FY2026',
+    serviceLine: 'CIT',
+    caseType: 'Return',
+    frequency: 'Yearly',
+    jurisdiction: 'Germany',
+    myRole: 'Reviewer',
+    status: 'ClientApproval',
+    statutoryDeadline: '2026-09-30',
+    nextDeadline: '2026-07-18',
+    latestActivity: { actor: 'Lucas Brown', description: 'Awaiting client sign-off' },
+  },
+  {
+    id: 'VAT-DE-2026-0160',
+    client: 'Merck KGaA',
+    caseName: 'VAT - Return - Q3 2026',
+    serviceLine: 'VAT',
+    caseType: 'Return',
+    frequency: 'Quarterly',
+    jurisdiction: 'Germany',
+    myRole: 'Client',
+    status: 'ClientApproval',
+    statutoryDeadline: '2026-10-12',
+    nextDeadline: '2026-07-20',
+    latestActivity: { actor: 'Olivia Taylor', description: 'Client approval requested' },
   },
 ]

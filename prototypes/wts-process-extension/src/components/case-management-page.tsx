@@ -16,10 +16,30 @@ import {
   TableRow,
 } from '@wts/ui'
 
-import { CASE_STATUS_LABEL, CASE_STATUS_TONE, DUMMY_CASES, jurisdictionFlag } from './case-management-data'
+import { useDemoStore } from '@/store/useDemoStore'
+import type { Phase, Role } from '@/types'
+
+import { Case, CASE_STATUS_LABEL, CASE_STATUS_TONE, CaseStatus, DUMMY_CASES, jurisdictionFlag } from './case-management-data'
 import { CreateGroupVatCaseDrawer } from './create-group-vat-case-drawer'
 import { countryCodeFor, Group, LegalEntity } from './org-details-data'
 import { Organization } from './organizations-data'
+
+// Case Management is a launcher into the existing (Role, Phase) prototype scenarios, not a
+// real case detail view — clicking a row only carries over "My role" + "Status"; every other
+// column is dummy display data and is intentionally discarded.
+const ROLE_TO_PLAYGROUND_ROLE: Record<Case['myRole'], Role> = {
+  Creator: 'creator',
+  Reviewer: 'reviewer',
+  Partner: 'partner',
+  Client: 'client',
+}
+const STATUS_TO_PHASE: Record<CaseStatus, Phase> = {
+  Draft: 'draft',
+  InPreparation: 'inPreparation',
+  InReview: 'inReview',
+  ClientApproval: 'clientApproval',
+  Submission: 'submitted',
+}
 
 // Recreates reference/WTS20Platform's Case Management list (case-list.tsx +
 // case-list-filters.tsx + case-list-columns.tsx) with dummy individual cases — no group
@@ -56,6 +76,15 @@ export interface CaseManagementPageProps {
 export function CaseManagementPage({ organisations, groups, entities }: CaseManagementPageProps) {
   const [search, setSearch] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const setRole = useDemoStore((state) => state.setRole)
+  const setPhase = useDemoStore((state) => state.setPhase)
+  const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
+
+  const openScenarioForCase = (c: Case) => {
+    setRole(ROLE_TO_PLAYGROUND_ROLE[c.myRole])
+    setPhase(STATUS_TO_PHASE[c.status])
+    setShowCaseManagement(false)
+  }
 
   const filteredCases = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -130,7 +159,12 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
           </TableHeader>
           <TableBody>
             {filteredCases.map((c) => (
-              <TableRow key={c.id}>
+              <TableRow
+                key={c.id}
+                onClick={() => openScenarioForCase(c)}
+                className="cursor-pointer"
+                title="Open the matching prototype scenario for this role + status"
+              >
                 <TableCell className="max-w-32 truncate font-medium" title={c.id}>
                   {c.id}
                 </TableCell>
@@ -173,7 +207,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu modal={false}>
                     <DropdownMenuTrigger
                       aria-label={`Actions for case ${c.id}`}

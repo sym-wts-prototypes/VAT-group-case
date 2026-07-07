@@ -15,6 +15,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 
 | Component | Source | Code Connect | Notes |
 |---|---|---|---|
+| Accordion | shadcn (Radix) | — | Single/multiple expand-collapse; default chevron + height animation |
 | Alert | shadcn + customized | — | info/success/warning/destructive variants |
 | AspectRatio | shadcn | `aspect-ratio.figma.tsx` | |
 | Avatar | shadcn | `avatar.figma.tsx` | |

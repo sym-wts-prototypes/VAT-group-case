@@ -1,4 +1,5 @@
 export { cn } from './cn'
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './accordion'
 export { Button, buttonVariants, type ButtonProps } from './button'
 export { Badge, badgeVariants, type BadgeProps, type BadgeTone } from './badge'
 export { Alert, alertVariants, type AlertProps } from './alert'

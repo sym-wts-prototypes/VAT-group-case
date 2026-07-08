@@ -57,6 +57,7 @@ export function CaseHeader({
             <PeopleRow
               people={descriptor.people}
               editable={descriptor.editable}
+              editTooltip={descriptor.editTooltip}
               className="min-w-0 flex-1"
             />
           ) : (

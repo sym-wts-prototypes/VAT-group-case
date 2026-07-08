@@ -194,7 +194,7 @@ export function ControlPanel() {
         />
       )}
 
-      {showTasksDoneControl && (
+      {(showTasksDoneControl || showParentCase) && (
         <CheckboxField
           label="Tasks Done"
           description="Marks all tasks complete and enables Send for review."

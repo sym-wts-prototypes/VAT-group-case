@@ -50,9 +50,10 @@ export function CreateCaseDrawer({ open, onOpenChange, entities, organisations, 
           <SheetTitle className="font-display text-lg font-semibold">{TITLE[caseKind]}</SheetTitle>
         </SheetHeader>
 
-        {/* No divider below the toggle — it should read as part of the form that follows, not
-            a separate chrome section (unlike the header above, which keeps its own border-b). */}
-        <div className="px-6 pt-4">
+        {/* Header + Case Type toggle together form the drawer's fixed chrome — bordered like
+            the header above it, with extra bottom padding so it reads as clearly separated
+            from the scrolling form fields that follow, not visually cramped against them. */}
+        <div className="border-b px-6 pt-4 pb-6">
           <OptionPills
             label="Case type"
             value={caseKind}

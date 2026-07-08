@@ -1,55 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { InfoIcon, Minus, Plus, UploadIcon } from 'lucide-react'
+import { UploadIcon } from 'lucide-react'
 import {
   Badge,
   Button,
-  Checkbox,
-  cn,
-  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Tabs,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@wts/ui'
+
+import {
+  CustomDeadlineSection,
+  FrequencyPeriodFields,
+  periodLabel,
+  ScheduleSummaryBox,
+  StatutoryDeadlineFields,
+  useDeadlineSchedule,
+} from './scheduler-shared'
 
 // Prototype replica of the reference platform's UPDATED single-case VAT scheduler (distinct
 // from — and does not touch — the older Group Case VAT scheduler in vat-scheduler-modal.tsx,
 // which keeps its per-legal-entity Client Approval checklist). This version drops that
 // checklist (a single case has only one legal entity) in favor of period-by-period case
-// generation with an optional per-case Statutory Deadline override.
-
-const CURRENT_YEAR = new Date().getFullYear()
-const YEAR_OPTIONS = Array.from({ length: 12 }, (_, i) => CURRENT_YEAR - 1 + i)
-const DAY_OPTIONS_31 = Array.from({ length: 31 }, (_, i) => i + 1)
-const WORKING_DAY_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
-const QUARTER_OPTIONS = [1, 2, 3, 4] as const
-const MONTH_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as const
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
-type Frequency = 'Monthly' | 'Quarterly'
-type DeadlineMode = 'workingDays' | 'dayOfMonth'
+// generation with an optional per-case Statutory Deadline override. The scheduling logic
+// (Frequency/Period, deadline modes, +2-months, custom overrides) lives in
+// scheduler-shared.tsx, shared with the Group scheduler.
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   <div className="flex flex-col gap-0.5">
@@ -57,84 +34,6 @@ const SummaryRow = ({ label, value }: { label: string; value: string }) => (
     <span className="font-medium text-foreground text-sm">{value || '—'}</span>
   </div>
 )
-
-// n-th weekday (Mon–Fri) of a month, 1-indexed — e.g. n=2 for the month's 2nd working day.
-function nthWeekdayOfMonth(year: number, monthIndex: number, n: number): Date {
-  let count = 0
-  let day = 1
-  while (true) {
-    const date = new Date(year, monthIndex, day)
-    const dow = date.getDay()
-    if (dow !== 0 && dow !== 6) {
-      count++
-      if (count === n) return date
-    }
-    day++
-  }
-}
-
-function dateForDayOfMonth(year: number, monthIndex: number, day: number): Date {
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
-  return new Date(year, monthIndex, Math.min(day, daysInMonth))
-}
-
-function ordinalSuffix(n: number): string {
-  const j = n % 10
-  const k = n % 100
-  if (j === 1 && k !== 11) return 'st'
-  if (j === 2 && k !== 12) return 'nd'
-  if (j === 3 && k !== 13) return 'rd'
-  return 'th'
-}
-
-// "Thursday, April 2nd 2026" — no date-fns dependency here (this prototype doesn't have a
-// direct dependency on it, only @wts/ui does); native Intl covers this format fine.
-function formatLongDate(date: Date): string {
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' })
-  const month = date.toLocaleDateString('en-US', { month: 'long' })
-  const day = date.getDate()
-  return `${weekday}, ${month} ${day}${ordinalSuffix(day)} ${date.getFullYear()}`
-}
-
-interface Period {
-  key: string
-  period: number
-  year: number
-}
-
-function periodLabel(frequency: Frequency, period: number, year: number): string {
-  return frequency === 'Monthly' ? `${MONTH_NAMES[period - 1]} ${year}` : `Q${period} ${year}`
-}
-
-// The month `monthsAhead` after a period's end month — e.g. Q1 (Jan–Mar) → April for 1,
-// May for 2 (the "Deadline extension (+2 months)" checkbox).
-function followingMonth(
-  frequency: Frequency,
-  period: number,
-  year: number,
-  monthsAhead: 1 | 2,
-): { monthIndex: number; year: number } {
-  const endMonthIndex = frequency === 'Monthly' ? period - 1 : period * 3 - 1
-  const total = endMonthIndex + monthsAhead
-  return { monthIndex: total % 12, year: year + Math.floor(total / 12) }
-}
-
-function generatePeriods(frequency: Frequency, startPeriod: number, startYear: number, endPeriod: number, endYear: number): Period[] {
-  const periods: Period[] = []
-  const maxPeriod = frequency === 'Monthly' ? 12 : 4
-  let period = startPeriod
-  let year = startYear
-  // Safety cap — malformed/reversed ranges shouldn't spin forever.
-  while ((year < endYear || (year === endYear && period <= endPeriod)) && periods.length < 60) {
-    periods.push({ key: `${year}-${period}`, period, year })
-    period++
-    if (period > maxPeriod) {
-      period = 1
-      year++
-    }
-  }
-  return periods
-}
 
 export interface SingleCaseSchedulerModalProps {
   open: boolean
@@ -168,95 +67,32 @@ export function SingleCaseSchedulerModal({
   clientNames,
 }: SingleCaseSchedulerModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [frequency, setFrequency] = useState<Frequency>('Quarterly')
-  const [startPeriod, setStartPeriod] = useState<number | undefined>(undefined)
-  const [startYear, setStartYear] = useState(CURRENT_YEAR)
-  const [endPeriod, setEndPeriod] = useState<number | undefined>(undefined)
-  const [endYear, setEndYear] = useState(CURRENT_YEAR)
-  const [periodCloseDay, setPeriodCloseDay] = useState<number | undefined>(undefined)
-  const [dataProvisionDeadline, setDataProvisionDeadline] = useState(3)
-  const [deadlineMode, setDeadlineMode] = useState<DeadlineMode>('workingDays')
-  const [workingDaysValue, setWorkingDaysValue] = useState(2)
-  const [dayOfMonthValue, setDayOfMonthValue] = useState<number | undefined>(undefined)
-  const [deadlineExtension, setDeadlineExtension] = useState(false)
-  const [useCustomDeadlines, setUseCustomDeadlines] = useState(false)
-  const [customDeadlines, setCustomDeadlines] = useState<Record<string, Date | undefined>>({})
   const [templateFileName, setTemplateFileName] = useState<string | undefined>(undefined)
+
+  const schedule = useDeadlineSchedule((p, frequency) => `${caseTypeLabel} - ${periodLabel(frequency, p.period, p.year)}`)
 
   useEffect(() => {
     if (!open) return
-    setFrequency('Quarterly')
-    setStartPeriod(undefined)
-    setStartYear(CURRENT_YEAR)
-    setEndPeriod(undefined)
-    setEndYear(CURRENT_YEAR)
-    setPeriodCloseDay(undefined)
-    setDataProvisionDeadline(3)
-    setDeadlineMode('workingDays')
-    setWorkingDaysValue(2)
-    setDayOfMonthValue(undefined)
-    setDeadlineExtension(false)
-    setUseCustomDeadlines(false)
-    setCustomDeadlines({})
+    schedule.reset()
     setTemplateFileName(undefined)
-  }, [open])
-
-  const isMonthly = frequency === 'Monthly'
-
-  const handleFrequencyChange = (value: string) => {
-    setFrequency(value as Frequency)
-    setStartPeriod(undefined)
-    setEndPeriod(undefined)
-  }
-
-  const endYearOptions = YEAR_OPTIONS.filter((y) => y >= startYear)
-  const endMonthKeys = startYear === endYear && startPeriod ? MONTH_KEYS.filter((k) => Number(k) >= startPeriod) : MONTH_KEYS
-  const endQuarterOptions = startYear === endYear && startPeriod ? QUARTER_OPTIONS.filter((q) => q >= startPeriod) : QUARTER_OPTIONS
-
-  const deadlineValueChosen = deadlineMode === 'workingDays' ? !!workingDaysValue : !!dayOfMonthValue
-
-  const periods = useMemo(() => {
-    if (!startPeriod || !endPeriod || !deadlineValueChosen) return []
-    return generatePeriods(frequency, startPeriod, startYear, endPeriod, endYear)
-  }, [frequency, startPeriod, startYear, endPeriod, endYear, deadlineValueChosen])
-
-  const defaultDeadlineFor = (p: Period): Date => {
-    const { monthIndex, year } = followingMonth(frequency, p.period, p.year, deadlineExtension ? 2 : 1)
-    return deadlineMode === 'workingDays'
-      ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue)
-      : dateForDayOfMonth(year, monthIndex, dayOfMonthValue ?? 1)
-  }
-
-  const canSubmit = !!startPeriod && !!endPeriod && !!periodCloseDay && deadlineValueChosen
-
-  const cases = useMemo(
-    () =>
-      periods.map((p) => ({
-        ...p,
-        name: `${caseTypeLabel} - ${periodLabel(frequency, p.period, p.year)}`,
-        defaultDeadline: defaultDeadlineFor(p),
-        customDeadline: customDeadlines[p.key],
-      })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [periods, frequency, caseTypeLabel, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines],
-  )
+  }, [open])
 
   const schedulePayload = useMemo(
     () => ({
       legalEntity: legalEntityName,
-      cases: cases.map((c) => ({
+      cases: schedule.cases.map((c) => ({
         name: c.name,
         statutoryDeadline: c.customDeadline ?? c.defaultDeadline,
       })),
     }),
-    [legalEntityName, cases],
+    [legalEntityName, schedule.cases],
   )
 
   const handleCancel = () => onOpenChange(false)
 
   const handleSubmit = () => {
-    if (!canSubmit) return
+    if (!schedule.canSubmitSchedule) return
     // No backend yet — mirrors the group scheduler's placeholder submit.
     console.log('VAT single-case schedule payload', schedulePayload)
     onOpenChange(false)
@@ -278,7 +114,7 @@ export function SingleCaseSchedulerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] max-w-5xl flex-row gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[85vh] max-w-6xl flex-row gap-0 overflow-hidden p-0">
         {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
             scrolls (it's always short static case info, unlike the scheduler form beside it). */}
         <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-muted/30 px-6 py-5">
@@ -314,300 +150,10 @@ export function SingleCaseSchedulerModal({
             }}
             className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6"
           >
-            {/* Frequency + Scheduled period */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="frequency" className="font-medium text-foreground text-sm">
-                  Frequency
-                </label>
-                <Select value={frequency} onValueChange={handleFrequencyChange}>
-                  <SelectTrigger id="frequency">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Monthly">Monthly</SelectItem>
-                    <SelectItem value="Quarterly">Quarterly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="col-span-2 flex flex-col gap-2">
-                <p className="font-medium text-foreground text-sm">Scheduled period</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-1 gap-2">
-                    {isMonthly ? (
-                      <Select value={startPeriod?.toString() ?? ''} onValueChange={(v) => setStartPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Month">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MONTH_KEYS.map((k) => (
-                            <SelectItem key={k} value={k}>
-                              {k}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Select value={startPeriod?.toString() ?? ''} onValueChange={(v) => setStartPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Quarter">
-                          <SelectValue placeholder="Quarter" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {QUARTER_OPTIONS.map((q) => (
-                            <SelectItem key={q} value={q.toString()}>
-                              Q{q}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Select value={startYear.toString()} onValueChange={(v) => setStartYear(Number(v))}>
-                      <SelectTrigger aria-label="Year">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {YEAR_OPTIONS.map((y) => (
-                          <SelectItem key={y} value={y.toString()}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <span className="text-muted-foreground text-sm">→</span>
-
-                  <div className="flex flex-1 gap-2">
-                    {isMonthly ? (
-                      <Select value={endPeriod?.toString() ?? ''} onValueChange={(v) => setEndPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Month">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {endMonthKeys.map((k) => (
-                            <SelectItem key={k} value={k}>
-                              {k}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Select value={endPeriod?.toString() ?? ''} onValueChange={(v) => setEndPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Quarter">
-                          <SelectValue placeholder="Quarter" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {endQuarterOptions.map((q) => (
-                            <SelectItem key={q} value={q.toString()}>
-                              Q{q}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Select value={endYear.toString()} onValueChange={(v) => setEndYear(Number(v))}>
-                      <SelectTrigger aria-label="Year">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {endYearOptions.map((y) => (
-                          <SelectItem key={y} value={y.toString()}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Period close date + Data provision deadline + Statutory deadline */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="period-close-day" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-                  Period close date
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>The date the VAT period closes each cycle.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </label>
-                <Select value={periodCloseDay?.toString() ?? ''} onValueChange={(v) => setPeriodCloseDay(Number(v))}>
-                  <SelectTrigger id="period-close-day">
-                    <SelectValue placeholder="Day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DAY_OPTIONS_31.map((d) => (
-                      <SelectItem key={d} value={d.toString()}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-muted-foreground text-sm">of previous month</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="data-provision-deadline" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-                  Data provision deadline
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>How many working days the client has to provide data.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </label>
-                <div className="flex w-fit items-center rounded-md border border-input shadow-sm">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-r-none"
-                    onClick={() => setDataProvisionDeadline((n) => Math.max(1, n - 1))}
-                  >
-                    <Minus className="size-4" />
-                  </Button>
-                  <div className="h-5 w-px bg-border" />
-                  <div id="data-provision-deadline" className="flex h-9 w-14 items-center justify-center text-center text-sm">
-                    {dataProvisionDeadline}
-                  </div>
-                  <div className="h-5 w-px bg-border" />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-l-none"
-                    onClick={() => setDataProvisionDeadline((n) => n + 1)}
-                  >
-                    <Plus className="size-4" />
-                  </Button>
-                </div>
-                <p className="text-muted-foreground text-sm">working days after the closure</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-                  Statutory deadline
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>The legal filing deadline for this VAT return.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </label>
-                <Tabs
-                  value={deadlineMode}
-                  onChange={setDeadlineMode}
-                  options={[
-                    { value: 'workingDays', label: 'Working days' },
-                    { value: 'dayOfMonth', label: 'Day of month' },
-                  ]}
-                />
-                {deadlineMode === 'workingDays' ? (
-                  <Select value={workingDaysValue.toString()} onValueChange={(v) => setWorkingDaysValue(Number(v))}>
-                    <SelectTrigger aria-label="Working days">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WORKING_DAY_OPTIONS.map((n) => (
-                        <SelectItem key={n} value={n.toString()}>
-                          {n} {n === 1 ? 'day' : 'days'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Select value={dayOfMonthValue?.toString() ?? ''} onValueChange={(v) => setDayOfMonthValue(Number(v))}>
-                    <SelectTrigger aria-label="Day of month">
-                      <SelectValue placeholder="Day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAY_OPTIONS_31.map((d) => (
-                        <SelectItem key={d} value={d.toString()}>
-                          {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <p className="text-muted-foreground text-sm">
-                  {deadlineExtension ? 'of second following month' : 'of following month'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="statutory-deadline-extension"
-                    checked={deadlineExtension}
-                    onCheckedChange={(checked) => setDeadlineExtension(checked === true)}
-                  />
-                  <label htmlFor="statutory-deadline-extension" className="cursor-pointer select-none font-medium text-sm">
-                    Deadline extension (+2 months)
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Per-case Statutory Deadline override */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2.5">
-                <Switch checked={useCustomDeadlines} onCheckedChange={setUseCustomDeadlines} />
-                <span className="font-medium text-foreground text-sm">Set custom statutory deadlines for each case</span>
-              </div>
-
-              {useCustomDeadlines && cases.length > 0 && (
-                <div
-                  className={cn(
-                    'rounded-md border border-border',
-                    cases.length > 3 ? 'max-h-56 overflow-y-auto' : 'overflow-hidden',
-                  )}
-                >
-                  <Table>
-                    <TableHeader className={cases.length > 3 ? 'sticky top-0 z-10' : undefined}>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="bg-muted/50 px-4">Case name</TableHead>
-                        <TableHead className="bg-muted/50 px-4">Default statutory deadline</TableHead>
-                        <TableHead className="bg-muted/50 px-4">Set custom deadline</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cases.map((c) => (
-                        <TableRow key={c.key}>
-                          <TableCell className="px-4 py-3 font-medium text-foreground">{c.name}</TableCell>
-                          <TableCell className="px-4 py-3 text-muted-foreground">{formatLongDate(c.defaultDeadline)}</TableCell>
-                          <TableCell className="px-4 py-3">
-                            <DatePicker
-                              value={c.customDeadline}
-                              onChange={(date) => setCustomDeadlines((prev) => ({ ...prev, [c.key]: date }))}
-                              placeholder="Set custom deadline"
-                              className="w-fit"
-                              data-testid={`custom-deadline-${c.key}`}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-
-            {/* Schedule summary */}
-            {cases.length > 0 && (
-              <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
-                <p className="font-medium text-blue-900 text-sm">Schedule Summary</p>
-                <p className="text-blue-800 text-sm">
-                  {cases.length} {cases.length === 1 ? 'case' : 'cases'} planned · {frequency} recurrence
-                </p>
-              </div>
-            )}
+            <FrequencyPeriodFields s={schedule} />
+            <StatutoryDeadlineFields s={schedule} />
+            <CustomDeadlineSection s={schedule} />
+            <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />
 
             {/* Template upload */}
             <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
@@ -630,7 +176,7 @@ export function SingleCaseSchedulerModal({
             <Button variant="outline" size="lg" className="flex-1" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button type="button" size="lg" className="flex-1" disabled={!canSubmit} onClick={handleSubmit}>
+            <Button type="button" size="lg" className="flex-1" disabled={!schedule.canSubmitSchedule} onClick={handleSubmit}>
               Create scheduled cases
             </Button>
           </DialogFooter>

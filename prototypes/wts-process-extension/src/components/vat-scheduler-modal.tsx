@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { InfoIcon, Minus, Plus, Search, UploadIcon } from 'lucide-react'
+import { Search, UploadIcon } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -11,16 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@wts/ui'
+
+import {
+  CustomDeadlineSection,
+  FrequencyPeriodFields,
+  periodLabel,
+  ScheduleSummaryBox,
+  StatutoryDeadlineFields,
+  useDeadlineSchedule,
+} from './scheduler-shared'
 
 // Prototype replica of the reference platform's VAT scheduler modal (see
 // reference/WTS20Platform/src/components/vat-scheduler/vat-scheduler-modal.tsx). Layout,
@@ -29,12 +29,11 @@ import {
 // what was already picked in the Create Case drawer; only the scheduler fields on the
 // right are locally interactive. "Create scheduled cases" has no backend yet — it just
 // closes this modal and the parent drawer, same as the drawer's own submit used to.
-
-const CURRENT_YEAR = new Date().getFullYear()
-const YEAR_OPTIONS = Array.from({ length: 12 }, (_, i) => CURRENT_YEAR - 1 + i)
-const DAY_OPTIONS_31 = Array.from({ length: 31 }, (_, i) => i + 1)
-const MONTH_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as const
-const QUARTER_OPTIONS = [1, 2, 3, 4] as const
+//
+// The Frequency/Period/Statutory-Deadline/custom-override scheduling below is shared with
+// SingleCaseSchedulerModal via scheduler-shared.tsx (same component, same behaviour, same
+// styling) — everything else here (Client Approval per legal entity, the group/organisation
+// summary panel) stays exactly as before and is unique to this, group, flow.
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   <div className="flex flex-col gap-0.5">
@@ -87,35 +86,22 @@ export function VatSchedulerModal({
   groupMembers,
 }: VatSchedulerModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [frequency, setFrequency] = useState<'Monthly' | 'Quarterly'>('Quarterly')
-  const [startPeriod, setStartPeriod] = useState<number | undefined>(undefined)
-  const [startYear, setStartYear] = useState(CURRENT_YEAR)
-  const [endPeriod, setEndPeriod] = useState<number | undefined>(undefined)
-  const [endYear, setEndYear] = useState(CURRENT_YEAR)
-  const [periodCloseDay, setPeriodCloseDay] = useState<number | undefined>(undefined)
-  const [dataProvisionDeadline, setDataProvisionDeadline] = useState(3)
-  const [statutoryDeadlineDay, setStatutoryDeadlineDay] = useState<number | undefined>(undefined)
-  const [deadlineExtension, setDeadlineExtension] = useState(false)
   const [templateFileName, setTemplateFileName] = useState<string | undefined>(undefined)
   // Client Approval rule per legal entity — defaults to skipped (false/absent) for everyone.
   const [approvalByEntityId, setApprovalByEntityId] = useState<Record<string, boolean>>({})
   const [entitySearch, setEntitySearch] = useState('')
 
+  // Group cases are named after the group, not a per-entity case type — e.g.
+  // "DE VAT Group — Q1 2026" — since a VAT group files one consolidated return per period.
+  const schedule = useDeadlineSchedule((p, frequency) => `${groupName} — ${periodLabel(frequency, p.period, p.year)}`)
+
   useEffect(() => {
     if (!open) return
-    setFrequency('Quarterly')
-    setStartPeriod(undefined)
-    setStartYear(CURRENT_YEAR)
-    setEndPeriod(undefined)
-    setEndYear(CURRENT_YEAR)
-    setPeriodCloseDay(undefined)
-    setDataProvisionDeadline(3)
-    setStatutoryDeadlineDay(undefined)
-    setDeadlineExtension(false)
+    schedule.reset()
     setTemplateFileName(undefined)
     setApprovalByEntityId({})
     setEntitySearch('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const toggleApproval = (entityId: string) =>
@@ -136,19 +122,15 @@ export function VatSchedulerModal({
         name: m.name,
         requiresClientApproval: !!approvalByEntityId[m.id],
       })),
+      cases: schedule.cases.map((c) => ({
+        name: c.name,
+        statutoryDeadline: c.customDeadline ?? c.defaultDeadline,
+      })),
     }),
-    [groupName, groupMembers, approvalByEntityId],
+    [groupName, groupMembers, approvalByEntityId, schedule.cases],
   )
 
-  const isMonthly = frequency === 'Monthly'
-
-  const handleFrequencyChange = (value: string) => {
-    setFrequency(value as 'Monthly' | 'Quarterly')
-    setStartPeriod(undefined)
-    setEndPeriod(undefined)
-  }
-
-  const canSubmit = !!startPeriod && !!endPeriod && !!periodCloseDay && !!statutoryDeadlineDay
+  const canSubmit = schedule.canSubmitSchedule
 
   const handleCancel = () => onOpenChange(false)
 
@@ -169,18 +151,15 @@ export function VatSchedulerModal({
     e.target.value = ''
   }
 
-  const endYearOptions = YEAR_OPTIONS.filter((y) => y >= startYear)
-  const endMonthKeys = startYear === endYear && startPeriod ? MONTH_KEYS.filter((k) => Number(k) >= startPeriod) : MONTH_KEYS
-  const endQuarterOptions = startYear === endYear && startPeriod ? QUARTER_OPTIONS.filter((q) => q >= startPeriod) : QUARTER_OPTIONS
-
   const partnerLabel = partnerNames.length > 0 ? partnerNames.join(', ') : ''
   const clientLabel = clientName ? `${clientName} (external)` : ''
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-w-5xl flex-row gap-0 overflow-hidden p-0">
-        {/* Left sidebar: read-only summary of the Create Case drawer selections */}
-        <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r bg-muted/30 px-6 py-5">
+      <DialogContent className="flex max-h-[85vh] max-w-6xl flex-row gap-0 overflow-hidden p-0">
+        {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
+            scrolls (it's always short static case info, unlike the scheduler form beside it). */}
+        <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-muted/30 px-6 py-5">
           <h3 className="font-semibold text-foreground text-sm">Group case details</h3>
           <div className="flex flex-col gap-5">
             <SummaryRow label="Organisation" value={organisationName} />
@@ -214,7 +193,9 @@ export function VatSchedulerModal({
             }}
             className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6"
           >
-            {/* Client Approval rule per legal entity in the group — defaults to skipped */}
+            {/* Client Approval rule per legal entity in the group — defaults to skipped.
+                Group-specific: a single case has only one legal entity, so this has no
+                equivalent in SingleCaseSchedulerModal. */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-medium text-foreground text-sm">Select Legal Entities that require Client Approval</p>
@@ -254,225 +235,10 @@ export function VatSchedulerModal({
               </p>
             </div>
 
-            {/* Frequency + Scheduled period */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="frequency" className="font-medium text-foreground text-sm">
-                  Frequency
-                </label>
-                <Select value={frequency} onValueChange={handleFrequencyChange}>
-                  <SelectTrigger id="frequency">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Monthly">Monthly</SelectItem>
-                    <SelectItem value="Quarterly">Quarterly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="col-span-2 flex flex-col gap-2">
-                <p className="font-medium text-foreground text-sm">Scheduled period</p>
-                <div className="flex items-center gap-2">
-                  {/* Start */}
-                  <div className="flex flex-1 gap-2">
-                    {isMonthly ? (
-                      <Select value={startPeriod?.toString() ?? ''} onValueChange={(v) => setStartPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Month">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MONTH_KEYS.map((k) => (
-                            <SelectItem key={k} value={k}>
-                              {k}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Select value={startPeriod?.toString() ?? ''} onValueChange={(v) => setStartPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Quarter">
-                          <SelectValue placeholder="Quarter" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {QUARTER_OPTIONS.map((q) => (
-                            <SelectItem key={q} value={q.toString()}>
-                              Q{q}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Select value={startYear.toString()} onValueChange={(v) => setStartYear(Number(v))}>
-                      <SelectTrigger aria-label="Year">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {YEAR_OPTIONS.map((y) => (
-                          <SelectItem key={y} value={y.toString()}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <span className="text-muted-foreground text-sm">→</span>
-
-                  {/* End */}
-                  <div className="flex flex-1 gap-2">
-                    {isMonthly ? (
-                      <Select value={endPeriod?.toString() ?? ''} onValueChange={(v) => setEndPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Month">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {endMonthKeys.map((k) => (
-                            <SelectItem key={k} value={k}>
-                              {k}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Select value={endPeriod?.toString() ?? ''} onValueChange={(v) => setEndPeriod(Number(v))}>
-                        <SelectTrigger aria-label="Quarter">
-                          <SelectValue placeholder="Quarter" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {endQuarterOptions.map((q) => (
-                            <SelectItem key={q} value={q.toString()}>
-                              Q{q}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Select value={endYear.toString()} onValueChange={(v) => setEndYear(Number(v))}>
-                      <SelectTrigger aria-label="Year">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {endYearOptions.map((y) => (
-                          <SelectItem key={y} value={y.toString()}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Period close date + Data provision deadline + Statutory deadline */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="period-close-day" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-                  Period close date
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>The date the VAT period closes each cycle.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </label>
-                <Select value={periodCloseDay?.toString() ?? ''} onValueChange={(v) => setPeriodCloseDay(Number(v))}>
-                  <SelectTrigger id="period-close-day">
-                    <SelectValue placeholder="Day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DAY_OPTIONS_31.map((d) => (
-                      <SelectItem key={d} value={d.toString()}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-muted-foreground text-sm">of the previous month</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="data-provision-deadline" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-                  Data provision deadline
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>How many working days the client has to provide data.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </label>
-                <div className="flex w-fit items-center rounded-md border border-input shadow-sm">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-r-none"
-                    onClick={() => setDataProvisionDeadline((n) => Math.max(1, n - 1))}
-                  >
-                    <Minus className="size-4" />
-                  </Button>
-                  <div className="h-5 w-px bg-border" />
-                  <div id="data-provision-deadline" className="flex h-9 w-14 items-center justify-center text-center text-sm">
-                    {dataProvisionDeadline}
-                  </div>
-                  <div className="h-5 w-px bg-border" />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-l-none"
-                    onClick={() => setDataProvisionDeadline((n) => n + 1)}
-                  >
-                    <Plus className="size-4" />
-                  </Button>
-                </div>
-                <p className="text-muted-foreground text-sm">working days after the closure</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="statutory-deadline" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-                  Statutory deadline
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>The legal filing deadline for this VAT return.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </label>
-                <Select value={statutoryDeadlineDay?.toString() ?? ''} onValueChange={(v) => setStatutoryDeadlineDay(Number(v))}>
-                  <SelectTrigger id="statutory-deadline">
-                    <SelectValue placeholder="Day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DAY_OPTIONS_31.map((d) => (
-                      <SelectItem key={d} value={d.toString()}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-muted-foreground text-sm">
-                  {deadlineExtension ? 'of the second following month' : 'of the following month'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="statutory-deadline-extension"
-                    checked={deadlineExtension}
-                    onCheckedChange={(checked) => setDeadlineExtension(checked === true)}
-                  />
-                  <label htmlFor="statutory-deadline-extension" className="cursor-pointer select-none font-medium text-sm">
-                    Deadline extension (+2 months)
-                  </label>
-                </div>
-              </div>
-            </div>
+            <FrequencyPeriodFields s={schedule} />
+            <StatutoryDeadlineFields s={schedule} />
+            <CustomDeadlineSection s={schedule} />
+            <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />
 
             {/* Template upload */}
             <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">

@@ -114,7 +114,10 @@ export function SingleCaseSchedulerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] max-w-6xl flex-row gap-0 overflow-hidden p-0">
+      <DialogContent
+        overlayClassName="bg-background/40 backdrop-blur-sm"
+        className="flex max-h-[85vh] max-w-6xl flex-row gap-0 overflow-hidden p-0"
+      >
         {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
             scrolls (it's always short static case info, unlike the scheduler form beside it). */}
         <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-muted/30 px-6 py-5">

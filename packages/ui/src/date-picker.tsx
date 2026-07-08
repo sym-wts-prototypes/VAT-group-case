@@ -14,11 +14,13 @@ export interface DatePickerProps {
   placeholder?: string
   disabled?: boolean
   className?: string
+  /** Overrides the default "PPP" display (e.g. to include the weekday) — the value is unchanged. */
+  formatValue?: (date: Date) => string
   "data-testid"?: string
 }
 
 const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
-  ({ id, value, onChange, placeholder = "Pick a date", disabled, className, ...props }, ref) => {
+  ({ id, value, onChange, placeholder = "Pick a date", disabled, className, formatValue, ...props }, ref) => {
     const [open, setOpen] = React.useState(false)
 
     return (
@@ -38,7 +40,7 @@ const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
             {...props}
           >
             <CalendarIcon className="size-4" />
-            {value ? format(value, "PPP") : placeholder}
+            {value ? (formatValue ? formatValue(value) : format(value, "PPP")) : placeholder}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

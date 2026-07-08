@@ -548,21 +548,35 @@ export function CustomDeadlineSection({ s }: { s: DeadlineSchedule }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {s.cases.map((c) => (
-                <TableRow key={c.key}>
-                  <TableCell className="px-4 py-3 font-medium text-foreground">{c.name}</TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground">{formatLongDate(c.defaultDeadline)}</TableCell>
-                  <TableCell className="px-4 py-3">
-                    <DatePicker
-                      value={c.customDeadline}
-                      onChange={(date) => s.setCustomDeadline(c.key, date)}
-                      placeholder="Set custom deadline"
-                      className="w-fit"
-                      data-testid={`custom-deadline-${c.key}`}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {s.cases.map((c) => {
+                const hasCustom = !!c.customDeadline
+                return (
+                  <TableRow key={c.key}>
+                    <TableCell className="px-4 py-3 font-medium text-foreground">{c.name}</TableCell>
+                    {/* Whichever deadline is currently active reads as the prominent one — the
+                        other fades to a ghost/muted state, so it's obvious at a glance which
+                        value a case will actually use. */}
+                    <TableCell
+                      className={cn('px-4 py-3', hasCustom ? 'text-muted-foreground/50' : 'font-medium text-foreground')}
+                    >
+                      {formatLongDate(c.defaultDeadline)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <DatePicker
+                        value={c.customDeadline}
+                        onChange={(date) => s.setCustomDeadline(c.key, date)}
+                        placeholder="Set custom deadline"
+                        formatValue={formatLongDate}
+                        className={cn(
+                          'w-fit',
+                          hasCustom && 'border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 hover:text-amber-950',
+                        )}
+                        data-testid={`custom-deadline-${c.key}`}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>

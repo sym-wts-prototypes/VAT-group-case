@@ -3,6 +3,8 @@ import { InfoIcon, Minus, Plus, UploadIcon } from 'lucide-react'
 import {
   Badge,
   Button,
+  Checkbox,
+  cn,
   DatePicker,
   Dialog,
   DialogContent,
@@ -22,6 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tabs,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -103,11 +106,17 @@ function periodLabel(frequency: Frequency, period: number, year: number): string
   return frequency === 'Monthly' ? `${MONTH_NAMES[period - 1]} ${year}` : `Q${period} ${year}`
 }
 
-// The month immediately after a period's end month — e.g. Q1 (Jan–Mar) → April.
-function followingMonth(frequency: Frequency, period: number, year: number): { monthIndex: number; year: number } {
+// The month `monthsAhead` after a period's end month — e.g. Q1 (Jan–Mar) → April for 1,
+// May for 2 (the "Deadline extension (+2 months)" checkbox).
+function followingMonth(
+  frequency: Frequency,
+  period: number,
+  year: number,
+  monthsAhead: 1 | 2,
+): { monthIndex: number; year: number } {
   const endMonthIndex = frequency === 'Monthly' ? period - 1 : period * 3 - 1
-  const next = endMonthIndex + 1
-  return next > 11 ? { monthIndex: 0, year: year + 1 } : { monthIndex: next, year }
+  const total = endMonthIndex + monthsAhead
+  return { monthIndex: total % 12, year: year + Math.floor(total / 12) }
 }
 
 function generatePeriods(frequency: Frequency, startPeriod: number, startYear: number, endPeriod: number, endYear: number): Period[] {
@@ -170,6 +179,7 @@ export function SingleCaseSchedulerModal({
   const [deadlineMode, setDeadlineMode] = useState<DeadlineMode>('workingDays')
   const [workingDaysValue, setWorkingDaysValue] = useState(2)
   const [dayOfMonthValue, setDayOfMonthValue] = useState<number | undefined>(undefined)
+  const [deadlineExtension, setDeadlineExtension] = useState(false)
   const [useCustomDeadlines, setUseCustomDeadlines] = useState(false)
   const [customDeadlines, setCustomDeadlines] = useState<Record<string, Date | undefined>>({})
   const [templateFileName, setTemplateFileName] = useState<string | undefined>(undefined)
@@ -186,6 +196,7 @@ export function SingleCaseSchedulerModal({
     setDeadlineMode('workingDays')
     setWorkingDaysValue(2)
     setDayOfMonthValue(undefined)
+    setDeadlineExtension(false)
     setUseCustomDeadlines(false)
     setCustomDeadlines({})
     setTemplateFileName(undefined)
@@ -211,7 +222,7 @@ export function SingleCaseSchedulerModal({
   }, [frequency, startPeriod, startYear, endPeriod, endYear, deadlineValueChosen])
 
   const defaultDeadlineFor = (p: Period): Date => {
-    const { monthIndex, year } = followingMonth(frequency, p.period, p.year)
+    const { monthIndex, year } = followingMonth(frequency, p.period, p.year, deadlineExtension ? 2 : 1)
     return deadlineMode === 'workingDays'
       ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue)
       : dateForDayOfMonth(year, monthIndex, dayOfMonthValue ?? 1)
@@ -228,7 +239,7 @@ export function SingleCaseSchedulerModal({
         customDeadline: customDeadlines[p.key],
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [periods, frequency, caseTypeLabel, deadlineMode, workingDaysValue, dayOfMonthValue, customDeadlines],
+    [periods, frequency, caseTypeLabel, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines],
   )
 
   const schedulePayload = useMemo(
@@ -267,9 +278,10 @@ export function SingleCaseSchedulerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-w-5xl flex-row gap-0 overflow-hidden p-0">
-        {/* Left sidebar: read-only summary of the Create Case drawer selections */}
-        <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r bg-muted/30 px-6 py-5">
+      <DialogContent className="flex max-h-[85vh] max-w-5xl flex-row gap-0 overflow-hidden p-0">
+        {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
+            scrolls (it's always short static case info, unlike the scheduler form beside it). */}
+        <aside className="flex w-64 shrink-0 flex-col gap-4 border-r bg-muted/30 px-6 py-5">
           <h3 className="font-semibold text-foreground text-sm">Case details</h3>
           <div className="flex flex-col gap-5">
             <SummaryRow label="Legal entity" value={legalEntityName} />
@@ -492,28 +504,14 @@ export function SingleCaseSchedulerModal({
                     </Tooltip>
                   </TooltipProvider>
                 </label>
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-1 rounded-md border border-input p-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={deadlineMode === 'workingDays' ? 'default' : 'ghost'}
-                      className="h-7 px-2.5"
-                      onClick={() => setDeadlineMode('workingDays')}
-                    >
-                      Working days
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={deadlineMode === 'dayOfMonth' ? 'default' : 'ghost'}
-                      className="h-7 px-2.5"
-                      onClick={() => setDeadlineMode('dayOfMonth')}
-                    >
-                      Day of month
-                    </Button>
-                  </div>
-                </div>
+                <Tabs
+                  value={deadlineMode}
+                  onChange={setDeadlineMode}
+                  options={[
+                    { value: 'workingDays', label: 'Working days' },
+                    { value: 'dayOfMonth', label: 'Day of month' },
+                  ]}
+                />
                 {deadlineMode === 'workingDays' ? (
                   <Select value={workingDaysValue.toString()} onValueChange={(v) => setWorkingDaysValue(Number(v))}>
                     <SelectTrigger aria-label="Working days">
@@ -541,7 +539,19 @@ export function SingleCaseSchedulerModal({
                     </SelectContent>
                   </Select>
                 )}
-                <p className="text-muted-foreground text-sm">of following month</p>
+                <p className="text-muted-foreground text-sm">
+                  {deadlineExtension ? 'of second following month' : 'of following month'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="statutory-deadline-extension"
+                    checked={deadlineExtension}
+                    onCheckedChange={(checked) => setDeadlineExtension(checked === true)}
+                  />
+                  <label htmlFor="statutory-deadline-extension" className="cursor-pointer select-none font-medium text-sm">
+                    Deadline extension (+2 months)
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -553,9 +563,14 @@ export function SingleCaseSchedulerModal({
               </div>
 
               {useCustomDeadlines && cases.length > 0 && (
-                <div className="overflow-hidden rounded-md border border-border">
+                <div
+                  className={cn(
+                    'rounded-md border border-border',
+                    cases.length > 3 ? 'max-h-56 overflow-y-auto' : 'overflow-hidden',
+                  )}
+                >
                   <Table>
-                    <TableHeader>
+                    <TableHeader className={cases.length > 3 ? 'sticky top-0 z-10' : undefined}>
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="bg-muted/50 px-4">Case name</TableHead>
                         <TableHead className="bg-muted/50 px-4">Default statutory deadline</TableHead>

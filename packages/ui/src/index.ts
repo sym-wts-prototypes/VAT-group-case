@@ -134,6 +134,7 @@ export {
   type StepperStepState,
 } from './stepper'
 export { Dropzone, type DropzoneProps } from './dropzone'
+export { JurisdictionFlag, type JurisdictionFlagProps } from './jurisdiction-flag'
 export { CheckboxField, type CheckboxFieldProps } from './checkbox-field'
 export { SwitchField, type SwitchFieldProps } from './switch-field'
 export {

@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  JurisdictionFlag,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -31,7 +32,6 @@ import {
   DUMMY_CASES,
   DUMMY_GROUP_CASES,
   isGroupCase,
-  jurisdictionFlag,
   type CaseListItem,
   type VatGroupCase,
 } from './case-management-data'
@@ -209,10 +209,7 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
         {item.frequency}
       </div>
       <div role="cell" className="p-2 text-sm">
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-          <span aria-hidden>{jurisdictionFlag(item.jurisdiction)}</span>
-          {countryCodeFor(item.jurisdiction)}
-        </span>
+        <JurisdictionFlag code={countryCodeFor(item.jurisdiction)} />
       </div>
       <div role="cell" className="p-2 text-sm">
         {item.myRole}
@@ -263,7 +260,8 @@ function GroupCaseRow({
   onOpenGroup: (g: VatGroupCase) => void
 }) {
   return (
-    <Accordion type="single" collapsible>
+    // Expanded by default (prototype-only default; still fully collapsible per-row).
+    <Accordion type="single" collapsible defaultValue={group.id}>
       <AccordionItem value={group.id} className="border-none">
         <div
           role="row"
@@ -307,10 +305,7 @@ function GroupCaseRow({
             {group.frequency}
           </div>
           <div role="cell" className="p-2 text-sm">
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <span aria-hidden>{jurisdictionFlag(group.jurisdiction)}</span>
-              {countryCodeFor(group.jurisdiction)}
-            </span>
+            <JurisdictionFlag code={countryCodeFor(group.jurisdiction)} />
           </div>
           <div role="cell" className="p-2 text-sm text-muted-foreground">
             —

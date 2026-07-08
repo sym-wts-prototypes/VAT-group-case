@@ -60,6 +60,10 @@ interface DemoState {
   // Deliberately not synced to the URL hash: the hash format above only carries
   // process/role/headerType/phase, and this is a demo toggle, not worth deep-linking yet.
   showCaseManagement: boolean
+  // Playground-only toggle — swaps PlaygroundMain over to the Parent VAT Group Case page.
+  // Mutually exclusive with showCaseManagement (see setters below); forces process/phase to
+  // vat/inPreparation while on, since that's the only workflow state this first version covers.
+  showParentCase: boolean
   setProcess: (p: Process) => void
   setRole: (r: Role) => void
   setHeaderType: (h: HeaderType) => void
@@ -73,6 +77,7 @@ interface DemoState {
   setBucketMarkAsDoneChecked: (checked: boolean) => void
   setSelectedRequirementCategoryId: (id: string) => void
   setShowCaseManagement: (show: boolean) => void
+  setShowParentCase: (show: boolean) => void
 }
 
 const DEFAULTS = {
@@ -90,6 +95,7 @@ const DEFAULTS = {
   bucketMarkAsDoneChecked: false,
   selectedRequirementCategoryId: DEFAULT_REQUIREMENT_CATEGORY_ID,
   showCaseManagement: true,
+  showParentCase: false,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -303,6 +309,7 @@ const initialState = reconcile(parseHash(), {
   setBucketMarkAsDoneChecked: () => {},
   setSelectedRequirementCategoryId: () => {},
   setShowCaseManagement: () => {},
+  setShowParentCase: () => {},
 })
 
 export const useDemoStore = create<DemoState>((set) => ({
@@ -341,7 +348,20 @@ export const useDemoStore = create<DemoState>((set) => ({
   setSelectedRequirementCategoryId: (selectedRequirementCategoryId) =>
     set((prev) => ({ ...prev, selectedRequirementCategoryId })),
   setShowCaseManagement: (showCaseManagement) =>
-    set((prev) => ({ ...prev, showCaseManagement })),
+    set((prev) => ({
+      ...prev,
+      showCaseManagement,
+      showParentCase: showCaseManagement ? false : prev.showParentCase,
+    })),
+  setShowParentCase: (showParentCase) =>
+    set((prev) =>
+      reconcile(
+        showParentCase
+          ? { process: 'vat', phase: 'inPreparation', showParentCase, showCaseManagement: false }
+          : { showParentCase },
+        prev,
+      ),
+    ),
 }))
 
 export function useHashSync() {

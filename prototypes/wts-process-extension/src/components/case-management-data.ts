@@ -1,7 +1,5 @@
 import type { BadgeTone } from '@wts/ui'
 
-import { countryCodeFor } from './org-details-data'
-
 // Dummy case dataset for the Case Management page — recreates the reference platform's case
 // list (reference/WTS20Platform/src/views/case-management/internal/case-list.tsx) with static
 // data. Two shapes: individual `Case`s, and `VatGroupCase`s (an expandable parent whose
@@ -74,17 +72,6 @@ export type CaseListItem = Case | VatGroupCase
 
 export const isGroupCase = (item: CaseListItem): item is VatGroupCase =>
   'kind' in item && item.kind === 'group'
-
-// Dependency-free flag: no need to pull in a flag-icon package for a handful of emoji flags.
-export function flagEmoji(countryCode: string): string {
-  return countryCode
-    .toUpperCase()
-    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
-}
-
-export function jurisdictionFlag(country: string): string {
-  return flagEmoji(countryCodeFor(country))
-}
 
 // Trimmed to one row per (My role, Status) combination already demonstrated by the previous,
 // larger dataset — every status (Draft, In Preparation, In Review, Client Approval, Submitted)

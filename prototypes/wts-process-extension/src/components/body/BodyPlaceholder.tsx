@@ -255,7 +255,7 @@ export function BodyPlaceholder({
   )
 }
 
-function SectionLabel({
+export function SectionLabel({
   children,
   className,
 }: {

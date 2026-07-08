@@ -61,6 +61,7 @@ export function ControlPanel() {
     protocolConfirmationChecked,
     packageReviewOutcome,
     showCaseManagement,
+    showParentCase,
     setProcess,
     setRole,
     setHeaderType,
@@ -72,6 +73,7 @@ export function ControlPanel() {
     setProtocolConfirmationChecked,
     setPackageReviewOutcome,
     setShowCaseManagement,
+    setShowParentCase,
   } = useDemoStore()
 
   const showTasksDoneControl = isCaseTasksGateActive(
@@ -121,6 +123,15 @@ export function ControlPanel() {
         <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
           Swaps in the full case list, independent of the CIT Assessment &amp; Closure demo below.
         </p>
+
+        <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+          <span className="text-[13px] font-medium text-foreground">Parent case</span>
+          <Switch checked={showParentCase} onCheckedChange={setShowParentCase} />
+        </label>
+        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+          Swaps in the Parent VAT Group Case page. Restricts Process to VAT and Phase to In
+          Preparation while on.
+        </p>
       </div>
 
       <div>
@@ -138,6 +149,7 @@ export function ControlPanel() {
         options={ALL_PROCESSES.map((p) => ({
           value: p,
           label: PROCESS_LABELS[p],
+          disabled: showParentCase && p !== 'vat',
         }))}
       />
 
@@ -169,7 +181,7 @@ export function ControlPanel() {
         options={workflowPhasesForControls(process).map((p) => ({
           value: p,
           label: PHASE_LABELS[p as Phase],
-          disabled: isPhaseDisabledInControls(p, role),
+          disabled: isPhaseDisabledInControls(p, role) || (showParentCase && p !== 'inPreparation'),
         }))}
       />
 

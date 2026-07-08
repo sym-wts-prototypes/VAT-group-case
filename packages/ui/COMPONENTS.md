@@ -34,6 +34,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | Dropzone | WTS custom | — | Simple drag-and-drop area |
 | FileDropzone | WTS custom | — | Rich: validation, progress bar, error, template download |
 | Input | shadcn | `input.figma.tsx` | |
+| JurisdictionFlag | WTS custom | — | Country flag (`country-flag-icons`, 3x2) + ISO code; falls back to plain code text |
 | Label | shadcn | — | |
 | OptionPills | WTS custom | — | Pill-styled radio group (filled primary when selected) |
 | Popover | shadcn (Radix) | — | Floating panel primitive; backs DatePicker/DateRangePicker |

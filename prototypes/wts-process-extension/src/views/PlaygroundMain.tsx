@@ -5,6 +5,7 @@ import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { CaseManagementPage } from '@/components/case-management-page'
 import { GROUPS, LEGAL_ENTITIES } from '@/components/org-details-data'
 import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
+import { ParentVatGroupCasePage } from '@/components/parent-vat-group-case-page'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
@@ -42,6 +43,7 @@ export function PlaygroundMain() {
     bucketMarkAsDoneChecked,
     selectedRequirementCategoryId,
     showCaseManagement,
+    showParentCase,
     setHeaderType,
     setBucketMarkAsDoneChecked,
     setSelectedRequirementCategoryId,
@@ -51,6 +53,10 @@ export function PlaygroundMain() {
 
   if (showCaseManagement) {
     return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
+  }
+
+  if (showParentCase) {
+    return <ParentVatGroupCasePage />
   }
 
   const ctx = { process, platform, role, headerType, phase }

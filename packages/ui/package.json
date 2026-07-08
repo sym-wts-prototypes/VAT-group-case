@@ -32,6 +32,7 @@
     "@tanstack/react-table": "^8.20.5",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "country-flag-icons": "^1.6.20",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.453.0",
     "react-day-picker": "^10.0.1",

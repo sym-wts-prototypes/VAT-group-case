@@ -16,11 +16,19 @@ export interface DatePickerProps {
   className?: string
   /** Overrides the default "PPP" display (e.g. to include the weekday) — the value is unchanged. */
   formatValue?: (date: Date) => string
+  /** Month the calendar opens on when there's no value yet — e.g. a calculated default date,
+   * so the user starts from that context instead of today's month. */
+  defaultMonth?: Date
+  /** 0 = Sunday (react-day-picker's default), 1 = Monday, etc. */
+  weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6
   "data-testid"?: string
 }
 
 const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
-  ({ id, value, onChange, placeholder = "Pick a date", disabled, className, formatValue, ...props }, ref) => {
+  (
+    { id, value, onChange, placeholder = "Pick a date", disabled, className, formatValue, defaultMonth, weekStartsOn, ...props },
+    ref
+  ) => {
     const [open, setOpen] = React.useState(false)
 
     return (
@@ -47,6 +55,8 @@ const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
           <Calendar
             mode="single"
             selected={value}
+            defaultMonth={defaultMonth ?? value}
+            weekStartsOn={weekStartsOn}
             onSelect={(date) => {
               onChange(date)
               setOpen(false)

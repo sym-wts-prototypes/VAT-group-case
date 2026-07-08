@@ -567,6 +567,11 @@ export function CustomDeadlineSection({ s }: { s: DeadlineSchedule }) {
                         onChange={(date) => s.setCustomDeadline(c.key, date)}
                         placeholder="Set custom deadline"
                         formatValue={formatLongDate}
+                        // Opens on the already-calculated default deadline (not today) so the
+                        // user adjusts from that starting point; Monday-first week, per the
+                        // reference calendar convention.
+                        defaultMonth={c.defaultDeadline}
+                        weekStartsOn={1}
                         className={cn(
                           'w-fit',
                           hasCustom && 'border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 hover:text-amber-950',

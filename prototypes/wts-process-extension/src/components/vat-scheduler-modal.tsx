@@ -290,7 +290,7 @@ export function VatSchedulerModal({
                  only one legal entity, so this step has no equivalent in SingleCaseSchedulerModal. */
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-foreground text-sm">Configure entities for this group</p>
+                  <p className="font-medium text-foreground text-sm">Configure case settings for this group's legal entities</p>
                   <div className="relative w-56 shrink-0">
                     <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -344,7 +344,7 @@ export function VatSchedulerModal({
                               Approval for this entity" obvious at a glance. */}
                           <div className="flex items-center gap-2">
                             <span className={cn('text-sm', requiresApproval ? 'text-amber-900' : 'text-muted-foreground')}>
-                              Client approval {requiresApproval ? 'on' : 'off'}
+                              Client Approval is {requiresApproval ? 'on' : 'off'}
                             </span>
                             <Switch
                               aria-label={`Requires Client Approval — ${m.name}`}
@@ -406,7 +406,7 @@ export function VatSchedulerModal({
                 </div>
 
                 <p className="text-right text-muted-foreground text-sm">
-                  {approvedCount} of {groupMembers.length} require approval
+                  {approvedCount} of {groupMembers.length} require the Client Approval step
                 </p>
               </div>
             )}

@@ -12,6 +12,8 @@ export interface OptionPillsProps<T extends string = string> {
   options: OptionPillItem<T>[]
   onChange: (value: T) => void
   className?: string
+  /** Overrides the default uppercase/muted caption style — e.g. to match a standard form Label. */
+  labelClassName?: string
 }
 
 export function OptionPills<T extends string>({
@@ -20,10 +22,11 @@ export function OptionPills<T extends string>({
   options,
   onChange,
   className,
+  labelClassName,
 }: OptionPillsProps<T>) {
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <span className={cn('text-xs font-medium uppercase tracking-wide text-muted-foreground', labelClassName)}>
         {label}
       </span>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>

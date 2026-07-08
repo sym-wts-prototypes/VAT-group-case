@@ -405,6 +405,19 @@ export const COUNTRY_CODES: Record<string, string> = {
 export function countryCodeFor(country: string): string {
   return COUNTRY_CODES[country] ?? country.slice(0, 2).toUpperCase();
 }
+
+// Dummy Jurisdiction → VAT Registration mapping, shared by the Single Case and Group Case
+// creation forms — selecting a Jurisdiction always deterministically assigns one VAT
+// Registration, independent of which legal entity is selected (this is illustrative
+// placeholder data, not a real registration lookup).
+export const JURISDICTION_VAT_REGISTRATIONS: Record<string, string> = {
+  Germany: "DE134990", Austria: "AT927384", Belgium: "BE482913",
+  Switzerland: "CH392187", Italy: "IT839201", France: "FR139481",
+  Hungary: "HU746291", Netherlands: "NL248193", Spain: "ES583920", Poland: "PL132499",
+};
+export function vatRegistrationForJurisdiction(jurisdiction: string): string {
+  return JURISDICTION_VAT_REGISTRATIONS[jurisdiction] ?? "";
+}
 export const DECLARATION_TYPES = [
   "CIT Return Yearly",
   "CIT Return Quarterly",

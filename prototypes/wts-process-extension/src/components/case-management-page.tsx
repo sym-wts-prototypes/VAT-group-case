@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, Layers, MoreHorizontal, Plus, Search, X } from 'lucide-react'
 import {
   Accordion,
@@ -12,6 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   cn,
 } from '@wts/ui'
 
@@ -30,7 +34,7 @@ import {
   type CaseListItem,
   type VatGroupCase,
 } from './case-management-data'
-import { CreateGroupVatCaseDrawer } from './create-group-vat-case-drawer'
+import { CreateCaseDrawer } from './create-case-drawer'
 import { countryCodeFor, Group, LegalEntity } from './org-details-data'
 import { Organization } from './organizations-data'
 
@@ -62,21 +66,80 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 
 const formatDate = (iso: string) => dateFormatter.format(new Date(iso))
 
 // Shared column layout for the header, individual rows, group parent rows, and group children.
+// Case ID/Client/Case name/Jurisdiction/Service line/My role are widened so medium-length values
+// stay fully visible; only genuinely long values still truncate (see TruncatedText below).
 const GRID_COLS =
-  'grid-cols-[140px_170px_190px_100px_90px_100px_100px_90px_130px_120px_110px_minmax(160px,1fr)_40px]'
+  'grid-cols-[200px_220px_220px_110px_90px_100px_110px_100px_130px_120px_110px_minmax(160px,1fr)_44px]'
 // Same as GRID_COLS minus the trailing actions column — the group parent row's AccordionTrigger
 // can only cover columns 1-12 (it renders as a <button>, and the actions cell needs its own
 // button for the kebab menu; buttons can't nest), so it gets its own 12-column template and
 // sits inside a 13-column wrapper alongside a sibling actions cell.
 const GRID_COLS_12 =
-  'grid-cols-[140px_170px_190px_100px_90px_100px_100px_90px_130px_120px_110px_minmax(160px,1fr)]'
+  'grid-cols-[200px_220px_220px_110px_90px_100px_110px_100px_130px_120px_110px_minmax(160px,1fr)]'
+// Uniform row height so Client/Organisation text lands at the same baseline whether the row is
+// an individual case, a VAT Group Case parent, or a group child — otherwise a row with a taller
+// cell (e.g. a two-line "Latest activity") stretches and visually shifts its siblings' centering.
+const ROW_MIN_HEIGHT = 'min-h-14'
+// Row actions stay pinned to the right edge of the horizontally-scrolling table. `pr-6` replaces
+// the scroll container's own right padding (removed — see the comment above the container) so
+// the sticky cell's box reaches all the way to the true clip edge, with no gap for another
+// column's tail to scroll into and peek out past it. The hover background is `bg-muted` at full
+// opacity (not the row's usual `hover:bg-muted/50`) — a translucent tint here would let whatever
+// column has scrolled underneath this sticky cell show through while hovering.
+const STICKY_ACTIONS_CELL = 'sticky right-0 z-10 border-l border-border bg-background pr-6 group-hover/row:bg-muted'
+
+const HEADER_LABELS = [
+  'Case ID',
+  'Client',
+  'Case name',
+  'Service line',
+  'Case Type',
+  'Frequency',
+  'Jurisdiction',
+  'My role',
+  'Status',
+  'Statutory Deadline',
+  'Next deadline',
+  'Latest activity',
+  '',
+]
 
 function matchesSearch(item: CaseListItem, q: string): boolean {
   if (isGroupCase(item)) {
-    const groupText = `${item.id} ${item.organisation} ${item.caseName} ${item.vatGroupName}`.toLowerCase()
+    const groupText = `${item.id} ${item.organisation} ${item.representativeEntity} ${item.caseName} ${item.vatGroupName}`.toLowerCase()
     return groupText.includes(q) || item.children.some((child) => matchesSearch(child, q))
   }
   return `${item.id} ${item.client} ${item.caseName}`.toLowerCase().includes(q)
+}
+
+// Renders text with CSS ellipsis truncation, but only wraps it in a Tooltip (showing the full
+// value) once it has actually measured as truncated — untruncated cells get no tooltip at all.
+function TruncatedText({ text, className }: { text: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [isTruncated, setIsTruncated] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    setIsTruncated(el.scrollWidth > el.clientWidth)
+  }, [text])
+
+  const span = (
+    <span ref={ref} className={cn('block min-w-0 truncate', className)}>
+      {text}
+    </span>
+  )
+
+  if (!isTruncated) return span
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{span}</TooltipTrigger>
+        <TooltipContent>{text}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 function NextDeadlineCell({ value }: { value: string | null }) {
@@ -96,7 +159,7 @@ function NextDeadlineCell({ value }: { value: string | null }) {
   )
 }
 
-function RowActions({ id, onView }: { id: string; onView: () => void }) {
+function RowActions({ id, onEdit }: { id: string; onEdit: () => void }) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <DropdownMenu modal={false}>
@@ -107,7 +170,9 @@ function RowActions({ id, onView }: { id: string; onView: () => void }) {
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onView}>View case</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onEdit}>Edit Case</DropdownMenuItem>
+          <DropdownMenuItem disabled>Activity Log</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigator.clipboard.writeText(id)}>Copy Case ID</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -121,17 +186,21 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
     <div
       role="row"
       onClick={onOpen}
-      className={cn('grid cursor-pointer items-center border-b transition-colors hover:bg-muted/50', GRID_COLS)}
+      className={cn(
+        'group/row grid cursor-pointer items-center border-b transition-colors hover:bg-muted/50',
+        ROW_MIN_HEIGHT,
+        GRID_COLS,
+      )}
       title="Open the matching prototype scenario for this role + status"
     >
-      <div role="cell" className={cn('max-w-32 truncate p-2 text-sm font-medium', indented && 'pl-8')} title={item.id}>
-        {item.id}
+      <div role="cell" className={cn('min-w-0 p-2 text-sm font-medium', indented && 'pl-8')}>
+        <TruncatedText text={item.id} />
       </div>
-      <div role="cell" className="max-w-40 truncate p-2 text-sm font-medium text-foreground" title={item.client}>
-        {item.client}
+      <div role="cell" className="min-w-0 p-2 text-sm font-medium text-foreground">
+        <TruncatedText text={item.client} />
       </div>
-      <div role="cell" className="max-w-40 truncate p-2 text-sm" title={item.caseName}>
-        {item.caseName}
+      <div role="cell" className="min-w-0 p-2 text-sm">
+        <TruncatedText text={item.caseName} />
       </div>
       <div role="cell" className="p-2 text-sm">
         <Badge variant="soft" tone="gray" size="sm">
@@ -174,16 +243,19 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
           </span>
         </div>
       </div>
-      <div role="cell" className="p-2 text-sm">
-        <RowActions id={item.id} onView={onOpen} />
+      <div role="cell" className={cn('flex items-center p-2 text-sm', STICKY_ACTIONS_CELL)}>
+        <RowActions id={item.id} onEdit={onOpen} />
       </div>
     </div>
   )
 }
 
 // A VAT Group Case's collapsed parent row + its children, built on the real shadcn Accordion
-// (Root/Item/Trigger/Content) — the interaction and open/close animation are 100% Radix; only
-// the chevron is repositioned into the case-name cell so it fits the grid layout.
+// (Root/Item/Trigger/Content) — the interaction and open/close animation are 100% Radix. The
+// expand/collapse chevron and the blue "this is a group" icon both live in the Case ID cell;
+// the case name and every other cell render exactly like a normal CaseRow so the only thing
+// that visually marks a group row is that leading chevron+icon and the grey "VAT Group" badge
+// in the Service line column (Case Type/Frequency/etc. all line up with individual rows).
 function GroupCaseRow({
   group,
   onOpenChild,
@@ -196,37 +268,48 @@ function GroupCaseRow({
   return (
     <Accordion type="single" collapsible>
       <AccordionItem value={group.id} className="border-none">
-        <div role="row" className={cn('grid items-stretch border-b transition-colors hover:bg-muted/50', GRID_COLS)}>
+        <div
+          role="row"
+          className={cn(
+            'group/row grid items-stretch border-b transition-colors hover:bg-muted/50',
+            ROW_MIN_HEIGHT,
+            GRID_COLS,
+          )}
+        >
           {/* AccordionTrigger's outer wrapper is a Radix <Header> (renders as <h3>) that the
               `className` prop below can't reach — it only styles the inner <button>. Give the
               h3 its grid span here instead, and let the button fill it. */}
           <div className="[grid-column:1/-2]">
           <AccordionTrigger
             className={cn(
-              'group w-full items-center rounded-none px-0 py-0 font-normal hover:no-underline [&>svg]:hidden',
+              // AccordionTrigger renders a real <button>, whose browser-default `text-align:
+              // center` cascades into every cell inside it — invisible for cells whose content
+              // already spans the full column width, but centering anything narrower (badges,
+              // the flag+code jurisdiction span, plain text cells). `text-left` overrides it.
+              // Its shadcn defaults also include `flex-1 justify-between` — inert today because
+              // the flexible `minmax(160px,1fr)` Latest-activity track always absorbs leftover
+              // width before justify-content can act, but `justify-start`/`flex-none` removes
+              // that latent risk outright rather than relying on that column staying flexible.
+              'group w-full flex-none items-center justify-start text-left rounded-none px-0 py-0 font-normal hover:no-underline [&>svg]:hidden',
               'grid',
+              ROW_MIN_HEIGHT,
               GRID_COLS_12,
             )}
           >
-          <div role="cell" className="truncate p-2 text-sm font-medium" title={group.id}>
-            {group.id}
-          </div>
-          <div role="cell" className="truncate p-2 text-sm font-medium text-foreground" title={group.organisation}>
-            {group.organisation}
-          </div>
-          <div role="cell" className="flex min-w-0 items-center gap-1.5 p-2 text-sm">
+          <div role="cell" className="flex min-w-0 items-center gap-1.5 p-2 text-sm font-medium">
             <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
             <Layers className="size-3.5 shrink-0 text-blue-600" aria-hidden />
-            <span className="truncate" title={group.caseName}>
-              {group.caseName}
-            </span>
-            <Badge variant="soft" tone="blue" size="sm" className="shrink-0">
-              VAT Group
-            </Badge>
+            <TruncatedText text={group.id} className="min-w-0 flex-1" />
+          </div>
+          <div role="cell" className="min-w-0 p-2 text-sm font-medium text-foreground">
+            <TruncatedText text={group.representativeEntity} />
+          </div>
+          <div role="cell" className="min-w-0 p-2 text-sm">
+            <TruncatedText text={group.caseName} />
           </div>
           <div role="cell" className="p-2 text-sm">
             <Badge variant="soft" tone="gray" size="sm">
-              {group.serviceLine}
+              VAT Group
             </Badge>
           </div>
           <div role="cell" className="p-2 text-sm">
@@ -260,8 +343,8 @@ function GroupCaseRow({
           </div>
           </AccordionTrigger>
           </div>
-          <div role="cell" className="flex items-center p-2 text-sm">
-            <RowActions id={group.id} onView={() => onOpenGroup(group)} />
+          <div role="cell" className={cn('flex items-center p-2 text-sm', STICKY_ACTIONS_CELL)}>
+            <RowActions id={group.id} onEdit={() => onOpenGroup(group)} />
           </div>
         </div>
         <AccordionContent className="p-0">
@@ -346,26 +429,22 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
         </Button>
       </div>
 
-      <div className="overflow-x-auto px-6">
-        <div role="table" className="min-w-[1650px] text-sm">
+      {/* Right padding lives on the sticky actions cell (STICKY_ACTIONS_CELL), not here — padding
+          on this scroll container would sit to the right of a `right-0` sticky cell, letting the
+          Latest activity column's tail scroll into that gap and peek out past the actions column. */}
+      <div className="overflow-x-auto pl-6">
+        <div role="table" className="min-w-[1800px] text-sm">
           <div role="rowgroup">
             <div role="row" className={cn('grid border-b', GRID_COLS)}>
-              {[
-                'Case ID',
-                'Client',
-                'Case name',
-                'Service line',
-                'Case Type',
-                'Frequency',
-                'Jurisdiction',
-                'My role',
-                'Status',
-                'Statutory Deadline',
-                'Next deadline',
-                'Latest activity',
-                '',
-              ].map((label, i) => (
-                <div key={i} role="columnheader" className="flex h-10 items-center p-2 text-left font-medium text-muted-foreground text-sm">
+              {HEADER_LABELS.map((label, i) => (
+                <div
+                  key={i}
+                  role="columnheader"
+                  className={cn(
+                    'flex h-10 items-center p-2 text-left font-medium text-muted-foreground text-sm',
+                    i === HEADER_LABELS.length - 1 && STICKY_ACTIONS_CELL,
+                  )}
+                >
                   {label}
                 </div>
               ))}
@@ -388,7 +467,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
         )}
       </div>
 
-      <CreateGroupVatCaseDrawer
+      <CreateCaseDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         entities={entities}

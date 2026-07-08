@@ -53,6 +53,10 @@ export interface VatGroupCase {
   kind: 'group'
   id: string
   organisation: string
+  // The group's Representative Legal Entity (see org-details-data.ts's `representativeOf`) —
+  // shown in the Client column in place of the organisation name, matching how every other
+  // row in this column shows a legal entity, not a parent organisation.
+  representativeEntity: string
   vatGroupName: string
   reportingPeriod: string
   caseName: string
@@ -193,6 +197,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
     kind: 'group',
     id: 'VATGRP-DE-2026-01',
     organisation: 'EUROPIPE',
+    representativeEntity: 'EUROPIPE GmbH',
     vatGroupName: 'VAT DE Group',
     reportingPeriod: 'January 2026',
     caseName: 'VAT Group Case — VAT DE Group — January',
@@ -252,6 +257,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
     kind: 'group',
     id: 'VATGRP-DE-2026-02',
     organisation: 'EUROPIPE',
+    representativeEntity: 'EUROPIPE GmbH',
     vatGroupName: 'VAT DE Group',
     reportingPeriod: 'February 2026',
     caseName: 'VAT Group Case — VAT DE Group — February',

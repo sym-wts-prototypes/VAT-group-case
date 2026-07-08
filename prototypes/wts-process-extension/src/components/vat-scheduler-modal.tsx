@@ -3,7 +3,7 @@ import { Search, UploadIcon } from 'lucide-react'
 import {
   Badge,
   Button,
-  Checkbox,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,6 +13,7 @@ import {
   Input,
   Label,
   Stepper,
+  Switch,
 } from '@wts/ui'
 
 import {
@@ -289,7 +290,7 @@ export function VatSchedulerModal({
                  only one legal entity, so this step has no equivalent in SingleCaseSchedulerModal. */
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-foreground text-sm">Select Legal Entities that require Client Approval</p>
+                  <p className="font-medium text-foreground text-sm">Configure entities for this group</p>
                   <div className="relative w-56 shrink-0">
                     <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -301,15 +302,35 @@ export function VatSchedulerModal({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                {/* Large VAT Groups shouldn't keep growing the modal — past 3 entities the
+                    list scrolls internally instead, same threshold/pattern as the custom
+                    Statutory Deadline table in scheduler-shared.tsx. */}
+                <div
+                  className={cn(
+                    'flex flex-col gap-3',
+                    visibleGroupMembers.length > 3 && 'max-h-[420px] overflow-y-auto pr-1',
+                  )}
+                >
                   {visibleGroupMembers.map((m) => {
                     const roles = entityRoles[m.id]
                     const creatorOptions = DUMMY_USERS.filter((u) => u.id !== roles?.reviewerId)
                     const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== roles?.creatorId)
+                    const requiresApproval = !!approvalByEntityId[m.id]
                     return (
-                      <div key={m.id} className="rounded-md border border-border">
+                      <div
+                        key={m.id}
+                        className={cn(
+                          'rounded-md border transition-colors',
+                          requiresApproval ? 'border-amber-300 bg-amber-50' : 'border-border',
+                        )}
+                      >
                         <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                          <span className="flex items-center gap-2 text-foreground text-sm">
+                          <span
+                            className={cn(
+                              'flex items-center gap-2 text-sm',
+                              requiresApproval ? 'font-medium text-amber-950' : 'text-foreground',
+                            )}
+                          >
                             {m.name}
                             {m.isRepresentative && (
                               <Badge variant="soft" tone="blue" size="sm">
@@ -317,13 +338,27 @@ export function VatSchedulerModal({
                               </Badge>
                             )}
                           </span>
-                          <Checkbox
-                            aria-label={`Requires Client Approval — ${m.name}`}
-                            checked={!!approvalByEntityId[m.id]}
-                            onCheckedChange={() => toggleApproval(m.id)}
-                          />
+                          {/* A plain checkbox left it unclear what selecting it actually did —
+                              the switch + on/off label + amber row highlight (same accent as a
+                              manually-set Statutory Deadline) makes "this enables Client
+                              Approval for this entity" obvious at a glance. */}
+                          <div className="flex items-center gap-2">
+                            <span className={cn('text-sm', requiresApproval ? 'text-amber-900' : 'text-muted-foreground')}>
+                              Client approval {requiresApproval ? 'on' : 'off'}
+                            </span>
+                            <Switch
+                              aria-label={`Requires Client Approval — ${m.name}`}
+                              checked={requiresApproval}
+                              onCheckedChange={() => toggleApproval(m.id)}
+                            />
+                          </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3 border-t border-border px-3 py-3">
+                        <div
+                          className={cn(
+                            'grid grid-cols-3 gap-3 border-t px-3 py-3',
+                            requiresApproval ? 'border-amber-200' : 'border-border',
+                          )}
+                        >
                           <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-muted-foreground">Creator</Label>
                             {m.isRepresentative ? (

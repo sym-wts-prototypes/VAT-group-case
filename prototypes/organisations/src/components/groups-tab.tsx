@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, Crown, FileText, MoreHorizontal, Plus, Trash2, UserPlus, X } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Crown, Layers, MoreHorizontal, Plus, Trash2, UserPlus, X } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -281,12 +281,13 @@ function GroupDetail({
         )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Placeholder VAT-case creation entry point — VAT groups only. Opens a drawer
-              cloning the reference platform's Create Case drawer (VAT branch); expect this
-              to change as the feature is built out further. */}
+          {/* VAT-case creation entry point — VAT groups only. Opens the same Group Case
+              drawer + VAT Scheduler used by Case Management's Group Case flow. Icon matches
+              the "this is a group" Layers icon used on the Parent VAT Group Case row in the
+              Case Management table (case-management-page.tsx's GroupCaseRow). */}
           {canManage && group.type === 'VAT' && (
             <Button type="button" variant="outline" size="sm" onClick={() => setVatCaseOpen(true)}>
-              <FileText className="size-4" /> Create a group VAT case
+              <Layers className="size-4" /> Create a group VAT case
             </Button>
           )}
           {/* V11-E — group-level 3-dot menu with Delete group action. */}

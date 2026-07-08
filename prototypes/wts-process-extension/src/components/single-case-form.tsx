@@ -20,6 +20,7 @@ import {
 // `DateRangePickerProps` instead of adding a new dependency for a single type import.
 type DateRange = NonNullable<DateRangePickerProps['value']>
 
+import type { CaseListItem } from './case-management-data'
 import {
   COUNTRIES,
   LegalEntity,
@@ -49,17 +50,20 @@ const DUMMY_USERS: SelectableUser[] = [
   { id: 'noah-davis', name: 'Noah Davis', email: 'noah.davis@example.com' },
   { id: 'olivia-taylor', name: 'Olivia Taylor', email: 'olivia.taylor@example.com' },
 ]
-const DEFAULT_CREATOR_ID = 'maria-fischer'
-const DEFAULT_REVIEWER_ID = 'jordan-miller'
+const DEFAULT_CREATOR_IDS = ['maria-fischer']
+const DEFAULT_REVIEWER_IDS = ['jordan-miller']
 
 export interface SingleCaseFormContentProps {
   /** Mirrors the parent Sheet's `open` — drives the reset-on-open effect below. */
   open: boolean
   onClose: () => void
   entities: LegalEntity[]
+  /** Called with the newly generated cases once the scheduler submits — Case Management owns
+   * persisting/displaying them, this form just hands over what it produced. */
+  onCasesGenerated?: (items: CaseListItem[]) => void
 }
 
-export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFormContentProps) {
+export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerated }: SingleCaseFormContentProps) {
   const [legalEntityId, setLegalEntityId] = useState<string | undefined>(undefined)
   const [serviceLineKey, setServiceLineKey] = useState<string | undefined>(undefined)
   const [caseType, setCaseType] = useState<string | undefined>(undefined)
@@ -69,8 +73,8 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
   const [internalDeadline, setInternalDeadline] = useState<Date | undefined>(undefined)
   const [statutoryDeadline, setStatutoryDeadline] = useState<Date | undefined>(undefined)
   const [projectCode, setProjectCode] = useState('')
-  const [creatorId, setCreatorId] = useState<string | undefined>(DEFAULT_CREATOR_ID)
-  const [reviewerId, setReviewerId] = useState<string | undefined>(DEFAULT_REVIEWER_ID)
+  const [creatorIds, setCreatorIds] = useState<string[]>(DEFAULT_CREATOR_IDS)
+  const [reviewerIds, setReviewerIds] = useState<string[]>(DEFAULT_REVIEWER_IDS)
   const [partnerIds, setPartnerIds] = useState<string[]>([])
   const [clientIds, setClientIds] = useState<string[]>([])
   const [schedulerOpen, setSchedulerOpen] = useState(false)
@@ -89,8 +93,8 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
     setInternalDeadline(undefined)
     setStatutoryDeadline(undefined)
     setProjectCode('')
-    setCreatorId(DEFAULT_CREATOR_ID)
-    setReviewerId(DEFAULT_REVIEWER_ID)
+    setCreatorIds(DEFAULT_CREATOR_IDS)
+    setReviewerIds(DEFAULT_REVIEWER_IDS)
     setPartnerIds([])
     setClientIds([])
     setSchedulerOpen(false)
@@ -111,18 +115,18 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
   const deadlineOrderInvalid =
     !!internalDeadline && !!statutoryDeadline && internalDeadline.getTime() > statutoryDeadline.getTime()
 
-  const creatorOptions = DUMMY_USERS.filter((u) => u.id !== reviewerId)
-  const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== creatorId)
-  const reviewerSameAsCreator = !!creatorId && !!reviewerId && creatorId === reviewerId
+  const creatorOptions = DUMMY_USERS.filter((u) => !reviewerIds.includes(u.id))
+  const reviewerOptions = DUMMY_USERS.filter((u) => !creatorIds.includes(u.id))
+  const reviewerOverlapsCreator = creatorIds.length > 0 && creatorIds.some((id) => reviewerIds.includes(id))
 
   const canCreate =
     !!legalEntityId &&
     !!serviceLineKey &&
     !!caseType &&
     !!jurisdiction &&
-    !!creatorId &&
-    !!reviewerId &&
-    !reviewerSameAsCreator &&
+    creatorIds.length > 0 &&
+    reviewerIds.length > 0 &&
+    !reviewerOverlapsCreator &&
     clientIds.length > 0 &&
     (!isCit ||
       (!!frequency &&
@@ -145,8 +149,8 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
   }, [serviceLineKey, caseType, isCit, fiscalYear])
 
   const legalEntityName = entities.find((e) => e.id === legalEntityId)?.legalName ?? ''
-  const creatorName = DUMMY_USERS.find((u) => u.id === creatorId)?.name ?? ''
-  const reviewerName = DUMMY_USERS.find((u) => u.id === reviewerId)?.name ?? ''
+  const creatorNames = creatorIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const reviewerNames = reviewerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const partnerNames = partnerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const clientNames = clientIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
 
@@ -353,9 +357,10 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">Creator</Label>
           <UserSelect
+            multiple
             users={creatorOptions}
-            value={creatorId}
-            onChange={setCreatorId}
+            value={creatorIds}
+            onChange={setCreatorIds}
             data-testid="create-single-case-creator"
           />
         </div>
@@ -363,12 +368,13 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">Reviewer</Label>
           <UserSelect
+            multiple
             users={reviewerOptions}
-            value={reviewerId}
-            onChange={setReviewerId}
+            value={reviewerIds}
+            onChange={setReviewerIds}
             data-testid="create-single-case-reviewer"
           />
-          {reviewerSameAsCreator && (
+          {reviewerOverlapsCreator && (
             <p className="text-destructive text-xs">Reviewer must be different from the creator.</p>
           )}
         </div>
@@ -432,13 +438,14 @@ export function SingleCaseFormContent({ open, onClose, entities }: SingleCaseFor
         open={schedulerOpen}
         onOpenChange={setSchedulerOpen}
         onCreated={onClose}
+        onCasesGenerated={onCasesGenerated}
         legalEntityName={legalEntityName}
         jurisdiction={jurisdiction ?? ''}
         vatRegistration={vatRegistration}
         projectCode={projectCode}
         caseTypeLabel={caseType ?? ''}
-        creatorName={creatorName}
-        reviewerName={reviewerName}
+        creatorNames={creatorNames}
+        reviewerNames={reviewerNames}
         partnerNames={partnerNames}
         clientNames={clientNames}
       />

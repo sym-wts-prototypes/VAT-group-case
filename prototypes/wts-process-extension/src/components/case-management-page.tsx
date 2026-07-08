@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, Layers, MoreHorizontal, Plus, Search, X } from 'lucide-react'
+import { Layers, MoreHorizontal, Plus, Search, X } from 'lucide-react'
 import {
   Accordion,
   AccordionContent,
@@ -20,6 +20,7 @@ import {
 } from '@wts/ui'
 
 import { useDemoStore } from '@/store/useDemoStore'
+import { useGeneratedCasesStore } from '@/store/useGeneratedCasesStore'
 import type { Phase, Role } from '@/types'
 
 import {
@@ -70,12 +71,6 @@ const formatDate = (iso: string) => dateFormatter.format(new Date(iso))
 // stay fully visible; only genuinely long values still truncate (see TruncatedText below).
 const GRID_COLS =
   'grid-cols-[200px_220px_220px_110px_90px_100px_110px_100px_130px_120px_110px_minmax(160px,1fr)_44px]'
-// Same as GRID_COLS minus the trailing actions column — the group parent row's AccordionTrigger
-// can only cover columns 1-12 (it renders as a <button>, and the actions cell needs its own
-// button for the kebab menu; buttons can't nest), so it gets its own 12-column template and
-// sits inside a 13-column wrapper alongside a sibling actions cell.
-const GRID_COLS_12 =
-  'grid-cols-[200px_220px_220px_110px_90px_100px_110px_100px_130px_120px_110px_minmax(160px,1fr)]'
 // Uniform row height so Client/Organisation text lands at the same baseline whether the row is
 // an individual case, a VAT Group Case parent, or a group child — otherwise a row with a taller
 // cell (e.g. a two-line "Latest activity") stretches and visually shifts its siblings' centering.
@@ -251,11 +246,13 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
 }
 
 // A VAT Group Case's collapsed parent row + its children, built on the real shadcn Accordion
-// (Root/Item/Trigger/Content) — the interaction and open/close animation are 100% Radix. The
-// expand/collapse chevron and the blue "this is a group" icon both live in the Case ID cell;
-// the case name and every other cell render exactly like a normal CaseRow so the only thing
-// that visually marks a group row is that leading chevron+icon and the grey "VAT Group" badge
-// in the Service line column (Case Type/Frequency/etc. all line up with individual rows).
+// (Root/Item/Trigger/Content) — the interaction and open/close animation are 100% Radix. Only
+// the chevron button (AccordionTrigger, scoped to just that one cell) expands/collapses the
+// row; clicking anywhere else on the row opens the group like an individual case would
+// (`onOpenGroup`, stopPropagation'd off the trigger so the two actions never both fire). Case
+// name and every other cell render exactly like a normal CaseRow — the only visual markers of
+// a group row are the chevron+icon in the Case ID cell and the grey "VAT Group" badge in the
+// Service line column.
 function GroupCaseRow({
   group,
   onOpenChild,
@@ -270,34 +267,25 @@ function GroupCaseRow({
       <AccordionItem value={group.id} className="border-none">
         <div
           role="row"
+          onClick={() => onOpenGroup(group)}
           className={cn(
-            'group/row grid items-stretch border-b transition-colors hover:bg-muted/50',
+            'group/row grid cursor-pointer items-center border-b transition-colors hover:bg-muted/50',
             ROW_MIN_HEIGHT,
             GRID_COLS,
           )}
+          // For now this opens the same per-role/status prototype scenario an individual case
+          // does (see openGroupCase in CaseManagementPage) — a temporary stand-in until VAT
+          // Group Cases get their own detail page.
+          title="Open the matching prototype scenario for this group's representative entity"
         >
-          {/* AccordionTrigger's outer wrapper is a Radix <Header> (renders as <h3>) that the
-              `className` prop below can't reach — it only styles the inner <button>. Give the
-              h3 its grid span here instead, and let the button fill it. */}
-          <div className="[grid-column:1/-2]">
-          <AccordionTrigger
-            className={cn(
-              // AccordionTrigger renders a real <button>, whose browser-default `text-align:
-              // center` cascades into every cell inside it — invisible for cells whose content
-              // already spans the full column width, but centering anything narrower (badges,
-              // the flag+code jurisdiction span, plain text cells). `text-left` overrides it.
-              // Its shadcn defaults also include `flex-1 justify-between` — inert today because
-              // the flexible `minmax(160px,1fr)` Latest-activity track always absorbs leftover
-              // width before justify-content can act, but `justify-start`/`flex-none` removes
-              // that latent risk outright rather than relying on that column staying flexible.
-              'group w-full flex-none items-center justify-start text-left rounded-none px-0 py-0 font-normal hover:no-underline [&>svg]:hidden',
-              'grid',
-              ROW_MIN_HEIGHT,
-              GRID_COLS_12,
-            )}
-          >
           <div role="cell" className="flex min-w-0 items-center gap-1.5 p-2 text-sm font-medium">
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
+            {/* Scoped to just this cell so a click here toggles the accordion instead of
+                bubbling up to the row's onOpenGroup — the two interactions stay independent. */}
+            <AccordionTrigger
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Toggle ${group.id}`}
+              className="h-6 w-6 flex-none items-center justify-center rounded p-0 font-normal hover:bg-muted hover:no-underline [&>svg]:mx-0 [&>svg]:size-3.5 [&>svg]:text-muted-foreground"
+            />
             <Layers className="size-3.5 shrink-0 text-blue-600" aria-hidden />
             <TruncatedText text={group.id} className="min-w-0 flex-1" />
           </div>
@@ -341,8 +329,6 @@ function GroupCaseRow({
           <div role="cell" className="p-2 text-sm text-muted-foreground">
             {group.children.length} legal entities
           </div>
-          </AccordionTrigger>
-          </div>
           <div role="cell" className={cn('flex items-center p-2 text-sm', STICKY_ACTIONS_CELL)}>
             <RowActions id={group.id} onEdit={() => onOpenGroup(group)} />
           </div>
@@ -369,6 +355,8 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const setRole = useDemoStore((state) => state.setRole)
   const setPhase = useDemoStore((state) => state.setPhase)
   const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
+  const generatedCases = useGeneratedCasesStore((state) => state.cases)
+  const addGeneratedCases = useGeneratedCasesStore((state) => state.addCases)
 
   const openScenarioForCase = (c: Case) => {
     setRole(ROLE_TO_PLAYGROUND_ROLE[c.myRole])
@@ -376,11 +364,29 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
     setShowCaseManagement(false)
   }
 
-  // VAT Group Cases don't have a detail page yet — this is an intentional no-op for now so the
-  // seam exists without having to touch this component again once that page is built.
-  const openGroupCase = (_group: VatGroupCase) => {}
+  // VAT Group Cases don't have a detail page yet — for now, opening the parent row opens the
+  // same prototype scenario its representative entity's child case would. Temporary stand-in
+  // (see GroupCaseRow), kept as its own function so swapping in a real detail page later only
+  // touches this one spot.
+  const openGroupCase = (group: VatGroupCase) => {
+    const representativeChild =
+      group.children.find((c) => c.client === group.representativeEntity) ?? group.children[0]
+    if (representativeChild) openScenarioForCase(representativeChild)
+  }
 
-  const allItems: CaseListItem[] = useMemo(() => [...DUMMY_CASES, ...DUMMY_GROUP_CASES], [])
+  // Newly created cases (see create-case-drawer.tsx's scheduler modals) show up here
+  // immediately, ahead of the static dummy dataset, and land back on this page — it's already
+  // where case creation is entered from, but this also future-proofs a redirect if that ever
+  // changes.
+  const handleCasesGenerated = (items: CaseListItem[]) => {
+    addGeneratedCases(items)
+    setShowCaseManagement(true)
+  }
+
+  const allItems: CaseListItem[] = useMemo(
+    () => [...generatedCases, ...DUMMY_CASES, ...DUMMY_GROUP_CASES],
+    [generatedCases],
+  )
 
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -473,6 +479,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
         entities={entities}
         organisations={organisations}
         groups={groups}
+        onCasesGenerated={handleCasesGenerated}
       />
     </div>
   )

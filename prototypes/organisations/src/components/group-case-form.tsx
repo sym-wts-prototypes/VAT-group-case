@@ -11,6 +11,7 @@ import {
   SheetFooter,
 } from '@wts/ui'
 
+import type { CaseListItem } from './case-management-data'
 import { LegalEntity } from './org-details-data'
 import { activeMembers, COUNTRIES, Group, representativeOf, vatRegistrationForJurisdiction } from './org-details-data'
 import { Organization } from './organizations-data'
@@ -36,8 +37,8 @@ const DUMMY_USERS: SelectableUser[] = [
   { id: 'noah-davis', name: 'Noah Davis', email: 'noah.davis@example.com' },
   { id: 'olivia-taylor', name: 'Olivia Taylor', email: 'olivia.taylor@example.com' },
 ]
-const DEFAULT_CREATOR_ID = 'maria-fischer'
-const DEFAULT_REVIEWER_ID = 'jordan-miller'
+const DEFAULT_CREATOR_IDS = ['maria-fischer']
+const DEFAULT_REVIEWER_IDS = ['jordan-miller']
 const DEFAULT_CLIENT_ID = 'oscar-wilson'
 
 export interface GroupCaseFormContentProps {
@@ -54,6 +55,10 @@ export interface GroupCaseFormContentProps {
   entities: LegalEntity[]
   organisations: Organization[]
   groups: Group[]
+  /** Called with the newly generated cases once the scheduler submits — omitted (no-op) by
+   * entry points that don't have a Case Management page to display them in (e.g. the
+   * Organisation → Group entry point). */
+  onCasesGenerated?: (items: CaseListItem[]) => void
 }
 
 // The Create Group (VAT) Case form — fields and footer for the reference platform's group-case
@@ -68,6 +73,7 @@ export function GroupCaseFormContent({
   entities,
   organisations,
   groups,
+  onCasesGenerated,
 }: GroupCaseFormContentProps) {
   const isLocked = !!group
 
@@ -97,8 +103,8 @@ export function GroupCaseFormContent({
   const [jurisdiction, setJurisdiction] = useState(group?.jurisdiction ?? '')
   const [caseType, setCaseType] = useState(CASE_TYPE_OPTIONS[0])
   const [projectCode, setProjectCode] = useState('')
-  const [creatorId, setCreatorId] = useState<string | undefined>(DEFAULT_CREATOR_ID)
-  const [reviewerId, setReviewerId] = useState<string | undefined>(DEFAULT_REVIEWER_ID)
+  const [creatorIds, setCreatorIds] = useState<string[]>(DEFAULT_CREATOR_IDS)
+  const [reviewerIds, setReviewerIds] = useState<string[]>(DEFAULT_REVIEWER_IDS)
   const [partnerIds, setPartnerIds] = useState<string[]>([])
   const [clientId, setClientId] = useState<string | undefined>(DEFAULT_CLIENT_ID)
   const [schedulerOpen, setSchedulerOpen] = useState(false)
@@ -111,8 +117,8 @@ export function GroupCaseFormContent({
     setSelectedGroupId(group?.id)
     setCaseType(CASE_TYPE_OPTIONS[0])
     setProjectCode('')
-    setCreatorId(DEFAULT_CREATOR_ID)
-    setReviewerId(DEFAULT_REVIEWER_ID)
+    setCreatorIds(DEFAULT_CREATOR_IDS)
+    setReviewerIds(DEFAULT_REVIEWER_IDS)
     setPartnerIds([])
     setClientId(DEFAULT_CLIENT_ID)
   }, [open, group])
@@ -150,16 +156,17 @@ export function GroupCaseFormContent({
   // entity's own (unrelated) registrations happen to exist in the mock data.
   const vatRegistration = vatRegistrationForJurisdiction(jurisdiction)
 
-  const creatorOptions = DUMMY_USERS.filter((u) => u.id !== reviewerId)
-  const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== creatorId)
+  const creatorOptions = DUMMY_USERS.filter((u) => !reviewerIds.includes(u.id))
+  const reviewerOptions = DUMMY_USERS.filter((u) => !creatorIds.includes(u.id))
 
   // Partner is optional and excluded on purpose — every other field here is required.
-  const canCreate = !!activeGroup && !!legalEntityId && !!caseType && !!creatorId && !!reviewerId && !!clientId
+  const canCreate =
+    !!activeGroup && !!legalEntityId && !!caseType && creatorIds.length > 0 && reviewerIds.length > 0 && !!clientId
 
   const caseNamePreview = caseType ? `VAT | ${caseType}` : null
 
-  const creatorName = DUMMY_USERS.find((u) => u.id === creatorId)?.name ?? ''
-  const reviewerName = DUMMY_USERS.find((u) => u.id === reviewerId)?.name ?? ''
+  const creatorNames = creatorIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const reviewerNames = reviewerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const partnerNames = partnerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const clientName = DUMMY_USERS.find((u) => u.id === clientId)?.name ?? ''
 
@@ -302,9 +309,10 @@ export function GroupCaseFormContent({
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">Creator</Label>
           <UserSelect
+            multiple
             users={creatorOptions}
-            value={creatorId}
-            onChange={setCreatorId}
+            value={creatorIds}
+            onChange={setCreatorIds}
             data-testid="create-vat-case-creator"
           />
         </div>
@@ -312,9 +320,10 @@ export function GroupCaseFormContent({
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">Reviewer</Label>
           <UserSelect
+            multiple
             users={reviewerOptions}
-            value={reviewerId}
-            onChange={setReviewerId}
+            value={reviewerIds}
+            onChange={setReviewerIds}
             data-testid="create-vat-case-reviewer"
           />
         </div>
@@ -377,14 +386,15 @@ export function GroupCaseFormContent({
         open={schedulerOpen}
         onOpenChange={setSchedulerOpen}
         onCreated={onClose}
+        onCasesGenerated={onCasesGenerated}
         organisationName={organisationName}
         groupName={activeGroup?.name ?? ''}
         jurisdiction={jurisdiction}
         vatRegistration={vatRegistration}
         projectCode={projectCode}
         caseTypeLabel={caseType}
-        creatorName={creatorName}
-        reviewerName={reviewerName}
+        creatorNames={creatorNames}
+        reviewerNames={reviewerNames}
         partnerNames={partnerNames}
         clientName={clientName}
         groupMembers={groupMembers}

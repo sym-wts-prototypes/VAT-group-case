@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { OptionPills, Sheet, SheetContent, SheetHeader, SheetTitle } from '@wts/ui'
 
+import type { CaseListItem } from './case-management-data'
 import { GroupCaseFormContent } from './group-case-form'
 import { Group, LegalEntity } from './org-details-data'
 import { Organization } from './organizations-data'
@@ -19,6 +20,7 @@ export interface CreateCaseDrawerProps {
   entities: LegalEntity[]
   organisations: Organization[]
   groups: Group[]
+  onCasesGenerated?: (items: CaseListItem[]) => void
 }
 
 // The Case Management page's "Create case" drawer — the ONLY entry point that offers a choice
@@ -32,7 +34,14 @@ export interface CreateCaseDrawerProps {
 // The Organisation → VAT Group entry point (groups-tab.tsx) does NOT use this component — it
 // renders GroupCaseFormContent directly (locked to one group, no toggle), preserving that flow
 // exactly as it worked before this feature existed.
-export function CreateCaseDrawer({ open, onOpenChange, entities, organisations, groups }: CreateCaseDrawerProps) {
+export function CreateCaseDrawer({
+  open,
+  onOpenChange,
+  entities,
+  organisations,
+  groups,
+  onCasesGenerated,
+}: CreateCaseDrawerProps) {
   const [caseKind, setCaseKind] = useState<CaseKind>('single')
 
   // Single Case is the default every time the drawer is opened (Part 2) — reset regardless of
@@ -68,7 +77,12 @@ export function CreateCaseDrawer({ open, onOpenChange, entities, organisations, 
         </div>
 
         {caseKind === 'single' ? (
-          <SingleCaseFormContent open={open} onClose={handleClose} entities={entities} />
+          <SingleCaseFormContent
+            open={open}
+            onClose={handleClose}
+            entities={entities}
+            onCasesGenerated={onCasesGenerated}
+          />
         ) : (
           <GroupCaseFormContent
             open={open}
@@ -76,6 +90,7 @@ export function CreateCaseDrawer({ open, onOpenChange, entities, organisations, 
             entities={entities}
             organisations={organisations}
             groups={groups}
+            onCasesGenerated={onCasesGenerated}
           />
         )}
       </SheetContent>

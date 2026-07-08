@@ -16,6 +16,8 @@ import {
   Switch,
 } from '@wts/ui'
 
+import { generateCaseId, shortPeriodLabel, toIsoDate } from './case-generation'
+import type { Case, CaseListItem, VatGroupCase } from './case-management-data'
 import {
   CustomDeadlineSection,
   FrequencyPeriodFields,
@@ -64,8 +66,8 @@ const DUMMY_USERS: SelectableUser[] = [
 type SchedulerStep = 'schedule' | 'entities'
 
 interface EntityRoleAssignment {
-  creatorId?: string
-  reviewerId?: string
+  creatorIds: string[]
+  reviewerIds: string[]
   partnerIds: string[]
 }
 
@@ -81,6 +83,10 @@ export interface VatSchedulerModalProps {
   onOpenChange: (open: boolean) => void
   /** Closes the parent Create Case drawer once a schedule is "created". */
   onCreated: () => void
+  /** Called with the newly generated parent + child cases once "Create scheduled cases" is
+   * pressed — Case Management owns persisting/displaying them; omitted (no-op) by entry points
+   * without a Case Management page (e.g. the Organisation → Group entry point). */
+  onCasesGenerated?: (items: CaseListItem[]) => void
   /** Drawer-collected values — shown read-only in the left summary panel. */
   organisationName: string
   groupName: string
@@ -88,8 +94,8 @@ export interface VatSchedulerModalProps {
   vatRegistration: string
   projectCode: string
   caseTypeLabel: string
-  creatorName: string
-  reviewerName: string
+  creatorNames: string[]
+  reviewerNames: string[]
   partnerNames: string[]
   clientName: string
   /** Legal entities belonging to the selected group — each gets a Client Approval toggle. */
@@ -100,14 +106,15 @@ export function VatSchedulerModal({
   open,
   onOpenChange,
   onCreated,
+  onCasesGenerated,
   organisationName,
   groupName,
   jurisdiction,
   vatRegistration,
   projectCode,
   caseTypeLabel,
-  creatorName,
-  reviewerName,
+  creatorNames,
+  reviewerNames,
   partnerNames,
   clientName,
   groupMembers,
@@ -140,14 +147,17 @@ export function VatSchedulerModal({
   const toggleApproval = (entityId: string) =>
     setApprovalByEntityId((prev) => ({ ...prev, [entityId]: !prev[entityId] }))
 
-  const setEntityRole = (entityId: string, field: 'creatorId' | 'reviewerId', value: string | undefined) =>
+  const setEntityRole = (entityId: string, field: 'creatorIds' | 'reviewerIds', value: string[]) =>
     setEntityRoles((prev) => {
-      const existing = prev[entityId] ?? { partnerIds: [] }
+      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [] }
       return { ...prev, [entityId]: { ...existing, [field]: value } }
     })
 
   const setEntityPartners = (entityId: string, partnerIds: string[]) =>
-    setEntityRoles((prev) => ({ ...prev, [entityId]: { ...prev[entityId], partnerIds } }))
+    setEntityRoles((prev) => {
+      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [] }
+      return { ...prev, [entityId]: { ...existing, partnerIds } }
+    })
 
   const visibleGroupMembers = useMemo(() => {
     const q = entitySearch.trim().toLowerCase()
@@ -158,6 +168,7 @@ export function VatSchedulerModal({
   const approvedCount = groupMembers.filter((m) => approvalByEntityId[m.id]).length
 
   const userName = (id: string | undefined) => DUMMY_USERS.find((u) => u.id === id)?.name
+  const userNames = (ids: string[]) => ids.map(userName).filter((n): n is string => !!n)
 
   const schedulePayload = useMemo(
     () => ({
@@ -166,11 +177,11 @@ export function VatSchedulerModal({
         name: m.name,
         requiresClientApproval: !!approvalByEntityId[m.id],
         roles: m.isRepresentative
-          ? { creator: creatorName, reviewer: reviewerName, partners: partnerNames }
+          ? { creator: creatorNames, reviewer: reviewerNames, partners: partnerNames }
           : {
-              creator: userName(entityRoles[m.id]?.creatorId),
-              reviewer: userName(entityRoles[m.id]?.reviewerId),
-              partners: (entityRoles[m.id]?.partnerIds ?? []).map(userName).filter((n): n is string => !!n),
+              creator: userNames(entityRoles[m.id]?.creatorIds ?? []),
+              reviewer: userNames(entityRoles[m.id]?.reviewerIds ?? []),
+              partners: userNames(entityRoles[m.id]?.partnerIds ?? []),
             },
       })),
       cases: schedule.cases.map((c) => ({
@@ -179,7 +190,7 @@ export function VatSchedulerModal({
       })),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groupName, groupMembers, approvalByEntityId, entityRoles, creatorName, reviewerName, partnerNames, schedule.cases],
+    [groupName, groupMembers, approvalByEntityId, entityRoles, creatorNames, reviewerNames, partnerNames, schedule.cases],
   )
 
   const canSubmit = schedule.canSubmitSchedule
@@ -196,6 +207,51 @@ export function VatSchedulerModal({
     // group/entity/requiresClientApproval/roles payload has nowhere to go yet, so it's
     // logged here to demonstrate the data model this modal produces.
     console.log('VAT group schedule payload', schedulePayload)
+
+    const representative = groupMembers.find((m) => m.isRepresentative) ?? groupMembers[0]
+
+    const generated: VatGroupCase[] = schedule.cases.map((c) => {
+      const deadline = toIsoDate(c.customDeadline ?? c.defaultDeadline)
+      const children: Case[] = groupMembers.map((m) => ({
+        id: generateCaseId('VAT', jurisdiction),
+        client: m.name,
+        caseName: `VAT - ${caseTypeLabel} - ${shortPeriodLabel(schedule.frequency, c.period, c.year)}`,
+        serviceLine: 'VAT',
+        caseType: caseTypeLabel,
+        frequency: schedule.frequency,
+        jurisdiction,
+        myRole: 'Creator',
+        status: 'Draft',
+        statutoryDeadline: deadline,
+        nextDeadline: null,
+        latestActivity: {
+          actor: m.isRepresentative
+            ? (creatorNames[0] ?? 'System')
+            : (userName(entityRoles[m.id]?.creatorIds?.[0]) ?? 'System'),
+          description: 'Case created',
+        },
+      }))
+
+      return {
+        kind: 'group',
+        id: generateCaseId('VATGRP', jurisdiction),
+        organisation: organisationName,
+        representativeEntity: representative?.name ?? '',
+        vatGroupName: groupName,
+        reportingPeriod: periodLabel(schedule.frequency, c.period, c.year),
+        caseName: c.name,
+        serviceLine: 'VAT',
+        caseType: caseTypeLabel,
+        frequency: schedule.frequency,
+        jurisdiction,
+        status: 'Draft',
+        statutoryDeadline: deadline,
+        nextDeadline: null,
+        children,
+      }
+    })
+    onCasesGenerated?.(generated)
+
     onOpenChange(false)
     onCreated()
   }
@@ -207,6 +263,8 @@ export function VatSchedulerModal({
     e.target.value = ''
   }
 
+  const creatorLabel = creatorNames.join(', ')
+  const reviewerLabel = reviewerNames.join(', ')
   const partnerLabel = partnerNames.length > 0 ? partnerNames.join(', ') : ''
   const clientLabel = clientName ? `${clientName} (external)` : ''
 
@@ -226,8 +284,8 @@ export function VatSchedulerModal({
             <SummaryRow label="Jurisdiction" value={jurisdiction} />
             <SummaryRow label="VAT Registration" value={vatRegistration} />
             <SummaryRow label="Project code" value={projectCode} />
-            <SummaryRow label="Creator" value={creatorName} />
-            <SummaryRow label="Reviewer" value={reviewerName} />
+            <SummaryRow label="Creator" value={creatorLabel} />
+            <SummaryRow label="Reviewer" value={reviewerLabel} />
             <SummaryRow label="Partner (Optional)" value={partnerLabel} />
             <SummaryRow label="Clients" value={clientLabel} />
           </div>
@@ -313,8 +371,8 @@ export function VatSchedulerModal({
                 >
                   {visibleGroupMembers.map((m) => {
                     const roles = entityRoles[m.id]
-                    const creatorOptions = DUMMY_USERS.filter((u) => u.id !== roles?.reviewerId)
-                    const reviewerOptions = DUMMY_USERS.filter((u) => u.id !== roles?.creatorId)
+                    const creatorOptions = DUMMY_USERS.filter((u) => !(roles?.reviewerIds ?? []).includes(u.id))
+                    const reviewerOptions = DUMMY_USERS.filter((u) => !(roles?.creatorIds ?? []).includes(u.id))
                     const requiresApproval = !!approvalByEntityId[m.id]
                     return (
                       <div
@@ -362,12 +420,13 @@ export function VatSchedulerModal({
                           <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-muted-foreground">Creator</Label>
                             {m.isRepresentative ? (
-                              <p className="text-foreground text-sm">{creatorName || '—'}</p>
+                              <p className="text-foreground text-sm">{creatorLabel || '—'}</p>
                             ) : (
                               <UserSelect
+                                multiple
                                 users={creatorOptions}
-                                value={roles?.creatorId}
-                                onChange={(id) => setEntityRole(m.id, 'creatorId', id)}
+                                value={roles?.creatorIds ?? []}
+                                onChange={(ids) => setEntityRole(m.id, 'creatorIds', ids)}
                                 data-testid={`entity-creator-${m.id}`}
                               />
                             )}
@@ -375,12 +434,13 @@ export function VatSchedulerModal({
                           <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-muted-foreground">Reviewer</Label>
                             {m.isRepresentative ? (
-                              <p className="text-foreground text-sm">{reviewerName || '—'}</p>
+                              <p className="text-foreground text-sm">{reviewerLabel || '—'}</p>
                             ) : (
                               <UserSelect
+                                multiple
                                 users={reviewerOptions}
-                                value={roles?.reviewerId}
-                                onChange={(id) => setEntityRole(m.id, 'reviewerId', id)}
+                                value={roles?.reviewerIds ?? []}
+                                onChange={(ids) => setEntityRole(m.id, 'reviewerIds', ids)}
                                 data-testid={`entity-reviewer-${m.id}`}
                               />
                             )}

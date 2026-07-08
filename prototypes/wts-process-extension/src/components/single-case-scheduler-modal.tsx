@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from '@wts/ui'
 
+import { generateCaseId, toIsoDate } from './case-generation'
+import type { Case, CaseListItem } from './case-management-data'
 import {
   CustomDeadlineSection,
   FrequencyPeriodFields,
@@ -40,14 +42,18 @@ export interface SingleCaseSchedulerModalProps {
   onOpenChange: (open: boolean) => void
   /** Closes the parent Create Case drawer once a schedule is "created". */
   onCreated: () => void
+  /** Called with the newly generated cases once the schedule is "created" — Case Management
+   * owns persisting/displaying them (see Part 6/7 of the "Multi-User Assignments & Local Case
+   * Generation" ticket); this modal just produces the data. */
+  onCasesGenerated?: (items: CaseListItem[]) => void
   /** Drawer-collected values — shown read-only in the left summary panel. */
   legalEntityName: string
   jurisdiction: string
   vatRegistration: string
   projectCode: string
   caseTypeLabel: string
-  creatorName: string
-  reviewerName: string
+  creatorNames: string[]
+  reviewerNames: string[]
   partnerNames: string[]
   clientNames: string[]
 }
@@ -56,13 +62,14 @@ export function SingleCaseSchedulerModal({
   open,
   onOpenChange,
   onCreated,
+  onCasesGenerated,
   legalEntityName,
   jurisdiction,
   vatRegistration,
   projectCode,
   caseTypeLabel,
-  creatorName,
-  reviewerName,
+  creatorNames,
+  reviewerNames,
   partnerNames,
   clientNames,
 }: SingleCaseSchedulerModalProps) {
@@ -95,6 +102,23 @@ export function SingleCaseSchedulerModal({
     if (!schedule.canSubmitSchedule) return
     // No backend yet — mirrors the group scheduler's placeholder submit.
     console.log('VAT single-case schedule payload', schedulePayload)
+
+    const generated: Case[] = schedule.cases.map((c) => ({
+      id: generateCaseId('VAT', jurisdiction),
+      client: legalEntityName,
+      caseName: c.name,
+      serviceLine: 'VAT',
+      caseType: caseTypeLabel,
+      frequency: schedule.frequency,
+      jurisdiction,
+      myRole: 'Creator',
+      status: 'Draft',
+      statutoryDeadline: toIsoDate(c.customDeadline ?? c.defaultDeadline),
+      nextDeadline: null,
+      latestActivity: { actor: creatorNames[0] ?? 'System', description: 'Case created' },
+    }))
+    onCasesGenerated?.(generated)
+
     onOpenChange(false)
     onCreated()
   }
@@ -109,6 +133,8 @@ export function SingleCaseSchedulerModal({
   // The header badge drops a redundant "VAT " prefix ("VAT Scheduler" already says it); case
   // names in the table below keep the full case type ("VAT Return - Q1 2026").
   const badgeLabel = caseTypeLabel.replace(/^VAT\s+/, '')
+  const creatorLabel = creatorNames.join(', ')
+  const reviewerLabel = reviewerNames.join(', ')
   const partnerLabel = partnerNames.length > 0 ? partnerNames.join(', ') : ''
   const clientLabel = clientNames.length > 0 ? clientNames.join(', ') : ''
 
@@ -127,8 +153,8 @@ export function SingleCaseSchedulerModal({
             <SummaryRow label="Jurisdiction" value={jurisdiction} />
             <SummaryRow label="VAT Registration" value={vatRegistration} />
             <SummaryRow label="Project code" value={projectCode} />
-            <SummaryRow label="Creator" value={creatorName} />
-            <SummaryRow label="Reviewer" value={reviewerName} />
+            <SummaryRow label="Creator" value={creatorLabel} />
+            <SummaryRow label="Reviewer" value={reviewerLabel} />
             <SummaryRow label="Partner (Optional)" value={partnerLabel} />
             <SummaryRow label="Clients" value={clientLabel} />
           </div>

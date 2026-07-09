@@ -45,6 +45,7 @@ export function PlaygroundMain() {
     showCaseManagement,
     caseKind,
     groupCaseView,
+    childCaseRequiresClientApproval,
     setHeaderType,
     setBucketMarkAsDoneChecked,
     setSelectedRequirementCategoryId,
@@ -61,6 +62,8 @@ export function PlaygroundMain() {
   if (caseKind === 'group' && groupCaseView === 'parent') {
     return <ParentVatGroupCasePage />
   }
+  const isChildCaseView = caseKind === 'group' && groupCaseView === 'child'
+  const skipClientApproval = isChildCaseView && !childCaseRequiresClientApproval
 
   const ctx = { process, platform, role, headerType, phase }
   const resolved = resolveHeader(ctx)
@@ -198,6 +201,7 @@ export function PlaygroundMain() {
         assessmentsState={assessmentsState}
         packageBannerState={packageBannerState ?? 'sent'}
         packageReviewOutcome={packageReviewOutcome}
+        skipClientApproval={skipClientApproval}
         selectedRequirementCategoryId={selectedRequirementCategoryId}
         onOpenRequirementList={() => setHeaderType('requirementList')}
         onOpenRequirementBucket={(categoryId) => {

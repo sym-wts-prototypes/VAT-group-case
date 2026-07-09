@@ -77,6 +77,7 @@ export function ControlPanel() {
     showCaseManagement,
     caseKind,
     groupCaseView,
+    childCaseRequiresClientApproval,
     setProcess,
     setRole,
     setHeaderType,
@@ -94,6 +95,7 @@ export function ControlPanel() {
 
   const isGroupCase = caseKind === 'group'
   const isParentCaseView = isGroupCase && groupCaseView === 'parent'
+  const isChildCaseView = isGroupCase && groupCaseView === 'child'
 
   const showTasksDoneControl = isCaseTasksGateActive(
     headerType,
@@ -207,7 +209,10 @@ export function ControlPanel() {
         options={workflowPhasesForControls(process).map((p) => ({
           value: p,
           label: PHASE_LABELS[p as Phase],
-          disabled: isPhaseDisabledInControls(p, role) || (isParentCaseView && p !== 'inPreparation'),
+          disabled:
+            isPhaseDisabledInControls(p, role) ||
+            (isParentCaseView && p !== 'inPreparation') ||
+            (isChildCaseView && !childCaseRequiresClientApproval && p === 'clientApproval'),
         }))}
       />
 

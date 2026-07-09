@@ -26,10 +26,17 @@ const ASSESSMENT_CLOSURE_STEP: StepperStep = {
   label: PHASE_LABELS.assessmentClosure,
 }
 
-export function caseStepperSteps(process: Process): StepperStep[] {
-  return process === 'cit'
-    ? [...CASE_STEPPER_STEPS, ASSESSMENT_CLOSURE_STEP]
-    : CASE_STEPPER_STEPS
+/**
+ * `skipClientApproval` drops the Client Approval stage entirely (not shown disabled) — for VAT
+ * Child Cases whose Legal Entity doesn't require that step (see the Parent VAT Group Case
+ * page's per-child config). Only meaningful for `process === 'vat'`; CIT/HR are unaffected.
+ */
+export function caseStepperSteps(process: Process, skipClientApproval?: boolean): StepperStep[] {
+  if (process === 'cit') return [...CASE_STEPPER_STEPS, ASSESSMENT_CLOSURE_STEP]
+  if (process === 'vat' && skipClientApproval) {
+    return CASE_STEPPER_STEPS.filter((step) => step.id !== 'clientApproval')
+  }
+  return CASE_STEPPER_STEPS
 }
 
 export function stepStatesForWorkflowPhase(

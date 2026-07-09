@@ -71,6 +71,12 @@ interface DemoState {
   // no separate rendering path needed for it.
   caseKind: CaseKind
   groupCaseView: GroupCaseView
+  // Whether the Child Case currently being viewed (Group + Child) requires a Client Approval
+  // step — set by the Parent Case page when a specific Child Case is opened (see
+  // parent-vat-group-case-page.tsx's openChildCase). Defaults to true (today's behaviour, full
+  // 4-phase workflow) whenever no specific child has been opened, or when Case Type/Group Case
+  // View is changed manually via the controls.
+  childCaseRequiresClientApproval: boolean
   setProcess: (p: Process) => void
   setRole: (r: Role) => void
   setHeaderType: (h: HeaderType) => void
@@ -86,6 +92,7 @@ interface DemoState {
   setShowCaseManagement: (show: boolean) => void
   setCaseKind: (kind: CaseKind) => void
   setGroupCaseView: (view: GroupCaseView) => void
+  setChildCaseRequiresClientApproval: (requires: boolean) => void
 }
 
 const DEFAULTS = {
@@ -105,6 +112,7 @@ const DEFAULTS = {
   showCaseManagement: true,
   caseKind: 'single' as CaseKind,
   groupCaseView: 'parent' as GroupCaseView,
+  childCaseRequiresClientApproval: true,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -320,6 +328,7 @@ const initialState = reconcile(parseHash(), {
   setShowCaseManagement: () => {},
   setCaseKind: () => {},
   setGroupCaseView: () => {},
+  setChildCaseRequiresClientApproval: () => {},
 })
 
 export const useDemoStore = create<DemoState>((set) => ({
@@ -368,18 +377,25 @@ export const useDemoStore = create<DemoState>((set) => ({
               process: 'vat',
               phase: prev.groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
               showCaseManagement: false,
+              childCaseRequiresClientApproval: true,
             }
-          : { caseKind },
+          : { caseKind, childCaseRequiresClientApproval: true },
         prev,
       ),
     ),
   setGroupCaseView: (groupCaseView) =>
     set((prev) =>
       reconcile(
-        { groupCaseView, phase: groupCaseView === 'parent' ? 'inPreparation' : prev.phase },
+        {
+          groupCaseView,
+          phase: groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
+          childCaseRequiresClientApproval: true,
+        },
         prev,
       ),
     ),
+  setChildCaseRequiresClientApproval: (childCaseRequiresClientApproval) =>
+    set((prev) => ({ ...prev, childCaseRequiresClientApproval })),
 }))
 
 export function useHashSync() {

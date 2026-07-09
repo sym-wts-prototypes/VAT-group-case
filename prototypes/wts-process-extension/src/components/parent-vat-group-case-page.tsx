@@ -16,9 +16,10 @@ import { SectionLabel } from '@/components/body/BodyPlaceholder'
 import { CasePhaseStepper } from '@/components/body/CasePhaseStepper'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { DueDate } from '@/components/headers/parts/DueDate'
+import { PeopleRow } from '@/components/headers/parts/PeopleRow'
 import { CASE_MANAGEMENT_BREADCRUMB, SAMPLE_PEOPLE } from '@/config/sampleData'
 import { useDemoStore } from '@/store/useDemoStore'
-import type { HeaderDescriptor, Phase } from '@/types'
+import type { HeaderDescriptor, Phase, PeopleRow as PeopleRowData } from '@/types'
 
 import { ROLE_TO_PLAYGROUND_ROLE } from './case-management-page'
 import { DUMMY_GROUP_CASES, type Case } from './case-management-data'
@@ -106,6 +107,36 @@ const CHILD_CONFIG: Record<string, { requiresClientApproval: boolean; defaultSta
   [PARENT_CASE.children[3].id]: { requiresClientApproval: false, defaultStatus: 'InPreparation' },
 }
 
+// Who's assigned to each Child Case — informational only (Part 1 of the "Child Case
+// Responsibility, Access Messaging & Workflow Variants" ticket): always visible regardless of
+// whether the current role can open that case, and reused for the access-denied message below
+// (Part 2) so it can point at the actual Creator/Reviewer instead of a generic instruction.
+// Creator/Reviewer line up with each child's existing `myRole`/`latestActivity.actor`.
+const CHILD_PEOPLE: Record<string, PeopleRowData> = {
+  [PARENT_CASE.children[0].id]: {
+    creator: 'Maria Fischer',
+    reviewer: 'Jordan Miller',
+    partner: 'Oscar Wilson',
+    client: 'Emma Johnson',
+  },
+  [PARENT_CASE.children[1].id]: {
+    creator: 'Sophie Martin',
+    reviewer: 'Jordan Miller',
+    partner: 'Lucas Brown',
+    client: 'Noah Davis',
+  },
+  [PARENT_CASE.children[2].id]: {
+    creator: 'Sophie Martin',
+    reviewer: 'Olivia Taylor',
+    client: 'Oscar Wilson',
+  },
+  [PARENT_CASE.children[3].id]: {
+    creator: 'Maria Fischer',
+    reviewer: 'Jordan Miller',
+    client: 'Emma Johnson',
+  },
+}
+
 // Fixed-width grid so the stepper, status label, and deadline pill all line up across rows
 // regardless of a row's step count (3 vs 4) or status label length — a per-row flex layout
 // would let the stepper's own starting position drift row to row.
@@ -120,22 +151,26 @@ export function ParentVatGroupCasePage() {
   const setCaseKind = useDemoStore((state) => state.setCaseKind)
   const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
   const setPhase = useDemoStore((state) => state.setPhase)
+  const setChildCaseRequiresClientApproval = useDemoStore((state) => state.setChildCaseRequiresClientApproval)
   const isCreator = role === 'creator'
-  const [deniedChildName, setDeniedChildName] = useState<string | null>(null)
+  const [deniedChild, setDeniedChild] = useState<Case | null>(null)
 
   // Opens a Child Case exactly like the existing Group + Child Case dispatch — using whichever
   // role is currently selected in the Playground and the workflow stage the case is currently
-  // in. Access is modelled the same way the rest of this prototype models "my role" on a case:
-  // if the currently selected role doesn't match the case's assigned role, there's no access.
-  const openChildCase = (child: Case, status: WorkflowStatus) => {
+  // in, and telling the dispatch whether this Legal Entity's workflow includes Client Approval
+  // (so the stepper and the Playground's Phase options reflect the right variant). Access is
+  // modelled the same way the rest of this prototype models "my role" on a case: if the
+  // currently selected role doesn't match the case's assigned role, there's no access.
+  const openChildCase = (child: Case, status: WorkflowStatus, requiresClientApproval: boolean) => {
     if (ROLE_TO_PLAYGROUND_ROLE[child.myRole] !== role) {
-      setDeniedChildName(child.client)
+      setDeniedChild(child)
       return
     }
-    setDeniedChildName(null)
+    setDeniedChild(null)
     setCaseKind('group')
     setGroupCaseView('child')
     setPhase(WORKFLOW_STATUS_TO_PHASE[status])
+    setChildCaseRequiresClientApproval(requiresClientApproval)
   }
 
   const descriptor: HeaderDescriptor = {
@@ -174,10 +209,12 @@ export function ParentVatGroupCasePage() {
         <div className="flex flex-col gap-3">
           <SectionLabel>Child cases in this case group</SectionLabel>
 
-          {deniedChildName && (
-            <Alert variant="warning" title="No access" onClose={() => setDeniedChildName(null)}>
-              You don't have access to {deniedChildName}'s Child Case with the currently selected
-              role. Switch to the role assigned to this Legal Entity to open it.
+          {deniedChild && (
+            <Alert variant="warning" title="No access" onClose={() => setDeniedChild(null)}>
+              You don't have access to {deniedChild.client}'s Child Case with the currently
+              selected role. For updates on this case, contact{' '}
+              {CHILD_PEOPLE[deniedChild.id]?.creator} (Creator) or{' '}
+              {CHILD_PEOPLE[deniedChild.id]?.reviewer} (Reviewer).
             </Alert>
           )}
 
@@ -189,58 +226,63 @@ export function ParentVatGroupCasePage() {
               const isRepresentative = child.client === PARENT_CASE.representativeEntity
               const stepper = <MiniStepper states={miniStepperStates(steps, status)} />
 
+              const handleOpen = () => openChildCase(child, status, config.requiresClientApproval)
+
               return (
                 <div
                   key={child.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => openChildCase(child, status)}
+                  onClick={handleOpen}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' && e.key !== ' ') return
                     e.preventDefault()
-                    openChildCase(child, status)
+                    handleOpen()
                   }}
-                  className={cn(
-                    'grid cursor-pointer items-center gap-4 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:bg-muted/50',
-                    ROW_GRID_COLS,
-                  )}
+                  className="flex cursor-pointer flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:bg-muted/50"
                 >
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      {child.client}
-                      {isRepresentative && (
-                        <Badge variant="soft" tone="blue" size="sm">
-                          Representative
-                        </Badge>
-                      )}
+                  <div className={cn('grid items-center gap-4', ROW_GRID_COLS)}>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        {child.client}
+                        {isRepresentative && (
+                          <Badge variant="soft" tone="blue" size="sm">
+                            Representative
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {child.serviceLine} · {child.caseType} · {child.id}
+                      </span>
+                    </div>
+
+                    {config.requiresClientApproval ? (
+                      stepper
+                    ) : (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="w-fit">{stepper}</div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">{SKIPPED_APPROVAL_TOOLTIP}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+
+                    <span className={cn('text-sm font-medium', WORKFLOW_STATUS_TEXT_CLASS[status])}>
+                      {WORKFLOW_STATUS_LABEL[status]}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {child.serviceLine} · {child.caseType} · {child.id}
-                    </span>
+
+                    <DueDate
+                      date={formatDate(child.statutoryDeadline)}
+                      label="Statutory Deadline"
+                      className="justify-self-end"
+                    />
                   </div>
 
-                  {config.requiresClientApproval ? (
-                    stepper
-                  ) : (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="w-fit">{stepper}</div>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">{SKIPPED_APPROVAL_TOOLTIP}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-
-                  <span className={cn('text-sm font-medium', WORKFLOW_STATUS_TEXT_CLASS[status])}>
-                    {WORKFLOW_STATUS_LABEL[status]}
-                  </span>
-
-                  <DueDate
-                    date={formatDate(child.statutoryDeadline)}
-                    label="Statutory Deadline"
-                    className="justify-self-end"
-                  />
+                  {/* Read-only — who's assigned to this Legal Entity's case, visible regardless
+                      of whether the current role can open it (Part 1 of the ticket). */}
+                  <PeopleRow people={CHILD_PEOPLE[child.id]} className="border-t border-border pt-3" />
                 </div>
               )
             })}

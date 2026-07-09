@@ -5,6 +5,8 @@ import type { Phase, Process } from '@/types'
 interface CasePhaseStepperProps {
   currentPhase: Phase
   process: Process
+  /** Drops the Client Approval stage entirely — see caseStepperSteps. */
+  skipClientApproval?: boolean
   className?: string
 }
 
@@ -16,9 +18,10 @@ interface CasePhaseStepperProps {
 export function CasePhaseStepper({
   currentPhase,
   process,
+  skipClientApproval,
   className,
 }: CasePhaseStepperProps) {
-  const steps = caseStepperSteps(process)
+  const steps = caseStepperSteps(process, skipClientApproval)
   const states = stepStatesForWorkflowPhase(currentPhase, steps)
 
   return (

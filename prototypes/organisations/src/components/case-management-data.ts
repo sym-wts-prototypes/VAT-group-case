@@ -238,6 +238,24 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
         nextDeadline: null,
         latestActivity: { actor: 'Sophie Martin', description: 'Case created' },
       },
+      // Reference example for the Parent Case page's "click a Child Case to open it" flow
+      // (see parent-vat-group-case-page.tsx's CHILD_CONFIG): Creator has access (myRole
+      // matches the Playground's default role) and it skips Client Approval, so opening it
+      // always succeeds — demonstrating the happy path end to end.
+      {
+        id: 'VAT-DE-2026-GRP1-04',
+        client: 'EUROPIPE France',
+        caseName: 'VAT - Return - Jan 2026',
+        serviceLine: 'VAT',
+        caseType: 'Return',
+        frequency: 'Monthly',
+        jurisdiction: 'France',
+        myRole: 'Creator',
+        status: 'InPreparation',
+        statutoryDeadline: '2026-02-10',
+        nextDeadline: '2026-07-25',
+        latestActivity: { actor: 'Maria Fischer', description: 'Data provision pending' },
+      },
     ],
   },
   {

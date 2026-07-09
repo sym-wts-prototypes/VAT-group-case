@@ -1,4 +1,16 @@
-import { Badge, cn, MiniStepper, type MiniStepperStepState } from '@wts/ui'
+import { useState } from 'react'
+
+import {
+  Alert,
+  Badge,
+  cn,
+  MiniStepper,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  type MiniStepperStepState,
+} from '@wts/ui'
 
 import { SectionLabel } from '@/components/body/BodyPlaceholder'
 import { CasePhaseStepper } from '@/components/body/CasePhaseStepper'
@@ -6,9 +18,10 @@ import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { DueDate } from '@/components/headers/parts/DueDate'
 import { CASE_MANAGEMENT_BREADCRUMB, SAMPLE_PEOPLE } from '@/config/sampleData'
 import { useDemoStore } from '@/store/useDemoStore'
-import type { HeaderDescriptor } from '@/types'
+import type { HeaderDescriptor, Phase } from '@/types'
 
-import { DUMMY_GROUP_CASES } from './case-management-data'
+import { ROLE_TO_PLAYGROUND_ROLE } from './case-management-page'
+import { DUMMY_GROUP_CASES, type Case } from './case-management-data'
 import { vatRegistrationForJurisdiction } from './org-details-data'
 
 // First version of the Parent VAT Group Case page (see "Case Management Improvements & Parent
@@ -27,6 +40,9 @@ const formatDate = (iso: string) => dateFormatter.format(new Date(iso))
 
 const EDIT_TOOLTIP =
   "Changes made here apply only to the Parent Case. Assigned users will also be assigned to the Representative Legal Entity's Child Case, but not to the Child Cases of the other Legal Entities in the group."
+
+const SKIPPED_APPROVAL_TOOLTIP =
+  'Client Approval has been intentionally skipped for this Legal Entity — its workflow has one fewer step.'
 
 // Each Child Case's workflow status — independent of whether it requires Client Approval at
 // all (a case that skips it just uses a 3-step progression instead of 4, see STEPS_* below).
@@ -50,6 +66,16 @@ const WORKFLOW_STATUS_TEXT_CLASS: Record<WorkflowStatus, string> = {
   ReadyForGroupCaseReview: 'text-emerald-700',
 }
 
+// Where clicking a Child Case lands in the normal case dispatch — mirrors
+// case-management-page.tsx's STATUS_TO_PHASE, extended with the Parent-Case-only terminal
+// status (closest real workflow equivalent: the child's own work is done, i.e. submitted).
+const WORKFLOW_STATUS_TO_PHASE: Record<WorkflowStatus, Phase> = {
+  InPreparation: 'inPreparation',
+  InReview: 'inReview',
+  ClientApproval: 'clientApproval',
+  ReadyForGroupCaseReview: 'submitted',
+}
+
 // A Child Case's full progression when Client Approval applies, vs. the shorter one when it
 // doesn't — the step is omitted outright rather than shown disabled (Part 2 of the "Playground
 // Improvements & Parent Case Child Case Progress View" ticket).
@@ -69,12 +95,21 @@ function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): Mi
 // Static per-entity demo config, keyed by the dummy case's own child id: whether that legal
 // entity requires a Client Approval step, and which workflow status it shows before "Tasks
 // done" is checked. Deliberately varied so the page demonstrates every status this iteration
-// supports, including a case that never goes through Client Approval at all.
+// supports, including a case that never goes through Client Approval at all. The fourth entry
+// (EUROPIPE France, see case-management-data.ts) is the reference example for the "click a
+// Child Case to open it" flow — Creator already has access and it skips Client Approval, so
+// opening it always succeeds.
 const CHILD_CONFIG: Record<string, { requiresClientApproval: boolean; defaultStatus: WorkflowStatus }> = {
   [PARENT_CASE.children[0].id]: { requiresClientApproval: true, defaultStatus: 'InPreparation' },
   [PARENT_CASE.children[1].id]: { requiresClientApproval: true, defaultStatus: 'ClientApproval' },
   [PARENT_CASE.children[2].id]: { requiresClientApproval: false, defaultStatus: 'InReview' },
+  [PARENT_CASE.children[3].id]: { requiresClientApproval: false, defaultStatus: 'InPreparation' },
 }
+
+// Fixed-width grid so the stepper, status label, and deadline pill all line up across rows
+// regardless of a row's step count (3 vs 4) or status label length — a per-row flex layout
+// would let the stepper's own starting position drift row to row.
+const ROW_GRID_COLS = 'grid-cols-[minmax(0,1fr)_104px_190px_auto]'
 
 export function ParentVatGroupCasePage() {
   // Reuses the existing Playground "Tasks Done" checkbox (see ControlPanel.tsx) as the single
@@ -82,7 +117,26 @@ export function ParentVatGroupCasePage() {
   // used to gate "Send for review" on every other case page in this prototype.
   const tasksDoneChecked = useDemoStore((state) => state.tasksDoneChecked)
   const role = useDemoStore((state) => state.role)
+  const setCaseKind = useDemoStore((state) => state.setCaseKind)
+  const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
+  const setPhase = useDemoStore((state) => state.setPhase)
   const isCreator = role === 'creator'
+  const [deniedChildName, setDeniedChildName] = useState<string | null>(null)
+
+  // Opens a Child Case exactly like the existing Group + Child Case dispatch — using whichever
+  // role is currently selected in the Playground and the workflow stage the case is currently
+  // in. Access is modelled the same way the rest of this prototype models "my role" on a case:
+  // if the currently selected role doesn't match the case's assigned role, there's no access.
+  const openChildCase = (child: Case, status: WorkflowStatus) => {
+    if (ROLE_TO_PLAYGROUND_ROLE[child.myRole] !== role) {
+      setDeniedChildName(child.client)
+      return
+    }
+    setDeniedChildName(null)
+    setCaseKind('group')
+    setGroupCaseView('child')
+    setPhase(WORKFLOW_STATUS_TO_PHASE[status])
+  }
 
   const descriptor: HeaderDescriptor = {
     headerType: 'caseWrapper',
@@ -119,19 +173,39 @@ export function ParentVatGroupCasePage() {
       <div className="flex flex-col gap-4 bg-muted/30 p-6">
         <div className="flex flex-col gap-3">
           <SectionLabel>Child cases in this case group</SectionLabel>
+
+          {deniedChildName && (
+            <Alert variant="warning" title="No access" onClose={() => setDeniedChildName(null)}>
+              You don't have access to {deniedChildName}'s Child Case with the currently selected
+              role. Switch to the role assigned to this Legal Entity to open it.
+            </Alert>
+          )}
+
           <div className="flex flex-col gap-2">
             {PARENT_CASE.children.map((child) => {
               const config = CHILD_CONFIG[child.id]
               const status: WorkflowStatus = tasksDoneChecked ? 'ReadyForGroupCaseReview' : config.defaultStatus
               const steps = config.requiresClientApproval ? STEPS_WITH_APPROVAL : STEPS_WITHOUT_APPROVAL
               const isRepresentative = child.client === PARENT_CASE.representativeEntity
+              const stepper = <MiniStepper states={miniStepperStates(steps, status)} />
 
               return (
                 <div
                   key={child.id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-background px-4 py-3"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openChildCase(child, status)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    openChildCase(child, status)
+                  }}
+                  className={cn(
+                    'grid cursor-pointer items-center gap-4 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:bg-muted/50',
+                    ROW_GRID_COLS,
+                  )}
                 >
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                       {child.client}
                       {isRepresentative && (
@@ -140,20 +214,33 @@ export function ParentVatGroupCasePage() {
                         </Badge>
                       )}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-muted-foreground">
                       {child.serviceLine} · {child.caseType} · {child.id}
                     </span>
                   </div>
 
-                  <div className="flex flex-1 flex-wrap items-center justify-end gap-6">
-                    <div className="flex items-center gap-3">
-                      <MiniStepper states={miniStepperStates(steps, status)} />
-                      <span className={cn('whitespace-nowrap text-sm font-medium', WORKFLOW_STATUS_TEXT_CLASS[status])}>
-                        {WORKFLOW_STATUS_LABEL[status]}
-                      </span>
-                    </div>
-                    <DueDate date={formatDate(child.statutoryDeadline)} label="Statutory Deadline" />
-                  </div>
+                  {config.requiresClientApproval ? (
+                    stepper
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="w-fit">{stepper}</div>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">{SKIPPED_APPROVAL_TOOLTIP}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+
+                  <span className={cn('text-sm font-medium', WORKFLOW_STATUS_TEXT_CLASS[status])}>
+                    {WORKFLOW_STATUS_LABEL[status]}
+                  </span>
+
+                  <DueDate
+                    date={formatDate(child.statutoryDeadline)}
+                    label="Statutory Deadline"
+                    className="justify-self-end"
+                  />
                 </div>
               )
             })}

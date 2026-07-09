@@ -175,6 +175,13 @@ export function GroupCaseFormContent({
     setSchedulerOpen(true)
   }
 
+  // Progressive reveal (unlocked entry point only): initially just Organisation, Service line,
+  // and Case type — the rest appears once an Organisation is picked. Locked mode (opened from
+  // Organisation → Groups, `group` prop set) already has an Organisation from mount, so
+  // `showFullForm` is true immediately there — the whole form shows at once, same as before
+  // this feature existed, with the existing locked/disabled fields unchanged.
+  const showFullForm = !!activeOrgId
+
   return (
     <>
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
@@ -204,44 +211,46 @@ export function GroupCaseFormContent({
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Select group</Label>
-          {isLocked ? (
-            <Select value={group.id} disabled>
-              <SelectTrigger data-testid="create-vat-case-group">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={group.id}>{group.name}</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
-            <Select
-              value={selectedGroupId}
-              onValueChange={setSelectedGroupId}
-              disabled={!selectedOrgId || availableGroups.length === 0}
-            >
-              <SelectTrigger data-testid="create-vat-case-group">
-                <SelectValue
-                  placeholder={
-                    !selectedOrgId
-                      ? 'Select an organisation first'
-                      : availableGroups.length === 0
-                        ? 'There are no VAT Groups for the selected Organisation'
-                        : 'Select a VAT group'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {availableGroups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        {showFullForm && (
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Select group</Label>
+            {isLocked ? (
+              <Select value={group.id} disabled>
+                <SelectTrigger data-testid="create-vat-case-group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={group.id}>{group.name}</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select
+                value={selectedGroupId}
+                onValueChange={setSelectedGroupId}
+                disabled={!selectedOrgId || availableGroups.length === 0}
+              >
+                <SelectTrigger data-testid="create-vat-case-group">
+                  <SelectValue
+                    placeholder={
+                      !selectedOrgId
+                        ? 'Select an organisation first'
+                        : availableGroups.length === 0
+                          ? 'There are no VAT Groups for the selected Organisation'
+                          : 'Select a VAT group'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableGroups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
@@ -273,89 +282,93 @@ export function GroupCaseFormContent({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Jurisdiction</Label>
-          <Select value={jurisdiction} onValueChange={setJurisdiction}>
-            <SelectTrigger data-testid="create-vat-case-jurisdiction">
-              <SelectValue placeholder="Select a jurisdiction" />
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {showFullForm && (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Jurisdiction</Label>
+              <Select value={jurisdiction} onValueChange={setJurisdiction}>
+                <SelectTrigger data-testid="create-vat-case-jurisdiction">
+                  <SelectValue placeholder="Select a jurisdiction" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">VAT registration</Label>
-          <Input value={vatRegistration} disabled readOnly data-testid="create-vat-case-registration" />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">VAT registration</Label>
+              <Input value={vatRegistration} disabled readOnly data-testid="create-vat-case-registration" />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">
-            Project code <span className="font-normal text-neutral-400">(optional)</span>
-          </Label>
-          <Input
-            value={projectCode}
-            onChange={(e) => setProjectCode(e.target.value)}
-            placeholder="Optional"
-            data-testid="create-vat-case-project-code"
-          />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">
+                Project code <span className="font-normal text-neutral-400">(optional)</span>
+              </Label>
+              <Input
+                value={projectCode}
+                onChange={(e) => setProjectCode(e.target.value)}
+                placeholder="Optional"
+                data-testid="create-vat-case-project-code"
+              />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Creator</Label>
-          <UserSelect
-            multiple
-            users={creatorOptions}
-            value={creatorIds}
-            onChange={setCreatorIds}
-            data-testid="create-vat-case-creator"
-          />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Creator</Label>
+              <UserSelect
+                multiple
+                users={creatorOptions}
+                value={creatorIds}
+                onChange={setCreatorIds}
+                data-testid="create-vat-case-creator"
+              />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Reviewer</Label>
-          <UserSelect
-            multiple
-            users={reviewerOptions}
-            value={reviewerIds}
-            onChange={setReviewerIds}
-            data-testid="create-vat-case-reviewer"
-          />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Reviewer</Label>
+              <UserSelect
+                multiple
+                users={reviewerOptions}
+                value={reviewerIds}
+                onChange={setReviewerIds}
+                data-testid="create-vat-case-reviewer"
+              />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">
-            Partner <span className="font-normal text-neutral-400">(optional)</span>
-          </Label>
-          <UserSelect
-            multiple
-            users={DUMMY_USERS}
-            value={partnerIds}
-            onChange={setPartnerIds}
-            data-testid="create-vat-case-partner"
-          />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">
+                Partner <span className="font-normal text-neutral-400">(optional)</span>
+              </Label>
+              <UserSelect
+                multiple
+                users={DUMMY_USERS}
+                value={partnerIds}
+                onChange={setPartnerIds}
+                data-testid="create-vat-case-partner"
+              />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Client</Label>
-          <UserSelect
-            users={DUMMY_USERS}
-            value={clientId}
-            onChange={setClientId}
-            data-testid="create-vat-case-client"
-          />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Client</Label>
+              <UserSelect
+                users={DUMMY_USERS}
+                value={clientId}
+                onChange={setClientId}
+                data-testid="create-vat-case-client"
+              />
+            </div>
 
-        {caseNamePreview && (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-            <p className="text-[12px] text-neutral-500">Case name</p>
-            <p className="text-[14px] font-semibold text-neutral-900">{caseNamePreview}</p>
-          </div>
+            {caseNamePreview && (
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+                <p className="text-[12px] text-neutral-500">Case name</p>
+                <p className="text-[14px] font-semibold text-neutral-900">{caseNamePreview}</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 

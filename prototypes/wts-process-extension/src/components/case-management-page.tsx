@@ -49,7 +49,7 @@ import { Organization } from './organizations-data'
 // Case Management is a launcher into the existing (Role, Phase) prototype scenarios, not a
 // real case detail view — clicking an individual (or child) row only carries over "My role" +
 // "Status"; every other column is dummy display data and is intentionally discarded.
-const ROLE_TO_PLAYGROUND_ROLE: Record<Case['myRole'], Role> = {
+export const ROLE_TO_PLAYGROUND_ROLE: Record<Case['myRole'], Role> = {
   Creator: 'creator',
   Reviewer: 'reviewer',
   Partner: 'partner',

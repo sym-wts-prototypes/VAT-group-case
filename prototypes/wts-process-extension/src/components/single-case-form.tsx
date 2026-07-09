@@ -229,185 +229,191 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
           </div>
         </div>
 
-        {serviceLineKey ? (
-          isHrOrVat ? (
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-sm">Jurisdiction</Label>
-              <Select value={jurisdiction} onValueChange={setJurisdiction}>
-                <SelectTrigger data-testid="create-single-case-jurisdiction">
-                  <SelectValue placeholder="Select a jurisdiction" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-sm">Frequency</Label>
-                  <Select value={frequency} onValueChange={(v) => setFrequency(v as typeof frequency)}>
-                    <SelectTrigger data-testid="create-single-case-frequency">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FREQUENCY_OPTIONS.map((f) => (
-                        <SelectItem key={f} value={f}>
-                          {f}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+        {/* Progressive reveal: the rest of the form only appears once Case Type has a valid
+            selection — keeps the initial form to just Legal Entity/Service Line/Case Type. */}
+        {!!caseType && (
+          <>
+          {serviceLineKey ? (
+            isHrOrVat ? (
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-sm">Jurisdiction</Label>
+                <Select value={jurisdiction} onValueChange={setJurisdiction}>
+                  <SelectTrigger data-testid="create-single-case-jurisdiction">
+                    <SelectValue placeholder="Select a jurisdiction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm">Frequency</Label>
+                    <Select value={frequency} onValueChange={(v) => setFrequency(v as typeof frequency)}>
+                      <SelectTrigger data-testid="create-single-case-frequency">
+                        <SelectValue placeholder="Select frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FREQUENCY_OPTIONS.map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm">Jurisdiction</Label>
+                    <Select value={jurisdiction} onValueChange={setJurisdiction}>
+                      <SelectTrigger data-testid="create-single-case-jurisdiction">
+                        <SelectValue placeholder="Select a jurisdiction" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-sm">Jurisdiction</Label>
-                  <Select value={jurisdiction} onValueChange={setJurisdiction}>
-                    <SelectTrigger data-testid="create-single-case-jurisdiction">
-                      <SelectValue placeholder="Select a jurisdiction" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COUNTRIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-sm">Fiscal year</Label>
+                  <DateRangePicker
+                    value={fiscalYear}
+                    onChange={setFiscalYear}
+                    placeholder="Select fiscal year period"
+                    data-testid="create-single-case-fiscal-year"
+                  />
                 </div>
+              </>
+            )
+          ) : null}
+
+          {isCit && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-sm">Internal deadline</Label>
+                <DatePicker
+                  value={internalDeadline}
+                  onChange={setInternalDeadline}
+                  placeholder="Select date"
+                  data-testid="create-single-case-internal-deadline"
+                />
+                {deadlineOrderInvalid && (
+                  <p className="text-destructive text-xs">
+                    Internal deadline must be on or before the statutory deadline.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label className="text-sm">Fiscal year</Label>
-                <DateRangePicker
-                  value={fiscalYear}
-                  onChange={setFiscalYear}
-                  placeholder="Select fiscal year period"
-                  data-testid="create-single-case-fiscal-year"
+                <Label className="text-sm">Statutory deadline</Label>
+                <DatePicker
+                  value={statutoryDeadline}
+                  onChange={setStatutoryDeadline}
+                  placeholder="Select date"
+                  data-testid="create-single-case-statutory-deadline"
                 />
               </div>
             </>
-          )
-        ) : null}
+          )}
 
-        {isCit && (
-          <>
+          {isVat && (
             <div className="flex flex-col gap-1.5">
-              <Label className="text-sm">Internal deadline</Label>
-              <DatePicker
-                value={internalDeadline}
-                onChange={setInternalDeadline}
-                placeholder="Select date"
-                data-testid="create-single-case-internal-deadline"
+              <Label className="text-sm">VAT registration</Label>
+              <Input value={vatRegistration} disabled readOnly data-testid="create-single-case-registration" />
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">
+                Project code <span className="font-normal text-neutral-400">(optional)</span>
+              </Label>
+              <Input
+                value={projectCode}
+                onChange={(e) => setProjectCode(e.target.value.slice(0, PROJECT_CODE_MAX_LENGTH))}
+                placeholder="Enter project code"
+                maxLength={PROJECT_CODE_MAX_LENGTH}
+                data-testid="create-single-case-project-code"
               />
-              {deadlineOrderInvalid && (
-                <p className="text-destructive text-xs">
-                  Internal deadline must be on or before the statutory deadline.
-                </p>
+            </div>
+            <span
+              className={cn(
+                'text-right text-muted-foreground text-xs',
+                projectCode.length >= PROJECT_CODE_MAX_LENGTH && 'text-destructive',
               )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-sm">Statutory deadline</Label>
-              <DatePicker
-                value={statutoryDeadline}
-                onChange={setStatutoryDeadline}
-                placeholder="Select date"
-                data-testid="create-single-case-statutory-deadline"
-              />
-            </div>
-          </>
-        )}
-
-        {isVat && (
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">VAT registration</Label>
-            <Input value={vatRegistration} disabled readOnly data-testid="create-single-case-registration" />
+            >
+              {projectCode.length}/{PROJECT_CODE_MAX_LENGTH}
+            </span>
           </div>
-        )}
 
-        <div className="flex flex-col gap-1">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">
-              Project code <span className="font-normal text-neutral-400">(optional)</span>
-            </Label>
-            <Input
-              value={projectCode}
-              onChange={(e) => setProjectCode(e.target.value.slice(0, PROJECT_CODE_MAX_LENGTH))}
-              placeholder="Enter project code"
-              maxLength={PROJECT_CODE_MAX_LENGTH}
-              data-testid="create-single-case-project-code"
+            <Label className="text-sm">Creator</Label>
+            <UserSelect
+              multiple
+              users={creatorOptions}
+              value={creatorIds}
+              onChange={setCreatorIds}
+              data-testid="create-single-case-creator"
             />
           </div>
-          <span
-            className={cn(
-              'text-right text-muted-foreground text-xs',
-              projectCode.length >= PROJECT_CODE_MAX_LENGTH && 'text-destructive',
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Reviewer</Label>
+            <UserSelect
+              multiple
+              users={reviewerOptions}
+              value={reviewerIds}
+              onChange={setReviewerIds}
+              data-testid="create-single-case-reviewer"
+            />
+            {reviewerOverlapsCreator && (
+              <p className="text-destructive text-xs">Reviewer must be different from the creator.</p>
             )}
-          >
-            {projectCode.length}/{PROJECT_CODE_MAX_LENGTH}
-          </span>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Creator</Label>
-          <UserSelect
-            multiple
-            users={creatorOptions}
-            value={creatorIds}
-            onChange={setCreatorIds}
-            data-testid="create-single-case-creator"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Reviewer</Label>
-          <UserSelect
-            multiple
-            users={reviewerOptions}
-            value={reviewerIds}
-            onChange={setReviewerIds}
-            data-testid="create-single-case-reviewer"
-          />
-          {reviewerOverlapsCreator && (
-            <p className="text-destructive text-xs">Reviewer must be different from the creator.</p>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">
-            Partner <span className="font-normal text-neutral-400">(optional)</span>
-          </Label>
-          <UserSelect
-            multiple
-            users={DUMMY_USERS}
-            value={partnerIds}
-            onChange={setPartnerIds}
-            data-testid="create-single-case-partner"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">Client</Label>
-          <UserSelect
-            multiple
-            users={DUMMY_USERS}
-            value={clientIds}
-            onChange={setClientIds}
-            data-testid="create-single-case-client"
-          />
-        </div>
-
-        {caseNamePreview && (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-            <p className="text-[12px] text-neutral-500">Case name</p>
-            <p className="text-[14px] font-semibold text-neutral-900">{caseNamePreview}</p>
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">
+              Partner <span className="font-normal text-neutral-400">(optional)</span>
+            </Label>
+            <UserSelect
+              multiple
+              users={DUMMY_USERS}
+              value={partnerIds}
+              onChange={setPartnerIds}
+              data-testid="create-single-case-partner"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Client</Label>
+            <UserSelect
+              multiple
+              users={DUMMY_USERS}
+              value={clientIds}
+              onChange={setClientIds}
+              data-testid="create-single-case-client"
+            />
+          </div>
+
+          {caseNamePreview && (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+              <p className="text-[12px] text-neutral-500">Case name</p>
+              <p className="text-[14px] font-semibold text-neutral-900">{caseNamePreview}</p>
+            </div>
+          )}
+          </>
         )}
       </div>
 

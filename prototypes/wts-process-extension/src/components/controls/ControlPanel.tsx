@@ -15,10 +15,9 @@ import {
   isPhaseDisabledInControls,
 } from '@/lib/controlHeaderTypes'
 import { useDemoStore } from '@/store/useDemoStore'
-import type { CaseKind, GroupCaseView } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
-import { CheckboxField, Switch } from '@wts/ui'
+import { CheckboxField } from '@wts/ui'
 import { OptionPills } from './OptionPills'
 import { PhaseRadios } from './PhaseRadios'
 import { ProcessTabs } from './ProcessTabs'
@@ -48,19 +47,6 @@ const ALL_HEADER_TYPES: HeaderType[] = [
   'requirementBucket',
 ]
 
-// Case Type → Group Case View is a two-step hierarchy (see useDemoStore's caseKind/
-// groupCaseView): Single Case behaves exactly as the Playground always has; Group Case
-// restricts Process to VAT and reveals a second choice between the (static, first-version)
-// Parent Case page and the normal per-entity Child Case dispatch.
-const CASE_KIND_OPTIONS: { value: CaseKind; label: string }[] = [
-  { value: 'single', label: 'Single Case' },
-  { value: 'group', label: 'Group Case' },
-]
-const GROUP_CASE_VIEW_OPTIONS: { value: GroupCaseView; label: string }[] = [
-  { value: 'parent', label: 'Parent Case' },
-  { value: 'child', label: 'Child Case' },
-]
-
 export function ControlPanel() {
   const {
     process,
@@ -74,10 +60,6 @@ export function ControlPanel() {
     assessmentsState,
     protocolConfirmationChecked,
     packageReviewOutcome,
-    showCaseManagement,
-    caseKind,
-    groupCaseView,
-    childCaseRequiresClientApproval,
     setProcess,
     setRole,
     setHeaderType,
@@ -88,14 +70,7 @@ export function ControlPanel() {
     setAssessmentsState,
     setProtocolConfirmationChecked,
     setPackageReviewOutcome,
-    setShowCaseManagement,
-    setCaseKind,
-    setGroupCaseView,
   } = useDemoStore()
-
-  const isGroupCase = caseKind === 'group'
-  const isParentCaseView = isGroupCase && groupCaseView === 'parent'
-  const isChildCaseView = isGroupCase && groupCaseView === 'child'
 
   const showTasksDoneControl = isCaseTasksGateActive(
     headerType,
@@ -133,19 +108,6 @@ export function ControlPanel() {
     isSubmissionProtocolGateActive(process, headerType, platform, phase)
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-4 shadow-header-sm">
-      <div className="flex flex-col gap-1.5 border-b border-border pb-4">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          View
-        </span>
-        <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-          <span className="text-[13px] font-medium text-foreground">Case Management page</span>
-          <Switch checked={showCaseManagement} onCheckedChange={setShowCaseManagement} />
-        </label>
-        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-          Swaps in the full case list, independent of the CIT Assessment &amp; Closure demo below.
-        </p>
-      </div>
-
       <div>
         <h2 className="text-sm font-semibold text-foreground">Controls</h2>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -154,22 +116,6 @@ export function ControlPanel() {
         </p>
       </div>
 
-      <OptionPills
-        label="Case Type"
-        value={caseKind}
-        onChange={setCaseKind}
-        options={CASE_KIND_OPTIONS}
-      />
-
-      {isGroupCase && (
-        <OptionPills
-          label="Group Case View"
-          value={groupCaseView}
-          onChange={setGroupCaseView}
-          options={GROUP_CASE_VIEW_OPTIONS}
-        />
-      )}
-
       <ProcessTabs
         label="Process"
         value={process}
@@ -177,7 +123,6 @@ export function ControlPanel() {
         options={ALL_PROCESSES.map((p) => ({
           value: p,
           label: PROCESS_LABELS[p],
-          disabled: isGroupCase && p !== 'vat',
         }))}
       />
 
@@ -209,10 +154,7 @@ export function ControlPanel() {
         options={workflowPhasesForControls(process).map((p) => ({
           value: p,
           label: PHASE_LABELS[p as Phase],
-          disabled:
-            isPhaseDisabledInControls(p, role) ||
-            (isParentCaseView && p !== 'inPreparation') ||
-            (isChildCaseView && !childCaseRequiresClientApproval && p === 'clientApproval'),
+          disabled: isPhaseDisabledInControls(p, role),
         }))}
       />
 
@@ -225,7 +167,7 @@ export function ControlPanel() {
         />
       )}
 
-      {(showTasksDoneControl || isParentCaseView) && (
+      {showTasksDoneControl && (
         <CheckboxField
           label="Tasks Done"
           description="Marks all tasks complete and enables Send for review."

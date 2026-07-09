@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { PencilLine } from 'lucide-react'
 
-import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@wts/ui'
+import { cn } from '@wts/ui'
 import type { PeopleRow as PeopleRowData } from '@/types'
 
 import { VerticalSeparator } from './VerticalSeparator'
@@ -9,9 +9,6 @@ import { VerticalSeparator } from './VerticalSeparator'
 interface PeopleRowProps {
   people: PeopleRowData
   editable?: boolean
-  /** Explains the Edit action's scope/behaviour — e.g. the Parent Case's edit-propagation
-   * rules. Omitted everywhere else, so other callers of `editable` are unaffected. */
-  editTooltip?: string
   /** Show only specific fields (e.g. requirement list shows Client only). */
   fields?: Array<'creator' | 'reviewer' | 'partner' | 'client'>
   className?: string
@@ -31,8 +28,8 @@ function PersonField({ label, value }: { label: string; value: string }) {
   )
 }
 
-function EditLink({ tooltip }: { tooltip?: string }) {
-  const button = (
+function EditLink() {
+  return (
     <button
       type="button"
       className="inline-flex items-center gap-2 whitespace-nowrap text-sm font-medium text-[hsl(var(--link))] hover:underline"
@@ -41,23 +38,11 @@ function EditLink({ tooltip }: { tooltip?: string }) {
       Edit
     </button>
   )
-
-  if (!tooltip) return button
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent className="max-w-xs">{tooltip}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
 }
 
 export function PeopleRow({
   people,
   editable,
-  editTooltip,
   fields,
   className,
 }: PeopleRowProps) {
@@ -93,7 +78,7 @@ export function PeopleRow({
       {editable && (
         <>
           {visible.length > 0 && <VerticalSeparator />}
-          <EditLink tooltip={editTooltip} />
+          <EditLink />
         </>
       )}
     </div>

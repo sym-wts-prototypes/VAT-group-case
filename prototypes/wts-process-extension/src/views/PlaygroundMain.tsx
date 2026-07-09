@@ -2,10 +2,6 @@ import { useState } from 'react'
 
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
-import { CaseManagementPage } from '@/components/case-management-page'
-import { GROUPS, LEGAL_ENTITIES } from '@/components/org-details-data'
-import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
-import { ParentVatGroupCasePage } from '@/components/parent-vat-group-case-page'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
@@ -42,29 +38,12 @@ export function PlaygroundMain() {
     packageReviewOutcome,
     bucketMarkAsDoneChecked,
     selectedRequirementCategoryId,
-    showCaseManagement,
-    caseKind,
-    groupCaseView,
-    childCaseRequiresClientApproval,
     setHeaderType,
     setBucketMarkAsDoneChecked,
     setSelectedRequirementCategoryId,
     setPhase,
   } = useDemoStore()
   const [closeCaseOpen, setCloseCaseOpen] = useState(false)
-
-  if (showCaseManagement) {
-    return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
-  }
-
-  // Group + Child is just the normal case dispatch below (process is already locked to vat by
-  // the Playground controls) — only Group + Parent needs a dedicated page.
-  if (caseKind === 'group' && groupCaseView === 'parent') {
-    return <ParentVatGroupCasePage />
-  }
-  const isChildCaseView = caseKind === 'group' && groupCaseView === 'child'
-  const skipClientApproval = isChildCaseView && !childCaseRequiresClientApproval
-
   const ctx = { process, platform, role, headerType, phase }
   const resolved = resolveHeader(ctx)
   const packageBannerState =
@@ -201,7 +180,6 @@ export function PlaygroundMain() {
         assessmentsState={assessmentsState}
         packageBannerState={packageBannerState ?? 'sent'}
         packageReviewOutcome={packageReviewOutcome}
-        skipClientApproval={skipClientApproval}
         selectedRequirementCategoryId={selectedRequirementCategoryId}
         onOpenRequirementList={() => setHeaderType('requirementList')}
         onOpenRequirementBucket={(categoryId) => {

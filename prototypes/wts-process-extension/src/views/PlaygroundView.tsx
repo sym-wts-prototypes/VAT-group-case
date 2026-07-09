@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 import { SIDEBAR_CASE_MANAGEMENT_ID, WtsAppShell } from '@wts/app-shell'
-import { Button, cn } from '@wts/ui'
 import { ControlPanel } from '@/components/controls/ControlPanel'
 import { useDemoStore } from '@/store/useDemoStore'
 
@@ -21,7 +19,6 @@ function isEditableTarget(target: EventTarget | null) {
 
 export function PlaygroundView() {
   const [controlsHidden, setControlsHidden] = useState(false)
-  const [panelCollapsed, setPanelCollapsed] = useState(false)
   const role = useDemoStore((state) => state.role)
 
   useEffect(() => {
@@ -59,43 +56,13 @@ export function PlaygroundView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-6">
-      <aside
-        className={cn(
-          'shrink-0 overflow-hidden transition-[width] duration-200 ease-out',
-          panelCollapsed ? 'w-9' : 'w-full lg:w-72',
-        )}
-      >
-        {panelCollapsed ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="size-9 shadow-sm"
-            onClick={() => setPanelCollapsed(false)}
-            aria-label="Expand Playground controls"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </Button>
-        ) : (
-          <div className="lg:sticky lg:top-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Playground controls
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-6 shrink-0"
-                onClick={() => setPanelCollapsed(true)}
-                aria-label="Collapse Playground controls"
-              >
-                <PanelLeftClose className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <ControlPanel />
-          </div>
-        )}
+      <aside className="w-full shrink-0 lg:w-72">
+        <div className="lg:sticky lg:top-4">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Playground controls
+          </p>
+          <ControlPanel />
+        </div>
       </aside>
 
       <WtsAppShell

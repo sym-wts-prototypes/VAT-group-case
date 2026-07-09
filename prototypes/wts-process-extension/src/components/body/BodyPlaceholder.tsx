@@ -62,9 +62,6 @@ interface BodyPlaceholderProps {
   assessmentsState?: AssessmentsState
   packageBannerState?: PackageBannerState
   packageReviewOutcome?: PackageReviewOutcome
-  /** Drops the Client Approval stage from the case stepper — for VAT Child Cases whose Legal
-   * Entity doesn't require that step (see the Parent VAT Group Case page). */
-  skipClientApproval?: boolean
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
@@ -99,7 +96,6 @@ export function BodyPlaceholder({
   assessmentsState = 'mixed',
   packageBannerState = 'sent',
   packageReviewOutcome = 'default',
-  skipClientApproval = false,
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
@@ -207,7 +203,7 @@ export function BodyPlaceholder({
           )}
         >
           {!usesDraftList && phase !== 'summary' && (
-            <CasePhaseStepper currentPhase={stepperPhase} process={process} skipClientApproval={skipClientApproval} />
+            <CasePhaseStepper currentPhase={stepperPhase} process={process} />
           )}
           <div
             className={cn(
@@ -259,7 +255,7 @@ export function BodyPlaceholder({
   )
 }
 
-export function SectionLabel({
+function SectionLabel({
   children,
   className,
 }: {

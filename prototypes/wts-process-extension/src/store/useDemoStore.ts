@@ -34,10 +34,6 @@ import type { HeaderType, Phase, Platform, Process, Role } from '@/types'
 /** CIT Assessment & Closure demo: how the assessment items resolve. */
 export type AssessmentsState = 'empty' | 'arrived' | 'mixed' | 'done'
 
-/** Playground case-type hierarchy — see `caseKind`/`groupCaseView` below. */
-export type CaseKind = 'single' | 'group'
-export type GroupCaseView = 'parent' | 'child'
-
 interface DemoState {
   process: Process
   platform: Platform
@@ -60,23 +56,6 @@ interface DemoState {
   bucketMarkAsDoneChecked: boolean
   /** Client bucket ↔ WTS category (Category 1 / Category 2). */
   selectedRequirementCategoryId: string
-  // Playground-only toggle — swaps PlaygroundMain over to the Case Management page.
-  // Deliberately not synced to the URL hash: the hash format above only carries
-  // process/role/headerType/phase, and this is a demo toggle, not worth deep-linking yet.
-  showCaseManagement: boolean
-  // Playground-only case-type hierarchy: Single vs Group Case, then (only for Group) Parent vs
-  // Child Case. Group forces process to vat (see setters below); Group+Parent additionally
-  // forces phase to inPreparation, since that's the only workflow state the Parent Case page
-  // covers so far. Group+Child is just the normal case dispatch with process locked to vat —
-  // no separate rendering path needed for it.
-  caseKind: CaseKind
-  groupCaseView: GroupCaseView
-  // Whether the Child Case currently being viewed (Group + Child) requires a Client Approval
-  // step — set by the Parent Case page when a specific Child Case is opened (see
-  // parent-vat-group-case-page.tsx's openChildCase). Defaults to true (today's behaviour, full
-  // 4-phase workflow) whenever no specific child has been opened, or when Case Type/Group Case
-  // View is changed manually via the controls.
-  childCaseRequiresClientApproval: boolean
   setProcess: (p: Process) => void
   setRole: (r: Role) => void
   setHeaderType: (h: HeaderType) => void
@@ -89,10 +68,6 @@ interface DemoState {
   setPackageReviewOutcome: (outcome: PackageReviewOutcome) => void
   setBucketMarkAsDoneChecked: (checked: boolean) => void
   setSelectedRequirementCategoryId: (id: string) => void
-  setShowCaseManagement: (show: boolean) => void
-  setCaseKind: (kind: CaseKind) => void
-  setGroupCaseView: (view: GroupCaseView) => void
-  setChildCaseRequiresClientApproval: (requires: boolean) => void
 }
 
 const DEFAULTS = {
@@ -109,10 +84,6 @@ const DEFAULTS = {
   packageReviewOutcome: 'default' as PackageReviewOutcome,
   bucketMarkAsDoneChecked: false,
   selectedRequirementCategoryId: DEFAULT_REQUIREMENT_CATEGORY_ID,
-  showCaseManagement: true,
-  caseKind: 'single' as CaseKind,
-  groupCaseView: 'parent' as GroupCaseView,
-  childCaseRequiresClientApproval: true,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -325,10 +296,6 @@ const initialState = reconcile(parseHash(), {
   setPackageReviewOutcome: () => {},
   setBucketMarkAsDoneChecked: () => {},
   setSelectedRequirementCategoryId: () => {},
-  setShowCaseManagement: () => {},
-  setCaseKind: () => {},
-  setGroupCaseView: () => {},
-  setChildCaseRequiresClientApproval: () => {},
 })
 
 export const useDemoStore = create<DemoState>((set) => ({
@@ -366,36 +333,6 @@ export const useDemoStore = create<DemoState>((set) => ({
     set((prev) => ({ ...prev, bucketMarkAsDoneChecked })),
   setSelectedRequirementCategoryId: (selectedRequirementCategoryId) =>
     set((prev) => ({ ...prev, selectedRequirementCategoryId })),
-  setShowCaseManagement: (showCaseManagement) =>
-    set((prev) => ({ ...prev, showCaseManagement })),
-  setCaseKind: (caseKind) =>
-    set((prev) =>
-      reconcile(
-        caseKind === 'group'
-          ? {
-              caseKind,
-              process: 'vat',
-              phase: prev.groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
-              showCaseManagement: false,
-              childCaseRequiresClientApproval: true,
-            }
-          : { caseKind, childCaseRequiresClientApproval: true },
-        prev,
-      ),
-    ),
-  setGroupCaseView: (groupCaseView) =>
-    set((prev) =>
-      reconcile(
-        {
-          groupCaseView,
-          phase: groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
-          childCaseRequiresClientApproval: true,
-        },
-        prev,
-      ),
-    ),
-  setChildCaseRequiresClientApproval: (childCaseRequiresClientApproval) =>
-    set((prev) => ({ ...prev, childCaseRequiresClientApproval })),
 }))
 
 export function useHashSync() {

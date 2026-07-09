@@ -132,8 +132,6 @@ export interface HeaderDescriptor {
   people?: PeopleRow
   dueDate?: string
   editable?: boolean
-  /** Tooltip shown on the PeopleRow's Edit action, when editable — e.g. to explain scope. */
-  editTooltip?: string
   actions: {
     primary?: ActionDescriptor
     /** When set, renders instead of a single primary button (e.g. HR In Review). */

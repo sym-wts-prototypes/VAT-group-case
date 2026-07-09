@@ -287,7 +287,10 @@ export function SectionLabel({
   )
 }
 
-function CaseWtsTasksBody({
+// Exported so parent-vat-group-case-page.tsx can render the exact same Reviewer task
+// checklist once its own Consolidation step hands off to "In Review" — same component, same
+// behaviour, instead of re-deriving a parallel checklist just for the group-case context.
+export function CaseWtsTasksBody({
   process,
   role,
   phase,

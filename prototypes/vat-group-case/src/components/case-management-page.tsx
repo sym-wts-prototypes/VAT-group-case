@@ -154,7 +154,9 @@ function NextDeadlineCell({ value }: { value: string | null }) {
   )
 }
 
-function RowActions({ id, onEdit }: { id: string; onEdit: () => void }) {
+// Exported so parent-vat-group-case-page.tsx's own child-case rows can surface the exact same
+// menu (same options, same behaviour) instead of building a second one.
+export function RowActions({ id, onEdit }: { id: string; onEdit: () => void }) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <DropdownMenu modal={false}>

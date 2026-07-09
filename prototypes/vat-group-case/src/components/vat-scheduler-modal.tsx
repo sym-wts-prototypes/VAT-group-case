@@ -19,11 +19,10 @@ import {
 import { generateCaseId, shortPeriodLabel, toIsoDate } from './case-generation'
 import type { Case, CaseListItem, VatGroupCase } from './case-management-data'
 import {
-  CustomDeadlineSection,
   FrequencyPeriodFields,
+  GroupCaseDeadlineFields,
   periodLabel,
   ScheduleSummaryBox,
-  StatutoryDeadlineFields,
   useDeadlineSchedule,
 } from './scheduler-shared'
 import { SelectableUser, UserSelect } from './user-select'
@@ -36,11 +35,13 @@ import { SelectableUser, UserSelect } from './user-select'
 // right are locally interactive. "Create scheduled cases" has no backend yet — it just
 // closes this modal and the parent drawer, same as the drawer's own submit used to.
 //
-// The Frequency/Period/Statutory-Deadline/custom-override scheduling below is shared with
-// SingleCaseSchedulerModal via scheduler-shared.tsx (same component, same behaviour, same
-// styling). This modal additionally splits into two steps (Stepper, matching this library's
-// existing case-phase stepper pattern) — Step 1 is scheduler configuration, Step 2 is the
-// per-legal-entity Client Approval + role assignment, both unique to the group flow.
+// The Frequency/Period fields below are shared with SingleCaseSchedulerModal via
+// scheduler-shared.tsx. The deadline itself is configured differently for groups: no
+// Statutory Deadline mode tabs or custom per-case overrides — Group Case Deadline (via
+// `deadlineFromDataProvision`) is the only deadline concept here. This modal additionally
+// splits into two steps (Stepper, matching this library's existing case-phase stepper
+// pattern) — Step 1 is scheduler configuration, Step 2 is the per-legal-entity Client
+// Approval + role assignment, both unique to the group flow.
 
 const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   <div className="flex flex-col gap-0.5">
@@ -131,7 +132,10 @@ export function VatSchedulerModal({
 
   // Group cases are named after the group, not a per-entity case type — e.g.
   // "DE VAT Group — Q1 2026" — since a VAT group files one consolidated return per period.
-  const schedule = useDeadlineSchedule((p, frequency) => `${groupName} — ${periodLabel(frequency, p.period, p.year)}`)
+  const schedule = useDeadlineSchedule(
+    (p, frequency) => `${groupName} — ${periodLabel(frequency, p.period, p.year)}`,
+    { deadlineFromDataProvision: true },
+  )
 
   useEffect(() => {
     if (!open) return
@@ -323,8 +327,7 @@ export function VatSchedulerModal({
             {step === 'schedule' ? (
               <>
                 <FrequencyPeriodFields s={schedule} />
-                <StatutoryDeadlineFields s={schedule} />
-                <CustomDeadlineSection s={schedule} />
+                <GroupCaseDeadlineFields s={schedule} />
                 <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />
 
                 {/* Template upload */}

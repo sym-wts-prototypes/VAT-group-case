@@ -7,23 +7,28 @@ import {
   cn,
   Input,
   MiniStepper,
+  Stepper,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
   type BadgeTone,
   type MiniStepperStepState,
+  type StepperStepState,
 } from '@wts/ui'
 
-import { SectionLabel } from '@/components/body/BodyPlaceholder'
-import { CasePhaseStepper } from '@/components/body/CasePhaseStepper'
+import { CaseWtsTasksBody, SectionLabel } from '@/components/body/BodyPlaceholder'
+import { FileDropzone } from '@/components/body/FileDropzone'
+import { PackageBanner } from '@/components/body/PackageBanner'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { PeopleRow } from '@/components/headers/parts/PeopleRow'
+import type { PackageBannerDescriptor } from '@/config/packageBanners'
 import { CASE_MANAGEMENT_BREADCRUMB, SAMPLE_PEOPLE } from '@/config/sampleData'
 import { useDemoStore } from '@/store/useDemoStore'
 import type { HeaderDescriptor, Phase, PeopleRow as PeopleRowData } from '@/types'
 
-import { ROLE_TO_PLAYGROUND_ROLE } from './case-management-page'
+import { formatDottedDate } from './case-generation'
+import { ROLE_TO_PLAYGROUND_ROLE, RowActions } from './case-management-page'
 import { DUMMY_GROUP_CASES, type Case } from './case-management-data'
 import { vatRegistrationForJurisdiction } from './org-details-data'
 
@@ -40,6 +45,19 @@ const REPRESENTATIVE_VAT_REGISTRATION = vatRegistrationForJurisdiction(PARENT_CA
 
 const EDIT_TOOLTIP =
   "Changes made here apply only to the Parent Case. Assigned users will also be assigned to the Representative Legal Entity's Child Case, but not to the Child Cases of the other Legal Entities in the group."
+
+// Adapted from the existing PackageBanner used for a single case's joined file (see
+// config/packageBanners.ts / BodyPlaceholder.tsx) — same component, just describing a
+// multi-file group package instead of one case's own generated package.
+const GROUP_PACKAGE_DESCRIPTOR = (childCount: number): PackageBannerDescriptor => ({
+  variant: 'blue',
+  icon: 'fileText',
+  title: 'Group Case Package',
+  description: `A single downloadable bundle of the "Ready for Consolidation" files from all ${childCount} Child Cases in this group.`,
+  meta: `${childCount} files`,
+  showFooter: true,
+  showVersionHistory: false,
+})
 
 const SKIPPED_APPROVAL_TOOLTIP =
   'Client Approval has been intentionally skipped for this Legal Entity — its workflow has one fewer step.'
@@ -91,6 +109,23 @@ function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): Mi
   })
 }
 
+// The Parent Case's own top-of-page workflow — distinct from the per-Child-Case WorkflowStatus
+// above. "Consolidation" only exists on this page: it sits after In Preparation (once every
+// Child Case is Ready for Consolidation) and before In Review, where the reviewer takes over —
+// Client Approval/Submission stay visible as the case's eventual remaining steps, same as the
+// single-case stepper always shows the full journey rather than only what's implemented so far.
+type ParentPhase = 'inPreparation' | 'consolidation' | 'inReview'
+const PARENT_STEPPER_LABELS = ['In Preparation', 'Consolidation', 'In Review', 'Client Approval', 'Submission']
+const PARENT_PHASE_INDEX: Record<ParentPhase, number> = { inPreparation: 0, consolidation: 1, inReview: 2 }
+
+function parentStepperStates(phase: ParentPhase): { label: string; state: StepperStepState }[] {
+  const activeIndex = PARENT_PHASE_INDEX[phase]
+  return PARENT_STEPPER_LABELS.map((label, i) => ({
+    label,
+    state: i < activeIndex ? 'finished' : i === activeIndex ? 'inProgress' : 'notStarted',
+  }))
+}
+
 // Static per-entity demo config, keyed by the dummy case's own child id: whether that legal
 // entity requires a Client Approval step, and which workflow status it shows before "Tasks
 // done" is checked. Deliberately varied so the page demonstrates every status this iteration
@@ -98,47 +133,68 @@ function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): Mi
 // (EUROPIPE France, see case-management-data.ts) is the reference example for the "click a
 // Child Case to open it" flow — Creator already has access and it skips Client Approval, so
 // opening it always succeeds.
-const CHILD_CONFIG: Record<string, { requiresClientApproval: boolean; defaultStatus: WorkflowStatus }> = {
-  [PARENT_CASE.children[0].id]: { requiresClientApproval: true, defaultStatus: 'InPreparation' },
-  [PARENT_CASE.children[1].id]: { requiresClientApproval: true, defaultStatus: 'ClientApproval' },
-  [PARENT_CASE.children[2].id]: { requiresClientApproval: false, defaultStatus: 'InReview' },
-  [PARENT_CASE.children[3].id]: { requiresClientApproval: false, defaultStatus: 'InPreparation' },
-}
+// [requiresClientApproval, defaultStatus] per Child Case, in the same order as PARENT_CASE's
+// children — alternates through every combination this page supports so the ~20-row list (see
+// case-management-data.ts's DE_VAT_GROUP_MEMBERS) exercises every stepper/tooltip variant.
+const CHILD_CONFIG_BY_INDEX: Array<[boolean, WorkflowStatus]> = [
+  [true, 'InPreparation'],
+  [true, 'ClientApproval'],
+  [false, 'InReview'],
+  [false, 'InPreparation'],
+  [true, 'ClientApproval'],
+  [false, 'InReview'],
+  [true, 'InPreparation'],
+  [false, 'InPreparation'],
+  [true, 'ClientApproval'],
+  [false, 'InReview'],
+  [true, 'InPreparation'],
+  [false, 'InPreparation'],
+  [true, 'ClientApproval'],
+  [false, 'InReview'],
+  [true, 'InPreparation'],
+  [false, 'InPreparation'],
+  [true, 'ClientApproval'],
+  [false, 'InReview'],
+  [true, 'InPreparation'],
+  [false, 'InPreparation'],
+]
+
+const CHILD_CONFIG: Record<string, { requiresClientApproval: boolean; defaultStatus: WorkflowStatus }> =
+  Object.fromEntries(
+    PARENT_CASE.children.map((child, index) => {
+      const [requiresClientApproval, defaultStatus] = CHILD_CONFIG_BY_INDEX[index % CHILD_CONFIG_BY_INDEX.length]
+      return [child.id, { requiresClientApproval, defaultStatus }]
+    }),
+  )
 
 // Who's assigned to each Child Case — informational only (Part 1 of the "Child Case
 // Responsibility, Access Messaging & Workflow Variants" ticket): always visible regardless of
 // whether the current role can open that case, and reused for the access-denied message below
 // (Part 2) so it can point at the actual Creator/Reviewer instead of a generic instruction.
 // Creator/Reviewer line up with each child's existing `myRole`/`latestActivity.actor`.
-const CHILD_PEOPLE: Record<string, PeopleRowData> = {
-  [PARENT_CASE.children[0].id]: {
-    creator: 'Maria Fischer',
-    reviewer: 'Jordan Miller',
-    partner: 'Oscar Wilson',
-    client: 'Emma Johnson',
-  },
-  [PARENT_CASE.children[1].id]: {
-    creator: 'Sophie Martin',
-    reviewer: 'Jordan Miller',
-    partner: 'Lucas Brown',
-    client: 'Noah Davis',
-  },
-  [PARENT_CASE.children[2].id]: {
-    creator: 'Sophie Martin',
-    reviewer: 'Olivia Taylor',
-    client: 'Oscar Wilson',
-  },
-  [PARENT_CASE.children[3].id]: {
-    creator: 'Maria Fischer',
-    reviewer: 'Jordan Miller',
-    client: 'Emma Johnson',
-  },
-}
+// Rotates through the same 8-person demo directory every other Create Case flow in this
+// prototype uses (see vat-scheduler-modal.tsx's DUMMY_USERS) — partner is omitted on every
+// third row, matching how the original 4 rows had 3 with a Partner and 1 without.
+const CHILD_PEOPLE_CREATORS = ['Maria Fischer', 'Sophie Martin', 'Oscar Wilson', 'Lucas Brown']
+const CHILD_PEOPLE_REVIEWERS = ['Jordan Miller', 'Olivia Taylor', 'Noah Davis']
+const CHILD_PEOPLE_CLIENTS = ['Emma Johnson', 'Noah Davis', 'Oscar Wilson']
+
+const CHILD_PEOPLE: Record<string, PeopleRowData> = Object.fromEntries(
+  PARENT_CASE.children.map((child, index) => [
+    child.id,
+    {
+      creator: CHILD_PEOPLE_CREATORS[index % CHILD_PEOPLE_CREATORS.length],
+      reviewer: CHILD_PEOPLE_REVIEWERS[index % CHILD_PEOPLE_REVIEWERS.length],
+      ...(index % 3 !== 2 ? { partner: CHILD_PEOPLE_CREATORS[(index + 1) % CHILD_PEOPLE_CREATORS.length] } : {}),
+      client: CHILD_PEOPLE_CLIENTS[index % CHILD_PEOPLE_CLIENTS.length],
+    },
+  ]),
+)
 
 // Fixed-width stepper column so it lines up across rows regardless of a row's step count (3 vs
 // 4) — the status pill and name column both size to content, so this is the only column that
 // needs pinning.
-const ROW_GRID_COLS = 'grid-cols-[minmax(0,1fr)_104px_auto]'
+const ROW_GRID_COLS = 'grid-cols-[minmax(0,1fr)_104px_auto_auto]'
 
 export function ParentVatGroupCasePage() {
   // Reuses the existing Playground "Tasks Done" checkbox (see ControlPanel.tsx) as the single
@@ -153,6 +209,11 @@ export function ParentVatGroupCasePage() {
   const isCreator = role === 'creator'
   const [deniedChild, setDeniedChild] = useState<Case | null>(null)
   const [childSearch, setChildSearch] = useState('')
+  const [parentPhase, setParentPhase] = useState<ParentPhase>('inPreparation')
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
+  // Same lever used to move every Child Case to "Ready for Consolidation" at once (see the
+  // status computation below) — reused here as "all Child Cases are ready" for the gate.
+  const allChildrenReady = tasksDoneChecked
 
   // Live, case-insensitive substring match against the Legal Entity name (`client`) — same
   // pattern as the VAT Scheduler's "Search legal entities…" filter (vat-scheduler-modal.tsx).
@@ -194,24 +255,83 @@ export function ParentVatGroupCasePage() {
       subCode: REPRESENTATIVE_VAT_REGISTRATION,
     },
     people: SAMPLE_PEOPLE,
+    // Blue pill, same visual pattern as the Due Date pill on single (non-group) case headers —
+    // just relabeled, since a VAT Group Case's deadline is the group's, not any one entity's.
+    dueDate: formatDottedDate(PARENT_CASE.statutoryDeadline),
+    dueDateLabel: 'Group Case Deadline',
     // Only the Creator may progress the Parent Case or reassign its people — everyone else
     // (Reviewer, Partner, Client) gets a read-only header, so the actions/edit link are simply
     // omitted from the descriptor rather than rendered-then-hidden.
     editable: isCreator,
     editTooltip: EDIT_TOOLTIP,
-    actions: isCreator
-      ? {
-          // Same shape used for every other "Send for review" primary action in the prototype
-          // (see config/headers.ts) — reused as-is, not a new action pattern.
-          primary: { label: 'Send for review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' },
-        }
-      : {},
+    actions:
+      isCreator && parentPhase !== 'inReview'
+        ? {
+            // Same "Send for review"-shaped primary action every other case page in this
+            // prototype uses — just relabeled per step: entering Consolidation, then leaving it.
+            primary:
+              parentPhase === 'inPreparation'
+                ? { label: 'Send to Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' }
+                : { label: 'Send to Review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' },
+          }
+        : role === 'reviewer' && parentPhase === 'inReview'
+          ? {
+              // Same primary action the single-case VAT Reviewer sees in In Review (see
+              // config/headers.ts's vat.case.phases.inReview.reviewer) — the Reviewer's part
+              // of this page mirrors the single-case flow exactly, not a group-specific variant.
+              primary: { label: 'Submit review', icon: 'Check', iconSide: 'right', variant: 'default' },
+            }
+          : {},
+  }
+
+  const primaryDisabled = parentPhase === 'inPreparation' ? !allChildrenReady : !uploadedFileName
+  const handlePrimaryClick = () => {
+    if (parentPhase === 'inPreparation' && allChildrenReady) setParentPhase('consolidation')
+    else if (parentPhase === 'consolidation' && uploadedFileName) setParentPhase('inReview')
   }
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <HeaderRenderer descriptor={descriptor} primaryDisabled={!tasksDoneChecked} />
-      <CasePhaseStepper currentPhase="inPreparation" process="vat" />
+      <HeaderRenderer descriptor={descriptor} primaryDisabled={primaryDisabled} onPrimaryClick={handlePrimaryClick} />
+      <div className="border-b border-border bg-background px-6 py-6">
+        <Stepper steps={parentStepperStates(parentPhase)} />
+      </div>
+
+      {parentPhase !== 'inPreparation' && (
+        <div className="flex flex-col gap-4 border-b border-border bg-muted/30 p-6">
+          <SectionLabel>Consolidation</SectionLabel>
+          <PackageBanner
+            descriptor={GROUP_PACKAGE_DESCRIPTOR(PARENT_CASE.children.length)}
+            packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
+            hideVersionHistory
+          />
+          {parentPhase === 'consolidation' && (
+            <FileDropzone
+              id="consolidation-document-upload"
+              label="Upload consolidation document"
+              onFileChange={setUploadedFileName}
+            />
+          )}
+        </div>
+      )}
+
+      {parentPhase === 'inReview' && role === 'reviewer' && (
+        <div className="border-b border-border bg-background px-6 py-6">
+          <CaseWtsTasksBody
+            process="vat"
+            role="reviewer"
+            phase="inReview"
+            headerType="case"
+            platform="wts"
+            tasksDoneChecked
+            approvedChecked={false}
+            tasksReconfirmedDone={false}
+            protocolConfirmationChecked={false}
+            packageBannerState="sent"
+            packageReviewOutcome="default"
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 bg-muted/30 p-6">
         <div className="flex flex-col gap-3">
@@ -297,6 +417,8 @@ export function ParentVatGroupCasePage() {
                     <Badge variant="soft" tone={WORKFLOW_STATUS_BADGE_TONE[status]} size="sm" className="justify-self-end">
                       {WORKFLOW_STATUS_LABEL[status]}
                     </Badge>
+
+                    <RowActions id={child.id} onEdit={handleOpen} />
                   </div>
 
                   {/* Read-only — who's assigned to this Legal Entity's case, visible regardless

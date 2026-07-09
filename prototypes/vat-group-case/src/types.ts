@@ -131,6 +131,9 @@ export interface HeaderDescriptor {
   bucketStatus?: BucketStatus
   people?: PeopleRow
   dueDate?: string
+  /** Overrides the due-date pill's label — e.g. "Group Case Deadline" for VAT Group cases.
+   * Defaults to "Due Date" (see DueDate.tsx) when omitted. */
+  dueDateLabel?: string
   editable?: boolean
   /** Tooltip shown on the PeopleRow's Edit action, when editable — e.g. to explain scope. */
   editTooltip?: string

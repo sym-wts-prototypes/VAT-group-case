@@ -22,6 +22,13 @@ export function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+// 'YYYY-MM-DD' -> 'DD.MM.YYYY' — matches the dotted format the rest of the app already uses
+// for due-date pills (see config/sampleData.ts's SAMPLE_CASE.dueDate).
+export function formatDottedDate(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}.${m}.${y}`
+}
+
 let idCounter = 0
 
 // Prototype-only unique id — no backend to allocate real case numbers from. Mirrors the shape

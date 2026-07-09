@@ -34,6 +34,10 @@ import type { HeaderType, Phase, Platform, Process, Role } from '@/types'
 /** CIT Assessment & Closure demo: how the assessment items resolve. */
 export type AssessmentsState = 'empty' | 'arrived' | 'mixed' | 'done'
 
+/** Playground case-type hierarchy — see `caseKind`/`groupCaseView` below. */
+export type CaseKind = 'single' | 'group'
+export type GroupCaseView = 'parent' | 'child'
+
 interface DemoState {
   process: Process
   platform: Platform
@@ -60,10 +64,13 @@ interface DemoState {
   // Deliberately not synced to the URL hash: the hash format above only carries
   // process/role/headerType/phase, and this is a demo toggle, not worth deep-linking yet.
   showCaseManagement: boolean
-  // Playground-only toggle — swaps PlaygroundMain over to the Parent VAT Group Case page.
-  // Mutually exclusive with showCaseManagement (see setters below); forces process/phase to
-  // vat/inPreparation while on, since that's the only workflow state this first version covers.
-  showParentCase: boolean
+  // Playground-only case-type hierarchy: Single vs Group Case, then (only for Group) Parent vs
+  // Child Case. Group forces process to vat (see setters below); Group+Parent additionally
+  // forces phase to inPreparation, since that's the only workflow state the Parent Case page
+  // covers so far. Group+Child is just the normal case dispatch with process locked to vat —
+  // no separate rendering path needed for it.
+  caseKind: CaseKind
+  groupCaseView: GroupCaseView
   setProcess: (p: Process) => void
   setRole: (r: Role) => void
   setHeaderType: (h: HeaderType) => void
@@ -77,7 +84,8 @@ interface DemoState {
   setBucketMarkAsDoneChecked: (checked: boolean) => void
   setSelectedRequirementCategoryId: (id: string) => void
   setShowCaseManagement: (show: boolean) => void
-  setShowParentCase: (show: boolean) => void
+  setCaseKind: (kind: CaseKind) => void
+  setGroupCaseView: (view: GroupCaseView) => void
 }
 
 const DEFAULTS = {
@@ -95,7 +103,8 @@ const DEFAULTS = {
   bucketMarkAsDoneChecked: false,
   selectedRequirementCategoryId: DEFAULT_REQUIREMENT_CATEGORY_ID,
   showCaseManagement: true,
-  showParentCase: false,
+  caseKind: 'single' as CaseKind,
+  groupCaseView: 'parent' as GroupCaseView,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -309,7 +318,8 @@ const initialState = reconcile(parseHash(), {
   setBucketMarkAsDoneChecked: () => {},
   setSelectedRequirementCategoryId: () => {},
   setShowCaseManagement: () => {},
-  setShowParentCase: () => {},
+  setCaseKind: () => {},
+  setGroupCaseView: () => {},
 })
 
 export const useDemoStore = create<DemoState>((set) => ({
@@ -348,17 +358,25 @@ export const useDemoStore = create<DemoState>((set) => ({
   setSelectedRequirementCategoryId: (selectedRequirementCategoryId) =>
     set((prev) => ({ ...prev, selectedRequirementCategoryId })),
   setShowCaseManagement: (showCaseManagement) =>
-    set((prev) => ({
-      ...prev,
-      showCaseManagement,
-      showParentCase: showCaseManagement ? false : prev.showParentCase,
-    })),
-  setShowParentCase: (showParentCase) =>
+    set((prev) => ({ ...prev, showCaseManagement })),
+  setCaseKind: (caseKind) =>
     set((prev) =>
       reconcile(
-        showParentCase
-          ? { process: 'vat', phase: 'inPreparation', showParentCase, showCaseManagement: false }
-          : { showParentCase },
+        caseKind === 'group'
+          ? {
+              caseKind,
+              process: 'vat',
+              phase: prev.groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
+              showCaseManagement: false,
+            }
+          : { caseKind },
+        prev,
+      ),
+    ),
+  setGroupCaseView: (groupCaseView) =>
+    set((prev) =>
+      reconcile(
+        { groupCaseView, phase: groupCaseView === 'parent' ? 'inPreparation' : prev.phase },
         prev,
       ),
     ),

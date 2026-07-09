@@ -15,6 +15,7 @@ import {
   isPhaseDisabledInControls,
 } from '@/lib/controlHeaderTypes'
 import { useDemoStore } from '@/store/useDemoStore'
+import type { CaseKind, GroupCaseView } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
 import { CheckboxField, Switch } from '@wts/ui'
@@ -47,6 +48,19 @@ const ALL_HEADER_TYPES: HeaderType[] = [
   'requirementBucket',
 ]
 
+// Case Type → Group Case View is a two-step hierarchy (see useDemoStore's caseKind/
+// groupCaseView): Single Case behaves exactly as the Playground always has; Group Case
+// restricts Process to VAT and reveals a second choice between the (static, first-version)
+// Parent Case page and the normal per-entity Child Case dispatch.
+const CASE_KIND_OPTIONS: { value: CaseKind; label: string }[] = [
+  { value: 'single', label: 'Single Case' },
+  { value: 'group', label: 'Group Case' },
+]
+const GROUP_CASE_VIEW_OPTIONS: { value: GroupCaseView; label: string }[] = [
+  { value: 'parent', label: 'Parent Case' },
+  { value: 'child', label: 'Child Case' },
+]
+
 export function ControlPanel() {
   const {
     process,
@@ -61,7 +75,8 @@ export function ControlPanel() {
     protocolConfirmationChecked,
     packageReviewOutcome,
     showCaseManagement,
-    showParentCase,
+    caseKind,
+    groupCaseView,
     setProcess,
     setRole,
     setHeaderType,
@@ -73,8 +88,12 @@ export function ControlPanel() {
     setProtocolConfirmationChecked,
     setPackageReviewOutcome,
     setShowCaseManagement,
-    setShowParentCase,
+    setCaseKind,
+    setGroupCaseView,
   } = useDemoStore()
+
+  const isGroupCase = caseKind === 'group'
+  const isParentCaseView = isGroupCase && groupCaseView === 'parent'
 
   const showTasksDoneControl = isCaseTasksGateActive(
     headerType,
@@ -123,15 +142,6 @@ export function ControlPanel() {
         <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
           Swaps in the full case list, independent of the CIT Assessment &amp; Closure demo below.
         </p>
-
-        <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-          <span className="text-[13px] font-medium text-foreground">Parent case</span>
-          <Switch checked={showParentCase} onCheckedChange={setShowParentCase} />
-        </label>
-        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-          Swaps in the Parent VAT Group Case page. Restricts Process to VAT and Phase to In
-          Preparation while on.
-        </p>
       </div>
 
       <div>
@@ -142,6 +152,22 @@ export function ControlPanel() {
         </p>
       </div>
 
+      <OptionPills
+        label="Case Type"
+        value={caseKind}
+        onChange={setCaseKind}
+        options={CASE_KIND_OPTIONS}
+      />
+
+      {isGroupCase && (
+        <OptionPills
+          label="Group Case View"
+          value={groupCaseView}
+          onChange={setGroupCaseView}
+          options={GROUP_CASE_VIEW_OPTIONS}
+        />
+      )}
+
       <ProcessTabs
         label="Process"
         value={process}
@@ -149,7 +175,7 @@ export function ControlPanel() {
         options={ALL_PROCESSES.map((p) => ({
           value: p,
           label: PROCESS_LABELS[p],
-          disabled: showParentCase && p !== 'vat',
+          disabled: isGroupCase && p !== 'vat',
         }))}
       />
 
@@ -181,7 +207,7 @@ export function ControlPanel() {
         options={workflowPhasesForControls(process).map((p) => ({
           value: p,
           label: PHASE_LABELS[p as Phase],
-          disabled: isPhaseDisabledInControls(p, role) || (showParentCase && p !== 'inPreparation'),
+          disabled: isPhaseDisabledInControls(p, role) || (isParentCaseView && p !== 'inPreparation'),
         }))}
       />
 
@@ -194,7 +220,7 @@ export function ControlPanel() {
         />
       )}
 
-      {(showTasksDoneControl || showParentCase) && (
+      {(showTasksDoneControl || isParentCaseView) && (
         <CheckboxField
           label="Tasks Done"
           description="Marks all tasks complete and enables Send for review."

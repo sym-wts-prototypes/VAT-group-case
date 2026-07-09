@@ -46,6 +46,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | Separator | shadcn | `separator.figma.tsx` | |
 | Sheet | shadcn (Radix dialog) | — | Side-anchored panel (drawer); `side` = top/bottom/left/right |
 | Stepper | WTS custom | — | Horizontal; finished/inProgress/notStarted/disabled states |
+| MiniStepper | WTS custom | — | Compact dot+line row-level progress indicator; same color language as Stepper |
 | Switch | shadcn (Radix) | `switch.figma.tsx` | Bare control; see SwitchField for card layout |
 | SwitchField | WTS custom | `switch.figma.tsx` | Card layout (label + description + labelPosition) |
 | Table | shadcn | `table.figma.tsx` | |

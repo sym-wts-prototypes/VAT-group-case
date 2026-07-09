@@ -43,7 +43,8 @@ export function PlaygroundMain() {
     bucketMarkAsDoneChecked,
     selectedRequirementCategoryId,
     showCaseManagement,
-    showParentCase,
+    caseKind,
+    groupCaseView,
     setHeaderType,
     setBucketMarkAsDoneChecked,
     setSelectedRequirementCategoryId,
@@ -55,7 +56,9 @@ export function PlaygroundMain() {
     return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
   }
 
-  if (showParentCase) {
+  // Group + Child is just the normal case dispatch below (process is already locked to vat by
+  // the Playground controls) — only Group + Parent needs a dedicated page.
+  if (caseKind === 'group' && groupCaseView === 'parent') {
     return <ParentVatGroupCasePage />
   }
 

@@ -133,6 +133,11 @@ export {
   type StepperStep,
   type StepperStepState,
 } from './stepper'
+export {
+  MiniStepper,
+  type MiniStepperProps,
+  type MiniStepperStepState,
+} from './mini-stepper'
 export { Dropzone, type DropzoneProps } from './dropzone'
 export { JurisdictionFlag, type JurisdictionFlagProps } from './jurisdiction-flag'
 export { CheckboxField, type CheckboxFieldProps } from './checkbox-field'

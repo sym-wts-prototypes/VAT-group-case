@@ -1,5 +1,4 @@
-import type { BadgeTone } from '@wts/ui'
-import { Badge } from '@wts/ui'
+import { Badge, cn, MiniStepper, type MiniStepperStepState } from '@wts/ui'
 
 import { SectionLabel } from '@/components/body/BodyPlaceholder'
 import { CasePhaseStepper } from '@/components/body/CasePhaseStepper'
@@ -9,7 +8,7 @@ import { CASE_MANAGEMENT_BREADCRUMB, SAMPLE_PEOPLE } from '@/config/sampleData'
 import { useDemoStore } from '@/store/useDemoStore'
 import type { HeaderDescriptor } from '@/types'
 
-import { CASE_STATUS_TONE, DUMMY_GROUP_CASES } from './case-management-data'
+import { DUMMY_GROUP_CASES } from './case-management-data'
 import { vatRegistrationForJurisdiction } from './org-details-data'
 
 // First version of the Parent VAT Group Case page (see "Case Management Improvements & Parent
@@ -30,7 +29,7 @@ const EDIT_TOOLTIP =
   "Changes made here apply only to the Parent Case. Assigned users will also be assigned to the Representative Legal Entity's Child Case, but not to the Child Cases of the other Legal Entities in the group."
 
 // Each Child Case's workflow status — independent of whether it requires Client Approval at
-// all (see WORKFLOW_STATUS_LABEL below, that's now its own always-visible pill).
+// all (a case that skips it just uses a 3-step progression instead of 4, see STEPS_* below).
 type WorkflowStatus = 'InPreparation' | 'InReview' | 'ClientApproval' | 'ReadyForGroupCaseReview'
 
 const WORKFLOW_STATUS_LABEL: Record<WorkflowStatus, string> = {
@@ -42,11 +41,29 @@ const WORKFLOW_STATUS_LABEL: Record<WorkflowStatus, string> = {
   ReadyForGroupCaseReview: 'Ready for Group Case Review',
 }
 
-const WORKFLOW_STATUS_TONE: Record<WorkflowStatus, BadgeTone> = {
-  InPreparation: CASE_STATUS_TONE.InPreparation,
-  InReview: CASE_STATUS_TONE.InReview,
-  ClientApproval: CASE_STATUS_TONE.ClientApproval,
-  ReadyForGroupCaseReview: 'green',
+// Text color next to the MiniStepper — same finished/inProgress hues the dots themselves use
+// (sky/emerald), so the label and the stepper always agree instead of running two palettes.
+const WORKFLOW_STATUS_TEXT_CLASS: Record<WorkflowStatus, string> = {
+  InPreparation: 'text-sky-700',
+  InReview: 'text-amber-700',
+  ClientApproval: 'text-amber-700',
+  ReadyForGroupCaseReview: 'text-emerald-700',
+}
+
+// A Child Case's full progression when Client Approval applies, vs. the shorter one when it
+// doesn't — the step is omitted outright rather than shown disabled (Part 2 of the "Playground
+// Improvements & Parent Case Child Case Progress View" ticket).
+const STEPS_WITH_APPROVAL: WorkflowStatus[] = ['InPreparation', 'InReview', 'ClientApproval', 'ReadyForGroupCaseReview']
+const STEPS_WITHOUT_APPROVAL: WorkflowStatus[] = ['InPreparation', 'InReview', 'ReadyForGroupCaseReview']
+
+function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): MiniStepperStepState[] {
+  const activeIndex = steps.indexOf(current)
+  const isLast = activeIndex === steps.length - 1
+  return steps.map((_, i) => {
+    if (i < activeIndex) return 'finished'
+    if (i === activeIndex) return isLast ? 'finished' : 'inProgress'
+    return 'notStarted'
+  })
 }
 
 // Static per-entity demo config, keyed by the dummy case's own child id: whether that legal
@@ -106,6 +123,7 @@ export function ParentVatGroupCasePage() {
             {PARENT_CASE.children.map((child) => {
               const config = CHILD_CONFIG[child.id]
               const status: WorkflowStatus = tasksDoneChecked ? 'ReadyForGroupCaseReview' : config.defaultStatus
+              const steps = config.requiresClientApproval ? STEPS_WITH_APPROVAL : STEPS_WITHOUT_APPROVAL
               const isRepresentative = child.client === PARENT_CASE.representativeEntity
 
               return (
@@ -127,14 +145,14 @@ export function ParentVatGroupCasePage() {
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="soft" tone={config.requiresClientApproval ? 'orange' : 'gray'} size="sm">
-                      {config.requiresClientApproval ? 'Client Approval step required' : 'Client Approval not required'}
-                    </Badge>
-                    <Badge variant="soft" tone={WORKFLOW_STATUS_TONE[status]} size="sm">
-                      {WORKFLOW_STATUS_LABEL[status]}
-                    </Badge>
-                    <DueDate date={formatDate(child.statutoryDeadline)} label="Statutory Deadline" variant="gray" />
+                  <div className="flex flex-1 flex-wrap items-center justify-end gap-6">
+                    <div className="flex items-center gap-3">
+                      <MiniStepper states={miniStepperStates(steps, status)} />
+                      <span className={cn('whitespace-nowrap text-sm font-medium', WORKFLOW_STATUS_TEXT_CLASS[status])}>
+                        {WORKFLOW_STATUS_LABEL[status]}
+                      </span>
+                    </div>
+                    <DueDate date={formatDate(child.statutoryDeadline)} label="Statutory Deadline" />
                   </div>
                 </div>
               )

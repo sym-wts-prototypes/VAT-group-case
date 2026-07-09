@@ -199,7 +199,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP1-01',
         client: 'EUROPIPE GmbH',
-        caseName: 'VAT - Return - Jan 2026',
+        caseName: 'EUROPIPE GmbH - January',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
@@ -213,7 +213,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP1-02',
         client: 'EUROPIPE Logistics GmbH',
-        caseName: 'VAT - Return - Jan 2026',
+        caseName: 'EUROPIPE Logistics GmbH - January',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
@@ -227,7 +227,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP1-03',
         client: 'EUROPIPE Poland',
-        caseName: 'VAT - Return - Jan 2026',
+        caseName: 'EUROPIPE Poland - January',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
@@ -245,7 +245,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP1-04',
         client: 'EUROPIPE France',
-        caseName: 'VAT - Return - Jan 2026',
+        caseName: 'EUROPIPE France - January',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
@@ -277,7 +277,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP2-01',
         client: 'EUROPIPE GmbH',
-        caseName: 'VAT - Return - Feb 2026',
+        caseName: 'EUROPIPE GmbH - February',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
@@ -291,7 +291,7 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP2-02',
         client: 'EUROPIPE Logistics GmbH',
-        caseName: 'VAT - Return - Feb 2026',
+        caseName: 'EUROPIPE Logistics GmbH - February',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
@@ -305,11 +305,28 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
       {
         id: 'VAT-DE-2026-GRP2-03',
         client: 'EUROPIPE Poland',
-        caseName: 'VAT - Return - Feb 2026',
+        caseName: 'EUROPIPE Poland - February',
         serviceLine: 'VAT',
         caseType: 'Return',
         frequency: 'Monthly',
         jurisdiction: 'Poland',
+        myRole: 'Creator',
+        status: 'Draft',
+        statutoryDeadline: '2026-03-10',
+        nextDeadline: null,
+        latestActivity: { actor: 'Sophie Martin', description: 'Case created' },
+      },
+      // Kept in sync with the January group's fourth Child Case (EUROPIPE France) so every
+      // static VAT Group Case has the same number of children (Part 1 of the "Static Group
+      // Case Consistency" ticket).
+      {
+        id: 'VAT-DE-2026-GRP2-04',
+        client: 'EUROPIPE France',
+        caseName: 'EUROPIPE France - February',
+        serviceLine: 'VAT',
+        caseType: 'Return',
+        frequency: 'Monthly',
+        jurisdiction: 'France',
         myRole: 'Creator',
         status: 'Draft',
         statutoryDeadline: '2026-03-10',

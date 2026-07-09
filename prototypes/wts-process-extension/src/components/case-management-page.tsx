@@ -350,6 +350,8 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const setRole = useDemoStore((state) => state.setRole)
   const setPhase = useDemoStore((state) => state.setPhase)
   const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
+  const setCaseKind = useDemoStore((state) => state.setCaseKind)
+  const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
   const generatedCases = useGeneratedCasesStore((state) => state.cases)
   const addGeneratedCases = useGeneratedCasesStore((state) => state.addCases)
 
@@ -359,14 +361,15 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
     setShowCaseManagement(false)
   }
 
-  // VAT Group Cases don't have a detail page yet — for now, opening the parent row opens the
-  // same prototype scenario its representative entity's child case would. Temporary stand-in
-  // (see GroupCaseRow), kept as its own function so swapping in a real detail page later only
-  // touches this one spot.
-  const openGroupCase = (group: VatGroupCase) => {
-    const representativeChild =
-      group.children.find((c) => c.client === group.representativeEntity) ?? group.children[0]
-    if (representativeChild) openScenarioForCase(representativeChild)
+  // Opens the real Parent VAT Group Case page (see parent-vat-group-case-page.tsx), by
+  // switching the Playground to Case Type → Group Case, Group Case View → Parent Case —
+  // exactly as if the user had selected those controls manually (setCaseKind/setGroupCaseView
+  // already own every conditional side effect: Process locked to VAT, Phase locked to In
+  // Preparation, etc.), so this seam never has to duplicate that logic. Previously a stand-in
+  // that launched the representative child's own scenario, before the Parent Case page existed.
+  const openGroupCase = (_group: VatGroupCase) => {
+    setCaseKind('group')
+    setGroupCaseView('parent')
   }
 
   // Newly created cases (see create-case-drawer.tsx's scheduler modals) show up here

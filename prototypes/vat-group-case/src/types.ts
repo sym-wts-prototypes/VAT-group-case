@@ -38,6 +38,9 @@ export type Phase =
   | 'open'
   | 'inProgress'
   | 'completed'
+  /** Parent (Group) Case only — sits between In Preparation and In Review; not part of the
+   * single/child case phase set (see config/phases.ts's workflowPhasesForControls). */
+  | 'consolidation'
 
 import type { BadgeTone } from '@wts/ui'
 export type { BadgeTone }

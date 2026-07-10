@@ -28,7 +28,8 @@ import { useDemoStore } from '@/store/useDemoStore'
 import type { HeaderDescriptor, Phase, PeopleRow as PeopleRowData } from '@/types'
 
 import { formatDottedDate } from './case-generation'
-import { ROLE_TO_PLAYGROUND_ROLE, RowActions } from './case-management-page'
+import { ROLE_TO_PLAYGROUND_ROLE } from './case-management-page'
+import { DataTablePagination } from './data-table-pagination'
 import { DUMMY_GROUP_CASES, type Case } from './case-management-data'
 import { vatRegistrationForJurisdiction } from './org-details-data'
 
@@ -58,6 +59,41 @@ const GROUP_PACKAGE_DESCRIPTOR = (childCount: number): PackageBannerDescriptor =
   showFooter: true,
   showVersionHistory: false,
 })
+
+// Reuses the single-case flow's own banner UI/pattern (PackageBanner + the same
+// purple-sent/blue-hourglass visual language as config/packageBanners.ts's BANNERS map) for the
+// phases after Consolidation — group-specific handling ends at Consolidation, so from In Review
+// onward this page just mirrors the single case experience, adapted only in copy/color for the
+// group context (happy path only, no per-role review-outcome branching).
+const PARENT_PHASE_BANNER: Record<'inReview' | 'clientApproval' | 'submitted', PackageBannerDescriptor> = {
+  inReview: {
+    variant: 'purple',
+    icon: 'fileText',
+    title: 'Group Case package sent for review',
+    description: "The consolidated Group Case package is with the reviewer. You'll be notified once a decision is made.",
+    meta: 'Sent for internal review',
+    showFooter: true,
+    showVersionHistory: false,
+  },
+  clientApproval: {
+    variant: 'purple',
+    icon: 'fileText',
+    title: 'Group Case package under client review',
+    description: "The consolidated Group Case package is with the client for approval. You'll be notified once they respond.",
+    meta: 'Sent for client approval',
+    showFooter: true,
+    showVersionHistory: false,
+  },
+  submitted: {
+    variant: 'blue',
+    icon: 'hourglass',
+    title: 'Group Case submitted to tax authorities',
+    description: 'Filed successfully. The consolidated package has been submitted for this VAT Group.',
+    meta: 'Submitted',
+    showFooter: true,
+    showVersionHistory: false,
+  },
+}
 
 const SKIPPED_APPROVAL_TOOLTIP =
   'Client Approval has been intentionally skipped for this Legal Entity — its workflow has one fewer step.'
@@ -114,9 +150,15 @@ function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): Mi
 // Child Case is Ready for Consolidation) and before In Review, where the reviewer takes over —
 // Client Approval/Submission stay visible as the case's eventual remaining steps, same as the
 // single-case stepper always shows the full journey rather than only what's implemented so far.
-type ParentPhase = 'inPreparation' | 'consolidation' | 'inReview'
+type ParentPhase = 'inPreparation' | 'consolidation' | 'inReview' | 'clientApproval' | 'submitted'
 const PARENT_STEPPER_LABELS = ['In Preparation', 'Consolidation', 'In Review', 'Client Approval', 'Submission']
-const PARENT_PHASE_INDEX: Record<ParentPhase, number> = { inPreparation: 0, consolidation: 1, inReview: 2 }
+const PARENT_PHASE_INDEX: Record<ParentPhase, number> = {
+  inPreparation: 0,
+  consolidation: 1,
+  inReview: 2,
+  clientApproval: 3,
+  submitted: 4,
+}
 
 function parentStepperStates(phase: ParentPhase): { label: string; state: StepperStepState }[] {
   const activeIndex = PARENT_PHASE_INDEX[phase]
@@ -191,10 +233,12 @@ const CHILD_PEOPLE: Record<string, PeopleRowData> = Object.fromEntries(
   ]),
 )
 
-// Fixed-width stepper column so it lines up across rows regardless of a row's step count (3 vs
-// 4) — the status pill and name column both size to content, so this is the only column that
-// needs pinning.
-const ROW_GRID_COLS = 'grid-cols-[minmax(0,1fr)_104px_auto_auto]'
+// Fixed-width stepper AND pill columns so both line up across rows regardless of a row's step
+// count (3 vs 4) or pill label length ("In Review" vs "Ready for Consolidation") — an `auto`
+// column here would resize per-row, which in turn shifts how much space is left for the
+// 1fr name column and moves the stepper's own start position row to row.
+const ROW_GRID_COLS = 'grid-cols-[minmax(0,1fr)_104px_168px]'
+const CHILD_PAGE_SIZE = 5
 
 export function ParentVatGroupCasePage() {
   // Reuses the existing Playground "Tasks Done" checkbox (see ControlPanel.tsx) as the single
@@ -202,6 +246,7 @@ export function ParentVatGroupCasePage() {
   // used to gate "Send for review" on every other case page in this prototype.
   const tasksDoneChecked = useDemoStore((state) => state.tasksDoneChecked)
   const role = useDemoStore((state) => state.role)
+  const phase = useDemoStore((state) => state.phase)
   const setCaseKind = useDemoStore((state) => state.setCaseKind)
   const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
   const setPhase = useDemoStore((state) => state.setPhase)
@@ -209,7 +254,11 @@ export function ParentVatGroupCasePage() {
   const isCreator = role === 'creator'
   const [deniedChild, setDeniedChild] = useState<Case | null>(null)
   const [childSearch, setChildSearch] = useState('')
-  const [parentPhase, setParentPhase] = useState<ParentPhase>('inPreparation')
+  const [childPage, setChildPage] = useState(1)
+  // Driven by the Playground's own global Phase control (see ControlPanel.tsx's
+  // PARENT_CASE_PHASES) rather than local state, so the PHASE radio buttons can manually
+  // trigger/render each step exactly like every other case page in this prototype.
+  const parentPhase: ParentPhase = phase in PARENT_PHASE_INDEX ? (phase as ParentPhase) : 'inPreparation'
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   // Same lever used to move every Child Case to "Ready for Consolidation" at once (see the
   // status computation below) — reused here as "all Child Cases are ready" for the gate.
@@ -223,6 +272,13 @@ export function ParentVatGroupCasePage() {
     if (!q) return PARENT_CASE.children
     return PARENT_CASE.children.filter((child) => child.client.toLowerCase().includes(q))
   }, [childSearch])
+
+  const childTotalPages = Math.max(1, Math.ceil(visibleChildren.length / CHILD_PAGE_SIZE))
+  const childCurrentPage = Math.min(childPage, childTotalPages)
+  const pagedChildren = useMemo(
+    () => visibleChildren.slice((childCurrentPage - 1) * CHILD_PAGE_SIZE, childCurrentPage * CHILD_PAGE_SIZE),
+    [visibleChildren, childCurrentPage],
+  )
 
   // Opens a Child Case exactly like the existing Group + Child Case dispatch — using whichever
   // role is currently selected in the Playground and the workflow stage the case is currently
@@ -265,7 +321,7 @@ export function ParentVatGroupCasePage() {
     editable: isCreator,
     editTooltip: EDIT_TOOLTIP,
     actions:
-      isCreator && parentPhase !== 'inReview'
+      isCreator && (parentPhase === 'inPreparation' || parentPhase === 'consolidation')
         ? {
             // Same "Send for review"-shaped primary action every other case page in this
             // prototype uses — just relabeled per step: entering Consolidation, then leaving it.
@@ -286,8 +342,8 @@ export function ParentVatGroupCasePage() {
 
   const primaryDisabled = parentPhase === 'inPreparation' ? !allChildrenReady : !uploadedFileName
   const handlePrimaryClick = () => {
-    if (parentPhase === 'inPreparation' && allChildrenReady) setParentPhase('consolidation')
-    else if (parentPhase === 'consolidation' && uploadedFileName) setParentPhase('inReview')
+    if (parentPhase === 'inPreparation' && allChildrenReady) setPhase('consolidation')
+    else if (parentPhase === 'consolidation' && uploadedFileName) setPhase('inReview')
   }
 
   return (
@@ -297,7 +353,10 @@ export function ParentVatGroupCasePage() {
         <Stepper steps={parentStepperStates(parentPhase)} />
       </div>
 
-      {parentPhase !== 'inPreparation' && (
+      {/* Consolidation is a self-contained step — the Group Case Package + upload only, no
+          Child Case list (that list is In Preparation-only, see below). Creator can upload and
+          progress; Reviewer/Partner get a view-only version (package + download only). */}
+      {parentPhase === 'consolidation' && (
         <div className="flex flex-col gap-4 border-b border-border bg-muted/30 p-6">
           <SectionLabel>Consolidation</SectionLabel>
           <PackageBanner
@@ -305,7 +364,7 @@ export function ParentVatGroupCasePage() {
             packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
             hideVersionHistory
           />
-          {parentPhase === 'consolidation' && (
+          {isCreator && (
             <FileDropzone
               id="consolidation-document-upload"
               label="Upload consolidation document"
@@ -333,6 +392,25 @@ export function ParentVatGroupCasePage() {
         </div>
       )}
 
+      {/* Group-specific handling ends at Consolidation — In Review (for every role but Reviewer,
+          who gets the fuller task-checklist body above), Client Approval, and Submission all
+          reuse the single case's own banner pattern, just relabeled for the group context. */}
+      {((parentPhase === 'inReview' && role !== 'reviewer') ||
+        parentPhase === 'clientApproval' ||
+        parentPhase === 'submitted') && (
+        <div className="border-b border-border bg-background px-6 py-6">
+          <PackageBanner
+            descriptor={PARENT_PHASE_BANNER[parentPhase as 'inReview' | 'clientApproval' | 'submitted']}
+            packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
+            hideVersionHistory
+          />
+        </div>
+      )}
+
+      {/* The searchable Child Case list belongs only to the In Preparation step — every later
+          step (Consolidation, In Review, Client Approval, Submission) has already confirmed
+          every Child Case is ready, so the list has nothing left to add there. */}
+      {parentPhase === 'inPreparation' && (
       <div className="flex flex-col gap-4 bg-muted/30 p-6">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
@@ -341,7 +419,10 @@ export function ParentVatGroupCasePage() {
               <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={childSearch}
-                onChange={(e) => setChildSearch(e.target.value)}
+                onChange={(e) => {
+                  setChildSearch(e.target.value)
+                  setChildPage(1)
+                }}
                 placeholder="Search by legal entity name"
                 className="h-8 pl-8"
               />
@@ -359,12 +440,12 @@ export function ParentVatGroupCasePage() {
 
           {visibleChildren.length === 0 && (
             <p className="py-10 text-center text-muted-foreground text-sm">
-              No legal entities match your search.
+              No results found. Try a different search term.
             </p>
           )}
 
           <div className="flex flex-col gap-2">
-            {visibleChildren.map((child) => {
+            {pagedChildren.map((child) => {
               const config = CHILD_CONFIG[child.id]
               const status: WorkflowStatus = tasksDoneChecked ? 'ReadyForConsolidation' : config.defaultStatus
               const steps = config.requiresClientApproval ? STEPS_WITH_APPROVAL : STEPS_WITHOUT_APPROVAL
@@ -402,23 +483,21 @@ export function ParentVatGroupCasePage() {
                     </div>
 
                     {config.requiresClientApproval ? (
-                      stepper
+                      <div className="w-full">{stepper}</div>
                     ) : (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="w-fit">{stepper}</div>
+                            <div className="w-full">{stepper}</div>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">{SKIPPED_APPROVAL_TOOLTIP}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     )}
 
-                    <Badge variant="soft" tone={WORKFLOW_STATUS_BADGE_TONE[status]} size="sm" className="justify-self-end">
+                    <Badge variant="soft" tone={WORKFLOW_STATUS_BADGE_TONE[status]} size="sm" className="w-fit justify-self-start">
                       {WORKFLOW_STATUS_LABEL[status]}
                     </Badge>
-
-                    <RowActions id={child.id} onEdit={handleOpen} />
                   </div>
 
                   {/* Read-only — who's assigned to this Legal Entity's case, visible regardless
@@ -428,8 +507,16 @@ export function ParentVatGroupCasePage() {
               )
             })}
           </div>
+
+          <DataTablePagination
+            page={childCurrentPage}
+            totalPages={childTotalPages}
+            onPageChange={setChildPage}
+            className="flex justify-end border-t border-border pt-3"
+          />
         </div>
       </div>
+      )}
     </div>
   )
 }

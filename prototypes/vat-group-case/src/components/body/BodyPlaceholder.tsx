@@ -68,6 +68,14 @@ interface BodyPlaceholderProps {
   /** Overrides the case stepper's final step label — Child Cases show "Ready for
    * Consolidation" there instead of "Submission". */
   finalStepLabel?: string
+  /** Group Case Child Cases: the Submission step's document list omits "Submission receipt" —
+   * that document belongs to the single-case flow, where filing happens directly with the tax
+   * authority; a Child Case's own filing feeds into the Parent Case's Consolidation instead. */
+  hideSubmissionReceipt?: boolean
+  /** Group Case Child Cases: overrides the Submission phase's package banner copy (title/
+   * description) — same banner component/position, just reflecting "submitted for
+   * Consolidation" instead of "submitted to tax authorities". Has no effect on other phases. */
+  submittedBannerOverride?: { title?: string; description?: string }
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
@@ -104,6 +112,8 @@ export function BodyPlaceholder({
   packageReviewOutcome = 'default',
   skipClientApproval = false,
   finalStepLabel,
+  hideSubmissionReceipt = false,
+  submittedBannerOverride,
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
@@ -156,6 +166,8 @@ export function BodyPlaceholder({
         packageReviewOutcome={packageReviewOutcome}
         headerType={headerType}
         platform={platform}
+        hideSubmissionReceipt={hideSubmissionReceipt}
+        submittedBannerOverride={submittedBannerOverride}
       />
     )
   }
@@ -302,6 +314,8 @@ export function CaseWtsTasksBody({
   protocolConfirmationChecked,
   packageBannerState,
   packageReviewOutcome,
+  hideSubmissionReceipt = false,
+  submittedBannerOverride,
 }: {
   process: Process
   role: Role
@@ -314,6 +328,8 @@ export function CaseWtsTasksBody({
   protocolConfirmationChecked: boolean
   packageBannerState: PackageBannerState
   packageReviewOutcome: PackageReviewOutcome
+  hideSubmissionReceipt?: boolean
+  submittedBannerOverride?: { title?: string; description?: string }
 }) {
   const statuses = taskStatusesForDemo(phase, tasksDoneChecked, {
     process,
@@ -350,8 +366,14 @@ export function CaseWtsTasksBody({
   )
   const isSubmissionPhase = phase === 'submitted'
   const listItems = isSubmissionPhase
-    ? WTS_CASE_DEMO_SUBMISSION_DOCUMENTS
+    ? hideSubmissionReceipt
+      ? WTS_CASE_DEMO_SUBMISSION_DOCUMENTS.filter((item) => item.id !== 'sub-doc-3')
+      : WTS_CASE_DEMO_SUBMISSION_DOCUMENTS
     : caseTasksForProcess(process)
+  const displayedPackageBanner =
+    packageBanner && isSubmissionPhase && submittedBannerOverride
+      ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...submittedBannerOverride } }
+      : packageBanner
   const requiredItems = listItems.filter((item) => !item.optional)
   const optionalItems = listItems.filter((item) => item.optional)
   const sectionLabel = isSubmissionPhase ? 'Submission confirmation' : 'Tasks'
@@ -379,14 +401,14 @@ export function CaseWtsTasksBody({
   return (
     <div className="flex flex-col gap-3">
       {showReconfirmBanner && <CitInReviewReconfirmBanner />}
-      {packageBanner && (
+      {displayedPackageBanner && (
         <PackageBanner
-          descriptor={packageBanner.descriptor}
-          packageFileName={packageBanner.packageFileName}
+          descriptor={displayedPackageBanner.descriptor}
+          packageFileName={displayedPackageBanner.packageFileName}
         />
       )}
       <SectionLabel
-        className={isSubmissionPhase && packageBanner ? 'mt-3' : undefined}
+        className={isSubmissionPhase && displayedPackageBanner ? 'mt-3' : undefined}
       >
         {sectionLabel}
       </SectionLabel>

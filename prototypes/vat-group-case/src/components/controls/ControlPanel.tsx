@@ -1,4 +1,4 @@
-import { PHASE_LABELS, workflowPhasesForControls } from '@/config/phases'
+import { PARENT_CASE_PHASES, PHASE_LABELS, workflowPhasesForControls } from '@/config/phases'
 import { PROCESS_LABELS } from '@/config/sampleData'
 import {
   assessmentStateControlHint,
@@ -206,12 +206,13 @@ export function ControlPanel() {
         label="Phase"
         value={phase}
         onChange={setPhase}
-        options={workflowPhasesForControls(process).map((p) => ({
+        options={(isParentCaseView ? PARENT_CASE_PHASES : workflowPhasesForControls(process)).map((p) => ({
           value: p,
-          label: PHASE_LABELS[p as Phase],
+          // Group Case Child Case flow: "Submission" reads "Ready for Consolidation" here too,
+          // matching the stepper's own final-step relabel (see PlaygroundMain's finalStepLabel).
+          label: isChildCaseView && p === 'submitted' ? 'Ready for Consolidation' : PHASE_LABELS[p as Phase],
           disabled:
-            isPhaseDisabledInControls(p, role) ||
-            (isParentCaseView && p !== 'inPreparation') ||
+            (!isParentCaseView && isPhaseDisabledInControls(p, role)) ||
             (isChildCaseView && !childCaseRequiresClientApproval && p === 'clientApproval'),
         }))}
       />
@@ -225,10 +226,14 @@ export function ControlPanel() {
         />
       )}
 
-      {(showTasksDoneControl || isParentCaseView) && (
+      {(showTasksDoneControl || (isParentCaseView && phase === 'inPreparation')) && (
         <CheckboxField
-          label="Tasks Done"
-          description="Marks all tasks complete and enables Send for review."
+          label={isParentCaseView ? 'Ready for Consolidation' : 'Tasks Done'}
+          description={
+            isParentCaseView
+              ? 'Marks every Child Case ready and enables Send to Consolidation.'
+              : 'Marks all tasks complete and enables Send for review.'
+          }
           checked={tasksDoneChecked}
           onCheckedChange={setTasksDoneChecked}
         />

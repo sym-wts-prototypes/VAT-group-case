@@ -153,3 +153,12 @@ export {
   type RadioPillItem,
 } from './radio-pills'
 export { FileDropzone, type FileDropzoneProps } from './file-dropzone'
+export {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from './pagination'

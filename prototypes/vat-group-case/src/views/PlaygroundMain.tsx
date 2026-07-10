@@ -94,10 +94,23 @@ export function PlaygroundMain() {
   // Same Due Date pill, same position (bottom right of the header) — just relabeled for the
   // Group Case's Child Case context, matching the Parent Case header's own "Group Case
   // Deadline" pill (see parent-vat-group-case-page.tsx).
-  const descriptor =
+  const withDueDateLabel =
     withNeedChanges && isChildCaseView
       ? { ...withNeedChanges, dueDateLabel: 'Group Case Deadline' }
       : withNeedChanges
+  // Group Case Child Case flow: the Creator's Client Approval action reads "Submit for
+  // Consolidation" instead of "Submit to tax authorities" — the child's own filing isn't sent to
+  // the tax authority directly, it feeds into the Parent Case's Consolidation step instead.
+  const descriptor =
+    withDueDateLabel && isChildCaseView && phase === 'clientApproval' && role === 'creator' && withDueDateLabel.actions.primary
+      ? {
+          ...withDueDateLabel,
+          actions: {
+            ...withDueDateLabel.actions,
+            primary: { ...withDueDateLabel.actions.primary, label: 'Submit for Consolidation' },
+          },
+        }
+      : withDueDateLabel
 
   const tasksGateActive = isCaseTasksGateActive(
     headerType,
@@ -210,6 +223,15 @@ export function PlaygroundMain() {
         packageReviewOutcome={packageReviewOutcome}
         skipClientApproval={skipClientApproval}
         finalStepLabel={isChildCaseView ? 'Ready for Consolidation' : undefined}
+        hideSubmissionReceipt={isChildCaseView}
+        submittedBannerOverride={
+          isChildCaseView
+            ? {
+                title: 'Submitted for Consolidation',
+                description: 'This child case has been submitted. The consolidation process will follow.',
+              }
+            : undefined
+        }
         selectedRequirementCategoryId={selectedRequirementCategoryId}
         onOpenRequirementList={() => setHeaderType('requirementList')}
         onOpenRequirementBucket={(categoryId) => {

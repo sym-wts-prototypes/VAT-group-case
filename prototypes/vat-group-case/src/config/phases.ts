@@ -54,7 +54,18 @@ export const PHASE_LABELS: Record<Phase, string> = {
   open: 'Open',
   inProgress: 'In Progress',
   completed: 'Completed',
+  consolidation: 'Consolidation',
 }
+
+/** Parent (Group) Case's own phase list for the Playground controls — a separate list from
+ * workflowPhasesForControls() since "Consolidation" doesn't exist for single/child cases. */
+export const PARENT_CASE_PHASES: Phase[] = [
+  'inPreparation',
+  'consolidation',
+  'inReview',
+  'clientApproval',
+  'submitted',
+]
 
 const CASE_PHASES_CIT: Phase[] = [
   'draft',

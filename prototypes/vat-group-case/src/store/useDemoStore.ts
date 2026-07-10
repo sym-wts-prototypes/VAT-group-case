@@ -117,7 +117,11 @@ const DEFAULTS = {
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
 
-function normalizePhase(phase: Phase | undefined): Phase {
+// 'consolidation' only exists for the Parent (Group) Case page's own phase set — valid there,
+// invalid (falls back to the default) everywhere else, so it can never leak into the generic
+// single/child case dispatch (e.g. after switching Group Case View away from Parent Case).
+function normalizePhase(phase: Phase | undefined, isParentCaseView: boolean): Phase {
+  if (phase === 'consolidation') return isParentCaseView ? phase : DEFAULTS.phase
   if (phase && WORKFLOW_PHASE_SET.has(phase)) return phase
   return DEFAULTS.phase
 }
@@ -129,7 +133,10 @@ function reconcile(
   const proposed = { ...prev, ...next }
 
   proposed.platform = platformForRole(proposed.role)
-  proposed.phase = normalizePhase(proposed.phase)
+  proposed.phase = normalizePhase(
+    proposed.phase,
+    proposed.caseKind === 'group' && proposed.groupCaseView === 'parent',
+  )
 
   // Assessment & Closure is a CIT-only stage.
   if (proposed.phase === 'assessmentClosure' && proposed.process !== 'cit') {

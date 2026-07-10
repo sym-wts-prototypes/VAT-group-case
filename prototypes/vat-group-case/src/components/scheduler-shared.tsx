@@ -172,24 +172,9 @@ export interface DeadlineSchedule {
   reset: () => void
 }
 
-export interface DeadlineScheduleOptions {
-  /**
-   * Group Case flow only: drops the "Statutory deadline" mode config (working days/day of
-   * month + extension) and the custom per-case override table entirely — Group Case Deadline
-   * (the renamed data-provision-deadline stepper) becomes the sole driver of each case's
-   * default deadline, computed the same way the old "working days" mode was (Nth working day
-   * of the month following the period), just fed by `dataProvisionDeadline` instead of
-   * `workingDaysValue`, and always +1 month (no deadline-extension toggle for group).
-   * Single Case's own call site omits this — nothing about its behaviour changes.
-   */
-  deadlineFromDataProvision?: boolean
-}
-
 export function useDeadlineSchedule(
   caseNameFor: (p: Period, frequency: Frequency) => string,
-  options?: DeadlineScheduleOptions,
 ): DeadlineSchedule {
-  const deadlineFromDataProvision = options?.deadlineFromDataProvision ?? false
   const [frequency, setFrequency] = useState<Frequency>('Quarterly')
   const [startPeriod, setStartPeriod] = useState<number | undefined>(undefined)
   const [startYear, setStartYear] = useState(CURRENT_YEAR)
@@ -216,13 +201,7 @@ export function useDeadlineSchedule(
   const endMonthKeys = startYear === endYear && startPeriod ? MONTH_KEYS.filter((k) => Number(k) >= startPeriod) : MONTH_KEYS
   const endQuarterOptions = startYear === endYear && startPeriod ? QUARTER_OPTIONS.filter((q) => q >= startPeriod) : QUARTER_OPTIONS
 
-  // Group Case Deadline (dataProvisionDeadline) always has a valid positive-integer default,
-  // so it's effectively always "chosen" — only single case's mode-based value can be unset.
-  const deadlineValueChosen = deadlineFromDataProvision
-    ? true
-    : deadlineMode === 'workingDays'
-      ? !!workingDaysValue
-      : !!dayOfMonthValue
+  const deadlineValueChosen = deadlineMode === 'workingDays' ? !!workingDaysValue : !!dayOfMonthValue
 
   const periods = useMemo(() => {
     if (!startPeriod || !endPeriod || !deadlineValueChosen) return []
@@ -232,32 +211,15 @@ export function useDeadlineSchedule(
   const cases = useMemo(
     () =>
       periods.map((p) => {
-        const defaultDeadline = deadlineFromDataProvision
-          ? nthWeekdayOfMonth(
-              followingMonth(frequency, p.period, p.year, 1).year,
-              followingMonth(frequency, p.period, p.year, 1).monthIndex,
-              dataProvisionDeadline,
-            )
-          : (() => {
-              const { monthIndex, year } = followingMonth(frequency, p.period, p.year, deadlineExtension ? 2 : 1)
-              return deadlineMode === 'workingDays'
-                ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue)
-                : dateForDayOfMonth(year, monthIndex, dayOfMonthValue ?? 1)
-            })()
+        const { monthIndex, year } = followingMonth(frequency, p.period, p.year, deadlineExtension ? 2 : 1)
+        const defaultDeadline =
+          deadlineMode === 'workingDays'
+            ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue)
+            : dateForDayOfMonth(year, monthIndex, dayOfMonthValue ?? 1)
         return { ...p, name: caseNameFor(p, frequency), defaultDeadline, customDeadline: customDeadlines[p.key] }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      periods,
-      frequency,
-      deadlineFromDataProvision,
-      dataProvisionDeadline,
-      deadlineMode,
-      workingDaysValue,
-      dayOfMonthValue,
-      deadlineExtension,
-      customDeadlines,
-    ],
+    [periods, frequency, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines],
   )
 
   const setCustomDeadline = (key: string, date: Date | undefined) =>
@@ -429,7 +391,26 @@ export function FrequencyPeriodFields({ s }: { s: DeadlineSchedule }) {
   )
 }
 
-export function StatutoryDeadlineFields({ s }: { s: DeadlineSchedule }) {
+export interface StatutoryDeadlineFieldsProps {
+  s: DeadlineSchedule
+  /** Group Case flow: overrides the "Data provision deadline" tooltip copy — the group
+   * scheduler mirrors this field exactly (same +/- control) but describes it in terms of the
+   * client's own data-delivery commitment rather than a generic working-days count. Defaults
+   * to Single Case's existing tooltip. */
+  dataProvisionTooltip?: string
+  /** Group Case flow: renames the third column from "Statutory deadline" to "Group Case
+   * Deadline" — same mode-toggle control (working days / day of month) and the same
+   * calculation, just relabeled for the group context. Defaults to Single Case's label. */
+  deadlineLabel?: string
+  deadlineTooltip?: string
+}
+
+export function StatutoryDeadlineFields({
+  s,
+  dataProvisionTooltip = 'How many working days the client has to provide data.',
+  deadlineLabel = 'Statutory deadline',
+  deadlineTooltip = 'The legal filing deadline for this VAT return.',
+}: StatutoryDeadlineFieldsProps) {
   return (
     <div className="grid grid-cols-3 gap-3">
       <div className="flex flex-col gap-2">
@@ -467,7 +448,7 @@ export function StatutoryDeadlineFields({ s }: { s: DeadlineSchedule }) {
               <TooltipTrigger asChild>
                 <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
               </TooltipTrigger>
-              <TooltipContent>How many working days the client has to provide data.</TooltipContent>
+              <TooltipContent>{dataProvisionTooltip}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </label>
@@ -501,13 +482,13 @@ export function StatutoryDeadlineFields({ s }: { s: DeadlineSchedule }) {
 
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          Statutory deadline
+          {deadlineLabel}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
               </TooltipTrigger>
-              <TooltipContent>The legal filing deadline for this VAT return.</TooltipContent>
+              <TooltipContent>{deadlineTooltip}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </label>
@@ -559,83 +540,6 @@ export function StatutoryDeadlineFields({ s }: { s: DeadlineSchedule }) {
             Deadline extension (+2 months)
           </label>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// Group Case flow only — replaces StatutoryDeadlineFields + CustomDeadlineSection. Drops the
-// working-days/day-of-month mode tabs and the +2-months extension entirely; Group Case Deadline
-// (the renamed data-provision-deadline stepper) is the sole driver of each case's deadline (see
-// `deadlineFromDataProvision` on useDeadlineSchedule). Single case keeps StatutoryDeadlineFields.
-export function GroupCaseDeadlineFields({ s }: { s: DeadlineSchedule }) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="period-close-day" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          Period close date
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-              </TooltipTrigger>
-              <TooltipContent>The date the VAT period closes each cycle.</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </label>
-        <Select value={s.periodCloseDay?.toString() ?? ''} onValueChange={(v) => s.setPeriodCloseDay(Number(v))}>
-          <SelectTrigger id="period-close-day">
-            <SelectValue placeholder="Day" />
-          </SelectTrigger>
-          <SelectContent>
-            {DAY_OPTIONS_31.map((d) => (
-              <SelectItem key={d} value={d.toString()}>
-                {d}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-muted-foreground text-sm">of previous month</p>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="group-case-deadline" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          Group Case Deadline
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-              </TooltipTrigger>
-              <TooltipContent>Working day of the following month each case in this group is due.</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </label>
-        <div className="flex w-fit items-center rounded-md border border-input shadow-sm">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-r-none"
-            onClick={() => s.setDataProvisionDeadline((n) => Math.max(1, n - 1))}
-          >
-            <Minus className="size-4" />
-          </Button>
-          <div className="h-5 w-px bg-border" />
-          <div id="group-case-deadline" className="flex h-9 w-14 items-center justify-center text-center text-sm">
-            {s.dataProvisionDeadline}
-          </div>
-          <div className="h-5 w-px bg-border" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-l-none"
-            onClick={() => s.setDataProvisionDeadline((n) => n + 1)}
-          >
-            <Plus className="size-4" />
-          </Button>
-        </div>
-        <p className="text-muted-foreground text-sm">working days after the closure, of following month</p>
       </div>
     </div>
   )

@@ -36,8 +36,11 @@ import {
   type VatGroupCase,
 } from './case-management-data'
 import { CreateCaseDrawer } from './create-case-drawer'
+import { DataTablePagination } from './data-table-pagination'
 import { countryCodeFor, Group, LegalEntity } from './org-details-data'
 import { Organization } from './organizations-data'
+
+const PAGE_SIZE = 8
 
 // Recreates reference/WTS20Platform's Case Management list (case-list.tsx + case-list-filters.tsx
 // + case-list-columns.tsx) with dummy data, plus a second case type — VAT Group Case — that
@@ -410,6 +413,17 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
 
   const hasActiveFilters = search.length > 0
 
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
+  // Filtering can shrink the result set below the page the user was on (e.g. narrowing a
+  // search while viewing page 3 of a now-1-page result) — clamp back into range rather than
+  // rendering an empty page with working Previous/page-number controls above it.
+  const currentPage = Math.min(page, totalPages)
+  const pagedItems = useMemo(
+    () => filteredItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filteredItems, currentPage],
+  )
+
   return (
     <div data-testid="case-management-page" className="flex h-full flex-col">
       <div className="flex items-start justify-between p-8">
@@ -430,13 +444,19 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
             data-testid="case-list-search-input"
             placeholder="Search by case ID, client, or case name"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
             className="pl-9"
           />
           {search.length > 0 && (
             <button
               type="button"
-              onClick={() => setSearch('')}
+              onClick={() => {
+                setSearch('')
+                setPage(1)
+              }}
               className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="size-4" />
@@ -444,48 +464,66 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
           )}
         </div>
 
-        <Button variant="outline" onClick={() => setSearch('')} disabled={!hasActiveFilters}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearch('')
+            setPage(1)
+          }}
+          disabled={!hasActiveFilters}
+        >
           Clear filters
         </Button>
       </div>
 
       {/* Right padding lives on the sticky actions cell (STICKY_ACTIONS_CELL), not here — padding
           on this scroll container would sit to the right of a `right-0` sticky cell, letting the
-          Latest activity column's tail scroll into that gap and peek out past the actions column. */}
-      <div className="overflow-x-auto pl-6">
-        <div role="table" className="min-w-[1800px] text-sm">
-          <div role="rowgroup">
-            <div role="row" className={cn('grid border-b', GRID_COLS)}>
-              {HEADER_LABELS.map((label, i) => (
-                <div
-                  key={i}
-                  role="columnheader"
-                  className={cn(
-                    'flex h-10 items-center p-2 text-left font-medium text-muted-foreground text-sm',
-                    i === HEADER_LABELS.length - 1 && STICKY_ACTIONS_CELL,
-                  )}
-                >
-                  {label}
-                </div>
-              ))}
+          Latest activity column's tail scroll into that gap and peek out past the actions column.
+          `flex-1 min-h-0` + its own overflow-y keeps this region — not the page — the thing that
+          scrolls, so the pagination bar below stays locked to the bottom regardless of row count. */}
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto pl-6">
+        {filteredItems.length === 0 ? (
+          <p className="py-10 text-center text-muted-foreground text-sm">
+            No results found. Try a different search term or clear your filters.
+          </p>
+        ) : (
+          <div role="table" className="min-w-[1800px] text-sm">
+            <div role="rowgroup">
+              <div role="row" className={cn('grid border-b', GRID_COLS)}>
+                {HEADER_LABELS.map((label, i) => (
+                  <div
+                    key={i}
+                    role="columnheader"
+                    className={cn(
+                      'flex h-10 items-center p-2 text-left font-medium text-muted-foreground text-sm',
+                      i === HEADER_LABELS.length - 1 && STICKY_ACTIONS_CELL,
+                    )}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div role="rowgroup">
+              {pagedItems.map((item) =>
+                isGroupCase(item) ? (
+                  <GroupCaseRow key={item.id} group={item} onOpenChild={openScenarioForCase} onOpenGroup={openGroupCase} />
+                ) : (
+                  <CaseRow key={item.id} item={item} onOpen={() => openScenarioForCase(item)} />
+                ),
+              )}
             </div>
           </div>
-
-          <div role="rowgroup">
-            {filteredItems.map((item) =>
-              isGroupCase(item) ? (
-                <GroupCaseRow key={item.id} group={item} onOpenChild={openScenarioForCase} onOpenGroup={openGroupCase} />
-              ) : (
-                <CaseRow key={item.id} item={item} onOpen={() => openScenarioForCase(item)} />
-              ),
-            )}
-          </div>
-        </div>
-
-        {filteredItems.length === 0 && (
-          <p className="py-10 text-center text-muted-foreground text-sm">No cases match your search.</p>
         )}
       </div>
+
+      <DataTablePagination
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        className="flex justify-end border-t border-border px-6 py-3"
+      />
 
       <CreateCaseDrawer
         open={drawerOpen}

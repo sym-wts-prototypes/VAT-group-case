@@ -37,6 +37,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | JurisdictionFlag | WTS custom | — | Country flag (`country-flag-icons`, 3x2) + ISO code; falls back to plain code text |
 | Label | shadcn | — | |
 | OptionPills | WTS custom | — | Pill-styled radio group (filled primary when selected) |
+| Pagination | shadcn | — | Page number links + Previous/Next, with ellipsis for long ranges |
 | Popover | shadcn (Radix) | — | Floating panel primitive; backs DatePicker/DateRangePicker |
 | RadioGroup | shadcn (Radix) | — | Bare Radix radio group |
 | RadioPills | WTS custom | — | Vertical native-radio group with label |

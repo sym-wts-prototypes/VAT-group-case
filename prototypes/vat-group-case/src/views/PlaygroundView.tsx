@@ -61,7 +61,7 @@ export function PlaygroundView() {
     <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-6">
       <aside
         className={cn(
-          'shrink-0 overflow-hidden transition-[width] duration-200 ease-out',
+          'flex min-h-0 shrink-0 flex-col transition-[width] duration-200 ease-out',
           panelCollapsed ? 'w-9' : 'w-full lg:w-72',
         )}
       >
@@ -77,8 +77,8 @@ export function PlaygroundView() {
             <PanelLeftOpen className="h-4 w-4" />
           </Button>
         ) : (
-          <div className="lg:sticky lg:top-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Playground controls
               </p>
@@ -93,13 +93,18 @@ export function PlaygroundView() {
                 <PanelLeftClose className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <ControlPanel />
+            {/* The options list itself scrolls — the label/collapse row above stays put
+                (see the App.tsx-level height fix that makes this container's height
+                determinate, so overflow-y-auto here actually has something to scroll). */}
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <ControlPanel />
+            </div>
           </div>
         )}
       </aside>
 
       <WtsAppShell
-        className="min-h-[min(720px,calc(100vh-2rem))] flex-1"
+        className="min-h-[calc(100vh-1rem)] flex-1"
         sidebar={sidebar}
       >
         <PlaygroundMain />

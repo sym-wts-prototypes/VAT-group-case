@@ -331,6 +331,7 @@ export function VatSchedulerModal({
                   s={schedule}
                   dataProvisionTooltip="Client must deliver all VAT data to the consultant by this date."
                   deadlineLabel="Group Case Deadline"
+                  deadlineTooltip="The deadline for all the child cases in a group to be closed."
                 />
                 <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />
 

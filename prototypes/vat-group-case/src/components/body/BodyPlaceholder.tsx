@@ -76,6 +76,11 @@ interface BodyPlaceholderProps {
    * description) — same banner component/position, just reflecting "submitted for
    * Consolidation" instead of "submitted to tax authorities". Has no effect on other phases. */
   submittedBannerOverride?: { title?: string; description?: string }
+  /** Parent VAT Group Case's own Reviewer view: overrides the In Review "requested" banner's
+   * title/description to name the Group Case package explicitly. Only applies when the
+   * resolved banner state is "requested" (the reviewer's default/no-decision-yet state) —
+   * Approved/Need changes states reuse the single-case copy verbatim, untouched. */
+  inReviewRequestedBannerOverride?: { title?: string; description?: string }
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
@@ -114,6 +119,7 @@ export function BodyPlaceholder({
   finalStepLabel,
   hideSubmissionReceipt = false,
   submittedBannerOverride,
+  inReviewRequestedBannerOverride,
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
@@ -168,6 +174,7 @@ export function BodyPlaceholder({
         platform={platform}
         hideSubmissionReceipt={hideSubmissionReceipt}
         submittedBannerOverride={submittedBannerOverride}
+        inReviewRequestedBannerOverride={inReviewRequestedBannerOverride}
       />
     )
   }
@@ -316,6 +323,7 @@ export function CaseWtsTasksBody({
   packageReviewOutcome,
   hideSubmissionReceipt = false,
   submittedBannerOverride,
+  inReviewRequestedBannerOverride,
 }: {
   process: Process
   role: Role
@@ -330,6 +338,7 @@ export function CaseWtsTasksBody({
   packageReviewOutcome: PackageReviewOutcome
   hideSubmissionReceipt?: boolean
   submittedBannerOverride?: { title?: string; description?: string }
+  inReviewRequestedBannerOverride?: { title?: string; description?: string }
 }) {
   const statuses = taskStatusesForDemo(phase, tasksDoneChecked, {
     process,
@@ -373,7 +382,9 @@ export function CaseWtsTasksBody({
   const displayedPackageBanner =
     packageBanner && isSubmissionPhase && submittedBannerOverride
       ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...submittedBannerOverride } }
-      : packageBanner
+      : packageBanner && phase === 'inReview' && packageBannerState === 'requested' && inReviewRequestedBannerOverride
+        ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...inReviewRequestedBannerOverride } }
+        : packageBanner
   const requiredItems = listItems.filter((item) => !item.optional)
   const optionalItems = listItems.filter((item) => item.optional)
   const sectionLabel = isSubmissionPhase ? 'Submission confirmation' : 'Tasks'

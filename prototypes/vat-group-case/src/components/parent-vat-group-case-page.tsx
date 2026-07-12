@@ -17,7 +17,7 @@ import {
   type StepperStepState,
 } from '@wts/ui'
 
-import { CaseWtsTasksBody, SectionLabel } from '@/components/body/BodyPlaceholder'
+import { SectionLabel } from '@/components/body/BodyPlaceholder'
 import { FileDropzone } from '@/components/body/FileDropzone'
 import { PackageBanner } from '@/components/body/PackageBanner'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
@@ -52,7 +52,12 @@ const REPRESENTATIVE_VAT_REGISTRATION = vatRegistrationForJurisdiction(PARENT_CA
 const EDIT_TOOLTIP =
   "Changes made here apply only to the Parent Case. Assigned users will also be assigned to the Representative Legal Entity's Child Case, but not to the Child Cases of the other Legal Entities in the group."
 
-// Consolidation's own banner — role-specific (Creator is the actor; Reviewer/Partner are
+// Same demo timestamp used throughout config/packageBanners.ts's own meta strings — kept in
+// sync manually since this page's banners are a separate, group-adapted copy set.
+const DEMO_TIMESTAMP = '12 Mar 2026, 13:55'
+const CLIENT_NAMES = Array.isArray(SAMPLE_PEOPLE.client) ? SAMPLE_PEOPLE.client.join(', ') : (SAMPLE_PEOPLE.client ?? 'the client')
+
+// Consolidation's own banner — role-specific (Creator is the actor; Reviewer/Partner/Client are
 // spectators), unlike the single-case-mirrored banners below, since Consolidation has no
 // single-case equivalent to reuse copy from.
 function consolidationBannerDescriptor(isCreatorRole: boolean, childCount: number): PackageBannerDescriptor {
@@ -70,12 +75,49 @@ function consolidationBannerDescriptor(isCreatorRole: boolean, childCount: numbe
     : {
         variant: 'purple',
         icon: 'fileText',
-        title: 'Sent for consolidation.',
+        title: 'Initial Group Case package sent for consolidation',
         description: "Your package is with the creator. You'll be notified once the consolidation is done.",
         meta: `${childCount} files in this package`,
         showFooter: true,
         showVersionHistory: false,
       }
+}
+
+// Client's own Client Approval banner — varies by package review outcome exactly like the
+// single-case Client's own Client Approval banner (see config/packageBanners.ts's
+// clientApproval:client:* entries, which this copy is taken from verbatim): purple while
+// awaiting a decision, amber once changes are requested, green once approved — only the header
+// button changes per status (see the header-actions logic below).
+const CLIENT_APPROVAL_BANNERS: Partial<Record<PackageBannerState, PackageBannerDescriptor>> = {
+  requested: {
+    variant: 'purple',
+    icon: 'fileText',
+    title: 'Awaiting your approval',
+    description: 'A package has been submitted for your sign-off. Please review the contents and approve or request changes.',
+    meta: `Review requested by ${SAMPLE_PEOPLE.creator} · ${DEMO_TIMESTAMP}`,
+    showFooter: true,
+    showVersionHistory: false,
+  },
+  needChanges: {
+    variant: 'amber',
+    icon: 'filePen',
+    title: 'Changes requested',
+    description: "You've sent your feedback to the team. They'll update the package and resubmit for your approval.",
+    meta: `Changes requested by ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
+    showFooter: true,
+    showVersionHistory: false,
+    comments: { label: 'Your comments', body: 'This is a comment' },
+  },
+  approved: {
+    variant: 'green',
+    icon: 'circleCheck',
+    title: 'Approved',
+    description: 'You approved this package. The team will now submit it to the tax authorities.',
+    meta: `Approved by ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
+    showFooter: true,
+    showVersionHistory: false,
+    comments: { label: 'Your comments', body: 'This is a comment' },
+  },
 }
 
 // In Review / Client Approval — mirrors the single-case flow's own PackageBanner copy per
@@ -90,7 +132,7 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     icon: 'fileText',
     title: 'Group Case package sent for internal review.',
     description: "The consolidated Group Case package is with the reviewer. You'll be notified once a decision is made.",
-    meta: 'Sent for internal review',
+    meta: `Review requested by you · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: false,
   },
@@ -178,7 +220,7 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     icon: 'fileText',
     title: 'Under client review',
     description: "The package is with the client for approval. You'll be notified once they respond.",
-    meta: 'Sent for client approval',
+    meta: `Request sent to ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: false,
   },
@@ -186,8 +228,8 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     variant: 'amber',
     icon: 'filePen',
     title: 'Changes requested by client',
-    description: 'The client has left feedback. The creator will update the package and resubmit for approval.',
-    meta: 'Changes requested',
+    description: 'The client has left feedback. The creator will update the package and resubmit for consolidation.',
+    meta: `Changes requested by ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: false,
     comments: { label: 'Client comments', body: 'This is a comment' },
@@ -197,7 +239,7 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     icon: 'circleCheck',
     title: 'Approved by client',
     description: 'The client has signed off. The package can be submitted to the tax authorities.',
-    meta: 'Approved',
+    meta: `Approved by ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: false,
     comments: { label: 'Client comments', body: 'This is a comment' },
@@ -291,6 +333,11 @@ const PARENT_PHASE_INDEX: Record<ParentPhase, number> = {
 
 function parentStepperStates(phase: ParentPhase): { label: string; state: StepperStepState }[] {
   const activeIndex = PARENT_PHASE_INDEX[phase]
+  // Submission is shown as already-finished the instant it's reached — the tax authority
+  // submission itself is what "Submission" represents, and that's already done by this point.
+  if (phase === 'submitted') {
+    return PARENT_STEPPER_LABELS.map((label) => ({ label, state: 'finished' as StepperStepState }))
+  }
   return PARENT_STEPPER_LABELS.map((label, i) => ({
     label,
     state: i < activeIndex ? 'finished' : i === activeIndex ? 'inProgress' : 'notStarted',
@@ -386,6 +433,7 @@ export function ParentVatGroupCasePage() {
   const setChildCaseRequiresClientApproval = useDemoStore((state) => state.setChildCaseRequiresClientApproval)
   const isCreator = role === 'creator'
   const isReviewer = role === 'reviewer'
+  const isClient = role === 'client'
   const [deniedChild, setDeniedChild] = useState<Case | null>(null)
   const [childSearch, setChildSearch] = useState('')
   const [childPage, setChildPage] = useState(1)
@@ -399,20 +447,28 @@ export function ParentVatGroupCasePage() {
   const allChildrenReady = tasksDoneChecked
 
   // Mirrors the single-case flow's own "Changes requested" reset (see caseTasks.ts's
-  // isNeedChangesWorkflowReset/effectiveCaseWorkflowPhase): once the reviewer requests changes
-  // during In Review, the Creator's view visually reverts to In Preparation on the stepper —
-  // the underlying phase state doesn't actually change, this only affects what's displayed.
-  const isCreatorNeedChangesReset = isCreator && parentPhase === 'inReview' && packageReviewOutcome === 'needChanges'
-  const displayedParentPhase: ParentPhase = isCreatorNeedChangesReset ? 'inPreparation' : parentPhase
+  // isNeedChangesWorkflowReset/effectiveCaseWorkflowPhase): once changes are requested during
+  // In Review or Client Approval, EVERY viewer's stepper visually reverts to In Preparation —
+  // the underlying phase state doesn't actually change, this only affects what's displayed (the
+  // single-case system doesn't gate this reset by role either, only the header actions differ).
+  const isNeedChangesReset =
+    (parentPhase === 'inReview' || parentPhase === 'clientApproval') && packageReviewOutcome === 'needChanges'
+  const displayedParentPhase: ParentPhase = isNeedChangesReset ? 'inPreparation' : parentPhase
 
+  // Client sees the same child-case list the Creator/Reviewer see In Preparation — full page
+  // size, real per-child status — all the way through Consolidation and In Review (Feature 10);
+  // Client Approval switches to the simplified, paginated, all-green reference list instead
+  // (Feature 11.1), same as every other role from Consolidation onward.
+  const isFullChildList = parentPhase === 'inPreparation' || (isClient && (parentPhase === 'consolidation' || parentPhase === 'inReview'))
   const showChildList =
-    parentPhase === 'inPreparation' ||
-    ((parentPhase === 'consolidation' || parentPhase === 'inReview' || parentPhase === 'clientApproval' || parentPhase === 'submitted') &&
-      (isCreator || isReviewer))
-  const childPageSize = parentPhase === 'inPreparation' ? CHILD_PAGE_SIZE : CHILD_PAGE_SIZE_LATER_STAGES
-  // From Consolidation onward every Child Case has already been confirmed ready — the list here
-  // is a simplified, view-only reference (Feature 8), not the actionable In Preparation list.
-  const forcedChildStatus: WorkflowStatus | undefined = parentPhase === 'inPreparation' ? undefined : 'ReadyForConsolidation'
+    isFullChildList ||
+    ((isCreator || isReviewer) &&
+      (parentPhase === 'consolidation' || parentPhase === 'inReview' || parentPhase === 'clientApproval' || parentPhase === 'submitted')) ||
+    (isClient && (parentPhase === 'clientApproval' || parentPhase === 'submitted'))
+  const childPageSize = isFullChildList ? CHILD_PAGE_SIZE : CHILD_PAGE_SIZE_LATER_STAGES
+  // From Consolidation onward every Child Case has already been confirmed ready — the later-stage
+  // list is a simplified, view-only reference, not the actionable In Preparation list.
+  const forcedChildStatus: WorkflowStatus | undefined = isFullChildList ? undefined : 'ReadyForConsolidation'
 
   // Live, case-insensitive substring match against the Legal Entity name (`client`) — same
   // pattern as the VAT Scheduler's "Search legal entities…" filter (vat-scheduler-modal.tsx).
@@ -448,6 +504,93 @@ export function ParentVatGroupCasePage() {
     setChildCaseRequiresClientApproval(requiresClientApproval)
   }
 
+  // Resolved once and reused by both the header actions below and the body banners further
+  // down — same (phase, role, outcome) → state mapping the single-case flow itself uses.
+  const creatorInReviewState = packageBannerStateFromOutcome('inReview', 'creator', packageReviewOutcome)
+  const reviewerInReviewState = packageBannerStateFromOutcome('inReview', 'reviewer', packageReviewOutcome)
+  const creatorClientApprovalState = packageBannerStateFromOutcome('clientApproval', 'creator', packageReviewOutcome)
+  const clientClientApprovalState = packageBannerStateFromOutcome('clientApproval', 'client', packageReviewOutcome)
+
+  let actions: HeaderDescriptor['actions'] = {}
+  let primaryDisabled = false
+  let handlePrimaryClick = () => {}
+
+  if (parentPhase === 'inPreparation' || parentPhase === 'consolidation') {
+    if (isCreator) {
+      // Same "Send for review"-shaped primary action every other case page in this prototype
+      // uses — just relabeled per step: entering Consolidation, then leaving it.
+      actions = {
+        primary:
+          parentPhase === 'inPreparation'
+            ? { label: 'Send to Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' }
+            : { label: 'Send to Review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' },
+      }
+      primaryDisabled = parentPhase === 'inPreparation' ? !allChildrenReady : !uploadedFileName
+      handlePrimaryClick = () => {
+        if (parentPhase === 'inPreparation' && allChildrenReady) setPhase('consolidation')
+        else if (parentPhase === 'consolidation' && uploadedFileName) setPhase('inReview')
+      }
+    }
+  } else if (parentPhase === 'inReview') {
+    if (isCreator) {
+      // No "Requirements" button here anymore (Feature 3) — a package-status-dependent primary
+      // action instead (Feature 5), same "Send to Consolidation" reset a needChanges decision
+      // triggers everywhere else in this page.
+      if (creatorInReviewState === 'approved') {
+        actions = { primary: { label: 'Send for approval', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        handlePrimaryClick = () => setPhase('clientApproval')
+      } else if (creatorInReviewState === 'needChanges') {
+        actions = { primary: { label: 'Send to Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        handlePrimaryClick = () => {
+          setUploadedFileName(null)
+          setPhase('consolidation')
+        }
+      } else {
+        actions = { primary: { label: 'Send for approval', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        primaryDisabled = true
+      }
+    } else if (isReviewer) {
+      // Same primary action the single-case VAT Reviewer sees in In Review — removed entirely
+      // once approved (Feature 6), disabled (but still visible) once changes are requested.
+      if (reviewerInReviewState !== 'approved') {
+        actions = { primary: { label: 'Submit review', icon: 'Check', iconSide: 'right', variant: 'default' } }
+        primaryDisabled = reviewerInReviewState === 'needChanges'
+      }
+    }
+  } else if (parentPhase === 'clientApproval') {
+    if (isCreator) {
+      // Same button the single-case Creator sees at Client Approval — disabled until the
+      // client's decision is "Approved"; "Send for Consolidation" replaces it entirely once
+      // changes are requested (Feature 7), same reset pattern as In Review's own needChanges.
+      if (creatorClientApprovalState === 'needChanges') {
+        actions = { primary: { label: 'Send for Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        handlePrimaryClick = () => {
+          setUploadedFileName(null)
+          setPhase('consolidation')
+        }
+      } else {
+        actions = { primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        primaryDisabled = creatorClientApprovalState !== 'approved'
+        handlePrimaryClick = () => {
+          if (creatorClientApprovalState === 'approved') setPhase('submitted')
+        }
+      }
+    } else if (isClient) {
+      // Client is the actual decision-maker at this stage (Feature 11.1) — "Submit review"
+      // while awaiting a decision, "Submit changes" (disabled) once they've requested changes,
+      // no button at all once already approved.
+      if (clientClientApprovalState === 'requested') {
+        actions = { primary: { label: 'Submit review', icon: 'Check', iconSide: 'right', variant: 'default' } }
+      } else if (clientClientApprovalState === 'needChanges') {
+        actions = { primary: { label: 'Submit changes', icon: 'Check', iconSide: 'right', variant: 'default' } }
+        primaryDisabled = true
+      }
+    }
+  } else if (parentPhase === 'submitted' && isCreator) {
+    // Same as the single-case VAT Creator at Submission — no-op here, happy path only.
+    actions = { primary: { label: 'Create correction', icon: 'Plus', iconSide: 'left', variant: 'default' } }
+  }
+
   const descriptor: HeaderDescriptor = {
     headerType: 'caseWrapper',
     breadcrumb: [CASE_MANAGEMENT_BREADCRUMB, { label: PARENT_CASE.id, current: true }],
@@ -470,72 +613,27 @@ export function ParentVatGroupCasePage() {
     // omitted from the descriptor rather than rendered-then-hidden.
     editable: isCreator,
     editTooltip: EDIT_TOOLTIP,
-    actions:
-      isCreator && (parentPhase === 'inPreparation' || parentPhase === 'consolidation')
-        ? {
-            // Same "Send for review"-shaped primary action every other case page in this
-            // prototype uses — just relabeled per step: entering Consolidation, then leaving it.
-            primary:
-              parentPhase === 'inPreparation'
-                ? { label: 'Send to Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' }
-                : { label: 'Send to Review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' },
-          }
-        : isReviewer && parentPhase === 'inReview'
-          ? {
-              // Same primary action the single-case VAT Reviewer sees in In Review (see
-              // config/headers.ts's vat.case.phases.inReview.reviewer) — the Reviewer's part
-              // of this page mirrors the single-case flow exactly, not a group-specific variant.
-              primary: { label: 'Submit review', icon: 'Check', iconSide: 'right', variant: 'default' },
-            }
-          : isCreator && parentPhase === 'inReview'
-            ? {
-                // "Creator can't act once it's in review — only see requirements" (same as
-                // config/headers.ts's vat.case.phases.inReview.creator).
-                secondary: [{ label: 'Requirements', icon: 'ListChecks', variant: 'outline' }],
-              }
-            : isCreator && parentPhase === 'clientApproval'
-              ? {
-                  // Same button the single-case Creator sees at Client Approval (config/headers.ts's
-                  // clientApproval.default) — disabled until the client's decision is "Approved".
-                  primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' },
-                  secondary: [{ label: 'Requirements', icon: 'ListChecks', variant: 'outline' }],
-                }
-              : isCreator && parentPhase === 'submitted'
-                ? {
-                    // Same as the single-case VAT Creator at Submission (config/headers.ts's
-                    // vat.case.phases.submitted.creator) — no-op here, happy path only.
-                    primary: { label: 'Create correction', icon: 'Plus', iconSide: 'left', variant: 'default' },
-                  }
-                : {},
-  }
-
-  const primaryDisabled =
-    parentPhase === 'inPreparation'
-      ? !allChildrenReady
-      : parentPhase === 'consolidation'
-        ? !uploadedFileName
-        : parentPhase === 'clientApproval'
-          ? packageReviewOutcome !== 'approved'
-          : false
-  const handlePrimaryClick = () => {
-    if (parentPhase === 'inPreparation' && allChildrenReady) setPhase('consolidation')
-    else if (parentPhase === 'consolidation' && uploadedFileName) setPhase('inReview')
-    else if (parentPhase === 'clientApproval' && packageReviewOutcome === 'approved') setPhase('submitted')
-    // Submission's "Create correction" is a no-op for now (Feature 7 — happy path only).
+    actions,
   }
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
       <HeaderRenderer descriptor={descriptor} primaryDisabled={primaryDisabled} onPrimaryClick={handlePrimaryClick} />
-      <div className="border-b border-border bg-background px-6 py-6">
-        <Stepper steps={parentStepperStates(displayedParentPhase)} />
-      </div>
+      {/* Client never sees the step-by-step progress bar (Feature 11.3) — In Preparation, In
+          Review, and Consolidation are all the same child-list view for Client; only Client
+          Approval and Submission have distinct Client-facing content. */}
+      {!isClient && (
+        <div className="border-b border-border bg-background px-6 py-6">
+          <Stepper steps={parentStepperStates(displayedParentPhase)} />
+        </div>
+      )}
 
       {/* Consolidation is a self-contained step — the Group Case Package + upload only, no
-          "CONSOLIDATION" label above it (removed) and no Child Case list here (that list is
-          re-added, view-only, further below — see Feature 8). Creator can upload and progress;
-          Reviewer/Partner get a view-only version (package + download only). */}
-      {parentPhase === 'consolidation' && (
+          Child Case list here (that list is re-added, view-only, further below). Creator can
+          upload and progress; Reviewer/Partner get a view-only version (package + download
+          only); Client doesn't see this step at all (Feature 10 — same child list as In
+          Preparation instead, rendered further below). */}
+      {parentPhase === 'consolidation' && !isClient && (
         <div className="flex flex-col gap-4 border-b border-border bg-muted/30 p-6">
           <PackageBanner
             descriptor={consolidationBannerDescriptor(isCreator, PARENT_CASE.children.length)}
@@ -552,34 +650,13 @@ export function ParentVatGroupCasePage() {
         </div>
       )}
 
-      {parentPhase === 'inReview' && isReviewer && (
-        <div className="border-b border-border bg-background px-6 py-6">
-          <CaseWtsTasksBody
-            process="vat"
-            role="reviewer"
-            phase="inReview"
-            headerType="case"
-            platform="wts"
-            tasksDoneChecked
-            approvedChecked={false}
-            tasksReconfirmedDone={false}
-            protocolConfirmationChecked={false}
-            packageBannerState={packageBannerStateFromOutcome('inReview', 'reviewer', packageReviewOutcome)}
-            packageReviewOutcome={packageReviewOutcome}
-            inReviewRequestedBannerOverride={{
-              title: 'Group Case package awaiting your review.',
-              description:
-                'The consolidated Group Case package has been submitted for your review. Open it, check the contents, and approve or request changes.',
-            }}
-          />
-        </div>
-      )}
-
-      {/* Group-specific handling ends at Consolidation — In Review (for every role but Reviewer,
-          who gets the fuller task-checklist body above) and Client Approval reuse the single
-          case's own per-(role, package status) banner copy; Submission stays a single static
+      {/* In Review reuses the single case's own per-(role, package status) banner copy for
+          every role including Reviewer now (no task-checklist body here anymore — Feature 4);
+          Client doesn't see this step at all (Feature 10 — same child list as In Preparation
+          instead). Client Approval reuses the same banner system for Creator/Reviewer/Partner;
+          Client gets its own dedicated banner further below. Submission stays a single static
           banner (no review-outcome branching at that terminal stage). */}
-      {((parentPhase === 'inReview' && !isReviewer) || parentPhase === 'clientApproval') &&
+      {((parentPhase === 'inReview' && !isClient) || (parentPhase === 'clientApproval' && !isClient)) &&
         resolveParentBanner(parentPhase, role, packageReviewOutcome) && (
           <div className="border-b border-border bg-background px-6 py-6">
             <PackageBanner
@@ -589,6 +666,16 @@ export function ParentVatGroupCasePage() {
             />
           </div>
         )}
+
+      {parentPhase === 'clientApproval' && isClient && CLIENT_APPROVAL_BANNERS[clientClientApprovalState] && (
+        <div className="border-b border-border bg-background px-6 py-6">
+          <PackageBanner
+            descriptor={CLIENT_APPROVAL_BANNERS[clientClientApprovalState]!}
+            packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
+            hideVersionHistory
+          />
+        </div>
+      )}
 
       {parentPhase === 'submitted' && (
         <div className="border-b border-border bg-background px-6 py-6">
@@ -671,9 +758,7 @@ export function ParentVatGroupCasePage() {
                           </Badge>
                         )}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {child.serviceLine} · {child.caseType} · {child.id}
-                      </span>
+                      <span className="truncate text-xs text-muted-foreground">{child.id}</span>
                     </div>
 
                     {config.requiresClientApproval ? (

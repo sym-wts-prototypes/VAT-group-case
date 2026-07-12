@@ -98,19 +98,63 @@ export function PlaygroundMain() {
     withNeedChanges && isChildCaseView
       ? { ...withNeedChanges, dueDateLabel: 'Group Case Deadline' }
       : withNeedChanges
-  // Group Case Child Case flow: the Creator's Client Approval action reads "Submit for
-  // Consolidation" instead of "Submit to tax authorities" — the child's own filing isn't sent to
-  // the tax authority directly, it feeds into the Parent Case's Consolidation step instead.
-  const descriptor =
-    withDueDateLabel && isChildCaseView && phase === 'clientApproval' && role === 'creator' && withDueDateLabel.actions.primary
+  // Group Case Child Case flow: neither Consolidation nor a "Send to Consolidation"/"Submit to
+  // tax authorities" step exists on a Child Case (those are Parent-Case-only) — so the
+  // Creator's two case-progressing actions get child-specific labels instead. In Preparation's
+  // "Send for review" becomes "Submit for review" (same button, same gate, same label whether
+  // reached directly or via the needChanges reset, which also uses this exact label — see
+  // NEED_CHANGES_CREATOR_HEADER_ACTIONS).
+  const withChildCreatorSubmitLabel =
+    withDueDateLabel && isChildCaseView && withDueDateLabel.actions.primary?.label === 'Send for review'
       ? {
           ...withDueDateLabel,
           actions: {
             ...withDueDateLabel.actions,
-            primary: { ...withDueDateLabel.actions.primary, label: 'Submit for Consolidation' },
+            primary: { ...withDueDateLabel.actions.primary, label: 'Submit for review' },
           },
         }
       : withDueDateLabel
+  // Client Approval's "Submit to tax authorities" becomes "Submit for consolidation" — the
+  // child-case parallel to the Parent Case's own final action, since a child's own filing feeds
+  // into the Parent Case's Consolidation step rather than going to the tax authority directly.
+  // Skipped during the needChanges reset (excluded via the label check above already handling
+  // that case with its own label).
+  const descriptorWithConsolidationLabel =
+    withChildCreatorSubmitLabel &&
+    isChildCaseView &&
+    phase === 'clientApproval' &&
+    role === 'creator' &&
+    !needChangesCreator &&
+    withChildCreatorSubmitLabel.actions.primary
+      ? {
+          ...withChildCreatorSubmitLabel,
+          actions: {
+            ...withChildCreatorSubmitLabel.actions,
+            primary: { ...withChildCreatorSubmitLabel.actions.primary, label: 'Submit for consolidation' },
+          },
+        }
+      : withChildCreatorSubmitLabel
+
+  // Group Case Child Case flow, Client role at Client Approval: the button follows the package
+  // review outcome exactly like the Parent Case's own Client Approval button does — "Submit
+  // review" while awaiting a decision (the resolveHeader default, left untouched here), a
+  // disabled "Submit changes" once the client has requested changes, and no button at all once
+  // already approved.
+  const childClientApprovalState =
+    isChildCaseView && phase === 'clientApproval' && role === 'client'
+      ? packageBannerStateFromOutcome('clientApproval', 'client', packageReviewOutcome)
+      : undefined
+  const descriptor =
+    descriptorWithConsolidationLabel && childClientApprovalState === 'approved'
+      ? { ...descriptorWithConsolidationLabel, actions: {} }
+      : descriptorWithConsolidationLabel && childClientApprovalState === 'needChanges'
+        ? {
+            ...descriptorWithConsolidationLabel,
+            actions: {
+              primary: { label: 'Submit changes', icon: 'Check' as const, iconSide: 'right' as const, variant: 'default' as const },
+            },
+          }
+        : descriptorWithConsolidationLabel
 
   const tasksGateActive = isCaseTasksGateActive(
     headerType,
@@ -154,7 +198,8 @@ export function PlaygroundMain() {
       approvedChecked &&
       !tasksReconfirmedDone) ||
     (assessmentGateActive && hasPrimary && assessmentsState !== 'done') ||
-    (submissionGateActive && hasPrimary && !protocolConfirmationChecked)
+    (submissionGateActive && hasPrimary && !protocolConfirmationChecked) ||
+    childClientApprovalState === 'needChanges'
 
   const handlePrimaryClick = (label: string) => {
     if (
@@ -164,6 +209,28 @@ export function PlaygroundMain() {
       !primaryDisabled
     ) {
       setCloseCaseOpen(true)
+    }
+    // Child Case Creator: the same two case-progressing actions the Parent Case page itself
+    // navigates on click for (see parent-vat-group-case-page.tsx) — In Preparation moves on to
+    // In Review once every task is done, Client Approval's final action moves the child case to
+    // its terminal Ready for Consolidation step.
+    if (
+      isChildCaseView &&
+      role === 'creator' &&
+      phase === 'inPreparation' &&
+      label === 'Submit for review' &&
+      !primaryDisabled
+    ) {
+      setPhase('inReview')
+    }
+    if (
+      isChildCaseView &&
+      role === 'creator' &&
+      phase === 'clientApproval' &&
+      label === 'Submit for consolidation' &&
+      !primaryDisabled
+    ) {
+      setPhase('submitted')
     }
   }
 

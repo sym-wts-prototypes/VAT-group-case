@@ -264,6 +264,7 @@ export function BodyPlaceholder({
             role={role}
             phase={phase}
             packageBannerState={packageBannerState}
+            submittedBannerOverride={submittedBannerOverride}
             onOpenBucket={onOpenRequirementBucket}
           />
         ))}
@@ -527,12 +528,14 @@ function ClientBucketCardsBody({
   role,
   phase,
   packageBannerState,
+  submittedBannerOverride,
   onOpenBucket,
 }: {
   process: Process
   role: Role
   phase: Phase
   packageBannerState: PackageBannerState
+  submittedBannerOverride?: { title?: string; description?: string }
   onOpenBucket?: (categoryId: string) => void
 }) {
   const canOpenBucket = phase !== 'draft'
@@ -542,13 +545,17 @@ function ClientBucketCardsBody({
     role,
     packageBannerState,
   )
+  const displayedPackageBanner =
+    packageBanner && phase === 'submitted' && submittedBannerOverride
+      ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...submittedBannerOverride } }
+      : packageBanner
 
   return (
     <div className="flex flex-col gap-6">
-      {packageBanner && (
+      {displayedPackageBanner && (
         <PackageBanner
-          descriptor={packageBanner.descriptor}
-          packageFileName={packageBanner.packageFileName}
+          descriptor={displayedPackageBanner.descriptor}
+          packageFileName={displayedPackageBanner.packageFileName}
           hideVersionHistory
         />
       )}

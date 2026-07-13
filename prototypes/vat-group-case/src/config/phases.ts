@@ -54,14 +54,15 @@ export const PHASE_LABELS: Record<Phase, string> = {
   open: 'Open',
   inProgress: 'In Progress',
   completed: 'Completed',
-  consolidation: 'Consolidation',
 }
 
 /** Parent (Group) Case's own phase list for the Playground controls — a separate list from
- * workflowPhasesForControls() since "Consolidation" doesn't exist for single/child cases. */
+ * workflowPhasesForControls() since single/child cases don't have this exact set (though as of
+ * the "Merge Consolidation Step into In Preparation" ticket the two lists happen to match:
+ * Consolidation is no longer a step of its own — its functionality now lives as a task inside
+ * In Preparation, see parent-vat-group-case-page.tsx). */
 export const PARENT_CASE_PHASES: Phase[] = [
   'inPreparation',
-  'consolidation',
   'inReview',
   'clientApproval',
   'submitted',

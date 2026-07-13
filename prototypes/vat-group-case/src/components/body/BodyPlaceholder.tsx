@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   ArrowRight,
   Check,
@@ -26,6 +27,7 @@ import {
   showTaskUploadButton,
   taskStatusesForDemo,
   WTS_CASE_DEMO_SUBMISSION_DOCUMENTS,
+  type DemoTask,
   type TaskStatus,
 } from '@/lib/caseTasks'
 import { AssessmentClosureSection } from '@/components/body/AssessmentClosureSection'
@@ -81,6 +83,15 @@ interface BodyPlaceholderProps {
    * resolved banner state is "requested" (the reviewer's default/no-decision-yet state) —
    * Approved/Need changes states reuse the single-case copy verbatim, untouched. */
   inReviewRequestedBannerOverride?: { title?: string; description?: string }
+  /** Group Case Child Cases: their own preparation task list instead of the generic per-process
+   * one (see VAT_GROUP_CHILD_CASE_TASKS in lib/caseTasks.ts). */
+  taskListOverride?: DemoTask[]
+  /** Paired with taskListOverride — its own initial status mix (see
+   * VAT_GROUP_CHILD_CASE_INITIAL_STATUSES). */
+  initialTaskStatusesOverride?: Record<string, TaskStatus>
+  /** Group Case Child Cases: a bigger "Preparation tasks" heading + description above the task
+   * list instead of the small "Tasks" section label. */
+  sectionHeadingOverride?: { title: string; description: string }
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
@@ -120,6 +131,9 @@ export function BodyPlaceholder({
   hideSubmissionReceipt = false,
   submittedBannerOverride,
   inReviewRequestedBannerOverride,
+  taskListOverride,
+  initialTaskStatusesOverride,
+  sectionHeadingOverride,
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
@@ -175,6 +189,9 @@ export function BodyPlaceholder({
         hideSubmissionReceipt={hideSubmissionReceipt}
         submittedBannerOverride={submittedBannerOverride}
         inReviewRequestedBannerOverride={inReviewRequestedBannerOverride}
+        taskListOverride={taskListOverride}
+        initialTaskStatusesOverride={initialTaskStatusesOverride}
+        sectionHeadingOverride={sectionHeadingOverride}
       />
     )
   }
@@ -325,6 +342,9 @@ export function CaseWtsTasksBody({
   hideSubmissionReceipt = false,
   submittedBannerOverride,
   inReviewRequestedBannerOverride,
+  taskListOverride,
+  initialTaskStatusesOverride,
+  sectionHeadingOverride,
 }: {
   process: Process
   role: Role
@@ -340,6 +360,16 @@ export function CaseWtsTasksBody({
   hideSubmissionReceipt?: boolean
   submittedBannerOverride?: { title?: string; description?: string }
   inReviewRequestedBannerOverride?: { title?: string; description?: string }
+  /** Group Case Child Case: its own preparation task list instead of the generic per-process
+   * one (see VAT_GROUP_CHILD_CASE_TASKS). No effect on the Submission phase's document list. */
+  taskListOverride?: DemoTask[]
+  /** Paired with taskListOverride — its own initial (pre demo-control) status mix instead of the
+   * generic cycling mixedTaskStatuses() (see VAT_GROUP_CHILD_CASE_INITIAL_STATUSES). */
+  initialTaskStatusesOverride?: Record<string, TaskStatus>
+  /** Group Case Child Case: a bigger heading + description above the task list ("Preparation
+   * tasks" / "Upload the finalised task documents…") instead of the small "Tasks" SectionLabel.
+   * No effect on the Submission phase's own "Submission confirmation" label. */
+  sectionHeadingOverride?: { title: string; description: string }
 }) {
   const statuses = taskStatusesForDemo(phase, tasksDoneChecked, {
     process,
@@ -348,6 +378,8 @@ export function CaseWtsTasksBody({
     headerType,
     platform,
     packageReviewOutcome,
+    tasks: taskListOverride,
+    initialStatuses: initialTaskStatusesOverride,
   })
   const showUpload = showTaskUploadButton(process, role)
   const needChangesReset = isNeedChangesWorkflowReset(
@@ -379,7 +411,7 @@ export function CaseWtsTasksBody({
     ? hideSubmissionReceipt
       ? WTS_CASE_DEMO_SUBMISSION_DOCUMENTS.filter((item) => item.id !== 'sub-doc-3')
       : WTS_CASE_DEMO_SUBMISSION_DOCUMENTS
-    : caseTasksForProcess(process)
+    : (taskListOverride ?? caseTasksForProcess(process))
   const displayedPackageBanner =
     packageBanner && isSubmissionPhase && submittedBannerOverride
       ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...submittedBannerOverride } }
@@ -419,11 +451,20 @@ export function CaseWtsTasksBody({
           packageFileName={displayedPackageBanner.packageFileName}
         />
       )}
-      <SectionLabel
-        className={isSubmissionPhase && displayedPackageBanner ? 'mt-3' : undefined}
-      >
-        {sectionLabel}
-      </SectionLabel>
+      {sectionHeadingOverride && !isSubmissionPhase ? (
+        <div className="flex flex-col gap-1">
+          <h3 className="text-[20px] font-semibold leading-7 text-foreground">
+            {sectionHeadingOverride.title}
+          </h3>
+          <p className="text-sm text-muted-foreground">{sectionHeadingOverride.description}</p>
+        </div>
+      ) : (
+        <SectionLabel
+          className={isSubmissionPhase && displayedPackageBanner ? 'mt-3' : undefined}
+        >
+          {sectionLabel}
+        </SectionLabel>
+      )}
       <div className="flex flex-col gap-2">
         {requiredItems.map(renderTaskRow)}
         {optionalItems.length > 0 && (
@@ -440,13 +481,17 @@ export function CaseWtsTasksBody({
   )
 }
 
-function TaskRow({
+// Exported so parent-vat-group-case-page.tsx's own Consolidation task (In Preparation, see the
+// "Merge Consolidation Step into In Preparation" ticket) can reuse the exact same task-card
+// pattern (title, status pill, file count, upload/download) instead of building a second one.
+export function TaskRow({
   title,
   status,
   showUpload,
   showStatus,
   showStatusDropdown,
   files = [],
+  onUploadFile,
 }: {
   title: string
   status: TaskStatus
@@ -454,10 +499,15 @@ function TaskRow({
   showStatus: boolean
   showStatusDropdown: boolean
   files?: string[]
+  /** When provided, the Upload button opens a real file picker and reports the chosen file's
+   * name here — every other TaskRow leaves this decorative, like the rest of this prototype's
+   * task cards. */
+  onUploadFile?: (fileName: string) => void
 }) {
   const tone = TASK_STATUS_TONE[status]
   const label = TASK_STATUS_LABELS[status]
   const fileCount = files.length
+  const uploadInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="rounded-lg border border-border bg-background shadow-header-sm">
@@ -478,10 +528,27 @@ function TaskRow({
             {fileCount} {fileCount === 1 ? 'file' : 'files'}
           </Badge>
           {showUpload && (
-            <Button variant="outline" size="sm" className="h-9 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2"
+              onClick={onUploadFile ? () => uploadInputRef.current?.click() : undefined}
+            >
               <Upload className="h-4 w-4" />
               Upload
             </Button>
+          )}
+          {onUploadFile && (
+            <input
+              ref={uploadInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) onUploadFile(file.name)
+                e.target.value = ''
+              }}
+            />
           )}
           <button
             type="button"

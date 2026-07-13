@@ -22,13 +22,12 @@ import {
 
 import { useDemoStore } from '@/store/useDemoStore'
 import { useGeneratedCasesStore } from '@/store/useGeneratedCasesStore'
-import type { Phase, Role } from '@/types'
+import type { Role } from '@/types'
 
 import {
   Case,
   CASE_STATUS_LABEL,
   CASE_STATUS_TONE,
-  CaseStatus,
   DUMMY_CASES,
   DUMMY_GROUP_CASES,
   isGroupCase,
@@ -58,14 +57,6 @@ export const ROLE_TO_PLAYGROUND_ROLE: Record<Case['myRole'], Role> = {
   Partner: 'partner',
   Client: 'client',
 }
-const STATUS_TO_PHASE: Record<CaseStatus, Phase> = {
-  Draft: 'draft',
-  InPreparation: 'inPreparation',
-  InReview: 'inReview',
-  ClientApproval: 'clientApproval',
-  Submission: 'submitted',
-}
-
 const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 const formatDate = (iso: string) => dateFormatter.format(new Date(iso))
 
@@ -374,21 +365,40 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const generatedCases = useGeneratedCasesStore((state) => state.cases)
   const addGeneratedCases = useGeneratedCasesStore((state) => state.addCases)
 
-  const openScenarioForCase = (c: Case) => {
-    setRole(ROLE_TO_PLAYGROUND_ROLE[c.myRole])
-    setPhase(STATUS_TO_PHASE[c.status])
+  // Every entry point below always lands on Creator + In Preparation regardless of the clicked
+  // row's own "My role"/"Status" — those columns are dummy display data for the table, not a
+  // launch state (see the comment above ROLE_TO_PLAYGROUND_ROLE). Each handler is otherwise
+  // self-contained (sets caseKind/groupCaseView itself) rather than relying on setCaseKind's own
+  // reconcile side effects, so the resulting Playground state doesn't depend on whatever it was
+  // before this click.
+  const openScenarioForCase = (_c: Case) => {
+    setCaseKind('single')
+    setRole('creator')
+    setPhase('inPreparation')
+    setShowCaseManagement(false)
+  }
+
+  // A VAT Group Case child row — same launcher as an individual case, but into the dedicated
+  // Group Case Child Case view (setCaseKind/setGroupCaseView switch the Playground to Case Type
+  // → Group Case, Group Case View → Child Case).
+  const openChildCaseFromManagement = (_child: Case) => {
+    setCaseKind('group')
+    setGroupCaseView('child')
+    setRole('creator')
+    setPhase('inPreparation')
     setShowCaseManagement(false)
   }
 
   // Opens the real Parent VAT Group Case page (see parent-vat-group-case-page.tsx), by
   // switching the Playground to Case Type → Group Case, Group Case View → Parent Case —
-  // exactly as if the user had selected those controls manually (setCaseKind/setGroupCaseView
-  // already own every conditional side effect: Process locked to VAT, Phase locked to In
-  // Preparation, etc.), so this seam never has to duplicate that logic. Previously a stand-in
-  // that launched the representative child's own scenario, before the Parent Case page existed.
+  // exactly as if the user had selected those controls manually. Previously a stand-in that
+  // launched the representative child's own scenario, before the Parent Case page existed.
   const openGroupCase = (_group: VatGroupCase) => {
     setCaseKind('group')
     setGroupCaseView('parent')
+    setRole('creator')
+    setPhase('inPreparation')
+    setShowCaseManagement(false)
   }
 
   // Newly created cases (see create-case-drawer.tsx's scheduler modals) show up here
@@ -508,7 +518,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
             <div role="rowgroup">
               {pagedItems.map((item) =>
                 isGroupCase(item) ? (
-                  <GroupCaseRow key={item.id} group={item} onOpenChild={openScenarioForCase} onOpenGroup={openGroupCase} />
+                  <GroupCaseRow key={item.id} group={item} onOpenChild={openChildCaseFromManagement} onOpenGroup={openGroupCase} />
                 ) : (
                   <CaseRow key={item.id} item={item} onOpen={() => openScenarioForCase(item)} />
                 ),

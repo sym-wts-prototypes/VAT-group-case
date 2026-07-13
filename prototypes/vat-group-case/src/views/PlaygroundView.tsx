@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
-import { SIDEBAR_CASE_MANAGEMENT_ID, WtsAppShell } from '@wts/app-shell'
+import {
+  navigateToPrototype,
+  SIDEBAR_CASE_MANAGEMENT_ID,
+  SIDEBAR_ORGANISATIONS_ID,
+  WtsAppShell,
+  type SidebarItemId,
+} from '@wts/app-shell'
 import { Button, cn } from '@wts/ui'
 import { ControlPanel } from '@/components/controls/ControlPanel'
 import { useDemoStore } from '@/store/useDemoStore'
@@ -23,6 +29,7 @@ export function PlaygroundView() {
   const [controlsHidden, setControlsHidden] = useState(false)
   const [panelCollapsed, setPanelCollapsed] = useState(false)
   const role = useDemoStore((state) => state.role)
+  const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -45,7 +52,20 @@ export function PlaygroundView() {
     }
   }, [controlsHidden])
 
-  const sidebar = { role, activeItemId: SIDEBAR_CASE_MANAGEMENT_ID }
+  // "Case Management" routes into this prototype's own Case Management page (not the default
+  // cross-prototype nav WtsSidebar would otherwise use for that item) — every other item keeps
+  // the default behaviour.
+  const sidebar = {
+    role,
+    activeItemId: SIDEBAR_CASE_MANAGEMENT_ID,
+    onNavigate: (id: SidebarItemId) => {
+      if (id === SIDEBAR_CASE_MANAGEMENT_ID) {
+        setShowCaseManagement(true)
+      } else if (id === SIDEBAR_ORGANISATIONS_ID) {
+        navigateToPrototype('organisations')
+      }
+    },
+  }
 
   if (controlsHidden) {
     return (

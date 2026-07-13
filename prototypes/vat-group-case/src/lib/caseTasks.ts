@@ -53,6 +53,22 @@ export const WTS_CASE_DEMO_SUBMISSION_DOCUMENTS: DemoTask[] = [
   { id: 'sub-doc-additional', title: 'Additional documents (optional)' },
 ]
 
+/** Group Case Child Case preparation tasks — replaces the generic Task 1/2/3 placeholders for
+ * that flow only (see parent-vat-group-case-page.tsx's dispatch into PlaygroundMain). */
+export const VAT_GROUP_CHILD_CASE_TASKS: DemoTask[] = [
+  { id: 'draft-return', title: 'Draft Return' },
+  { id: 'supporting-documents', title: 'Supporting Documents', optional: true },
+  { id: 'payment-instructions', title: 'Payment Instructions', optional: true },
+]
+
+/** Group Case Child Case's own initial statuses — Draft Return already under way, the two
+ * optional tasks not started, rather than the generic cycling mixedTaskStatuses() produces. */
+export const VAT_GROUP_CHILD_CASE_INITIAL_STATUSES: Record<string, TaskStatus> = {
+  'draft-return': 'inProgress',
+  'supporting-documents': 'notStarted',
+  'payment-instructions': 'notStarted',
+}
+
 /** Preparation tasks for a process (CIT has its own dedicated list). */
 export function caseTasksForProcess(process?: Process): DemoTask[] {
   return process === 'cit' ? CIT_CASE_DEMO_TASKS : WTS_CASE_DEMO_TASKS
@@ -142,6 +158,13 @@ export interface TaskStatusDemoOptions {
   headerType?: string
   platform?: string
   packageReviewOutcome?: PackageReviewOutcome
+  /** Overrides caseTasksForProcess(process) — Group Case Child Cases use their own task list
+   * (see VAT_GROUP_CHILD_CASE_TASKS) instead of the generic per-process one. */
+  tasks?: DemoTask[]
+  /** Overrides the default cycling mixedTaskStatuses() for the "nothing driven by the demo
+   * controls yet" state — Group Case Child Cases start from a specific, non-cycling mix
+   * (see VAT_GROUP_CHILD_CASE_INITIAL_STATUSES) instead. */
+  initialStatuses?: Record<string, TaskStatus>
 }
 
 /** CIT In Review + Approved: creator must reconfirm tasks before client approval. */
@@ -237,9 +260,11 @@ export function taskStatusesForDemo(
     headerType,
     platform,
     packageReviewOutcome = 'default',
+    tasks: tasksOverride,
+    initialStatuses,
   } = options
 
-  const tasks = caseTasksForProcess(process)
+  const tasks = tasksOverride ?? caseTasksForProcess(process)
 
   if (
     headerType &&
@@ -262,7 +287,7 @@ export function taskStatusesForDemo(
   if (PAST_PREPARATION_PHASES.includes(phase) || tasksDoneChecked) {
     return allTasksDone(tasks)
   }
-  return mixedTaskStatuses(tasks)
+  return initialStatuses ?? mixedTaskStatuses(tasks)
 }
 
 export function isCaseTasksGateActive(

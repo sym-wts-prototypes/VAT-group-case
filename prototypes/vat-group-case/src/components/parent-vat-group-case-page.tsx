@@ -17,8 +17,7 @@ import {
   type StepperStepState,
 } from '@wts/ui'
 
-import { SectionLabel } from '@/components/body/BodyPlaceholder'
-import { FileDropzone } from '@/components/body/FileDropzone'
+import { SectionLabel, TaskRow } from '@/components/body/BodyPlaceholder'
 import { PackageBanner } from '@/components/body/PackageBanner'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { PeopleRow } from '@/components/headers/parts/PeopleRow'
@@ -28,6 +27,7 @@ import {
   type PackageBannerState,
   type PackageReviewOutcome,
 } from '@/config/packageBanners'
+import { showTaskUploadButton, WTS_CASE_DEMO_SUBMISSION_DOCUMENTS, type TaskStatus } from '@/lib/caseTasks'
 import { CASE_MANAGEMENT_BREADCRUMB, SAMPLE_PEOPLE } from '@/config/sampleData'
 import { useDemoStore } from '@/store/useDemoStore'
 import type { HeaderDescriptor, Phase, PeopleRow as PeopleRowData, Role } from '@/types'
@@ -56,32 +56,6 @@ const EDIT_TOOLTIP =
 // sync manually since this page's banners are a separate, group-adapted copy set.
 const DEMO_TIMESTAMP = '12 Mar 2026, 13:55'
 const CLIENT_NAMES = Array.isArray(SAMPLE_PEOPLE.client) ? SAMPLE_PEOPLE.client.join(', ') : (SAMPLE_PEOPLE.client ?? 'the client')
-
-// Consolidation's own banner — role-specific (Creator is the actor; Reviewer/Partner/Client are
-// spectators), unlike the single-case-mirrored banners below, since Consolidation has no
-// single-case equivalent to reuse copy from.
-function consolidationBannerDescriptor(isCreatorRole: boolean, childCount: number): PackageBannerDescriptor {
-  return isCreatorRole
-    ? {
-        variant: 'purple',
-        icon: 'fileText',
-        title: 'Awaiting your consolidation action',
-        description:
-          'This package has been submitted for you to do the consolidation. Open it, check the contents, and upload the consolidation document.',
-        meta: `${childCount} files in this package`,
-        showFooter: true,
-        showVersionHistory: false,
-      }
-    : {
-        variant: 'purple',
-        icon: 'fileText',
-        title: 'Initial Group Case package sent for consolidation',
-        description: "Your package is with the creator. You'll be notified once the consolidation is done.",
-        meta: `${childCount} files in this package`,
-        showFooter: true,
-        showVersionHistory: false,
-      }
-}
 
 // Client's own Client Approval banner — varies by package review outcome exactly like the
 // single-case Client's own Client Approval banner (see config/packageBanners.ts's
@@ -317,18 +291,18 @@ function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): Mi
 }
 
 // The Parent Case's own top-of-page workflow — distinct from the per-Child-Case WorkflowStatus
-// above. "Consolidation" only exists on this page: it sits after In Preparation (once every
-// Child Case is Ready for Consolidation) and before In Review, where the reviewer takes over —
-// Client Approval/Submission stay visible as the case's eventual remaining steps, same as the
-// single-case stepper always shows the full journey rather than only what's implemented so far.
-type ParentPhase = 'inPreparation' | 'consolidation' | 'inReview' | 'clientApproval' | 'submitted'
-const PARENT_STEPPER_LABELS = ['In Preparation', 'Consolidation', 'In Review', 'Client Approval', 'Submission']
+// above. Consolidation used to be its own step here, sitting between In Preparation and In
+// Review; it's now a task inside In Preparation instead (see the Consolidation TaskRow further
+// below), so this stepper matches the single-case one exactly. Client Approval/Submission stay
+// visible as the case's eventual remaining steps, same as the single-case stepper always shows
+// the full journey rather than only what's implemented so far.
+type ParentPhase = 'inPreparation' | 'inReview' | 'clientApproval' | 'submitted'
+const PARENT_STEPPER_LABELS = ['In Preparation', 'In Review', 'Client Approval', 'Submission']
 const PARENT_PHASE_INDEX: Record<ParentPhase, number> = {
   inPreparation: 0,
-  consolidation: 1,
-  inReview: 2,
-  clientApproval: 3,
-  submitted: 4,
+  inReview: 1,
+  clientApproval: 2,
+  submitted: 3,
 }
 
 function parentStepperStates(phase: ParentPhase): { label: string; state: StepperStepState }[] {
@@ -456,19 +430,30 @@ export function ParentVatGroupCasePage() {
   const displayedParentPhase: ParentPhase = isNeedChangesReset ? 'inPreparation' : parentPhase
 
   // Client sees the same child-case list the Creator/Reviewer see In Preparation — full page
-  // size, real per-child status — all the way through Consolidation and In Review (Feature 10);
-  // Client Approval switches to the simplified, paginated, all-green reference list instead
-  // (Feature 11.1), same as every other role from Consolidation onward.
-  const isFullChildList = parentPhase === 'inPreparation' || (isClient && (parentPhase === 'consolidation' || parentPhase === 'inReview'))
+  // size, real per-child status — all the way through In Review (Feature 10); Client Approval
+  // switches to the simplified, paginated, all-green reference list instead (Feature 11.1), same
+  // as every other role from In Review onward.
+  const isFullChildList = parentPhase === 'inPreparation' || (isClient && parentPhase === 'inReview')
   const showChildList =
     isFullChildList ||
     ((isCreator || isReviewer) &&
-      (parentPhase === 'consolidation' || parentPhase === 'inReview' || parentPhase === 'clientApproval' || parentPhase === 'submitted')) ||
+      (parentPhase === 'inReview' || parentPhase === 'clientApproval' || parentPhase === 'submitted')) ||
     (isClient && (parentPhase === 'clientApproval' || parentPhase === 'submitted'))
   const childPageSize = isFullChildList ? CHILD_PAGE_SIZE : CHILD_PAGE_SIZE_LATER_STAGES
-  // From Consolidation onward every Child Case has already been confirmed ready — the later-stage
+  // From In Review onward every Child Case has already been confirmed ready — the later-stage
   // list is a simplified, view-only reference, not the actionable In Preparation list.
   const forcedChildStatus: WorkflowStatus | undefined = isFullChildList ? undefined : 'ReadyForConsolidation'
+
+  // The Consolidation task (folded into In Preparation, see the "Merge Consolidation Step into
+  // In Preparation" ticket) — gated behind every Child Case being ready (Feature 4.4): not
+  // started at all until then, in progress once the Creator can act but hasn't uploaded yet, and
+  // done once they have (reusing `uploadedFileName`, the same state that used to gate the old
+  // standalone Consolidation step's own primary action).
+  const consolidationTaskStatus: TaskStatus = !allChildrenReady
+    ? 'notStarted'
+    : uploadedFileName
+      ? 'done'
+      : 'inProgress'
 
   // Live, case-insensitive substring match against the Legal Entity name (`client`) — same
   // pattern as the VAT Scheduler's "Search legal entities…" filter (vat-scheduler-modal.tsx).
@@ -491,7 +476,9 @@ export function ParentVatGroupCasePage() {
   // in, and telling the dispatch whether this Legal Entity's workflow includes Client Approval
   // (so the stepper and the Playground's Phase options reflect the right variant). Access is
   // modelled the same way the rest of this prototype models "my role" on a case: if the
-  // currently selected role doesn't match the case's assigned role, there's no access.
+  // currently selected role doesn't match the case's assigned role, there's no access — clicking
+  // surfaces the "No access" banner at the top of the list instead of navigating (see the render
+  // below); every row stays clickable regardless, only the result of the click differs.
   const openChildCase = (child: Case, status: WorkflowStatus, requiresClientApproval: boolean) => {
     if (ROLE_TO_PLAYGROUND_ROLE[child.myRole] !== role) {
       setDeniedChild(child)
@@ -515,35 +502,30 @@ export function ParentVatGroupCasePage() {
   let primaryDisabled = false
   let handlePrimaryClick = () => {}
 
-  if (parentPhase === 'inPreparation' || parentPhase === 'consolidation') {
+  if (parentPhase === 'inPreparation') {
     if (isCreator) {
-      // Same "Send for review"-shaped primary action every other case page in this prototype
-      // uses — just relabeled per step: entering Consolidation, then leaving it.
-      actions = {
-        primary:
-          parentPhase === 'inPreparation'
-            ? { label: 'Send to Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' }
-            : { label: 'Send to Review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' },
-      }
-      primaryDisabled = parentPhase === 'inPreparation' ? !allChildrenReady : !uploadedFileName
+      // Consolidation is now a task inside this same step (Feature 4.2) rather than its own
+      // step — so this button only ever does one thing: enable once that task is Done (i.e. a
+      // file has been uploaded), and move straight on to In Review (Feature 4.5).
+      actions = { primary: { label: 'Send for review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+      primaryDisabled = !uploadedFileName
       handlePrimaryClick = () => {
-        if (parentPhase === 'inPreparation' && allChildrenReady) setPhase('consolidation')
-        else if (parentPhase === 'consolidation' && uploadedFileName) setPhase('inReview')
+        if (uploadedFileName) setPhase('inReview')
       }
     }
   } else if (parentPhase === 'inReview') {
     if (isCreator) {
       // No "Requirements" button here anymore (Feature 3) — a package-status-dependent primary
-      // action instead (Feature 5), same "Send to Consolidation" reset a needChanges decision
+      // action instead (Feature 5), same "back to In Preparation" reset a needChanges decision
       // triggers everywhere else in this page.
       if (creatorInReviewState === 'approved') {
         actions = { primary: { label: 'Send for approval', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         handlePrimaryClick = () => setPhase('clientApproval')
       } else if (creatorInReviewState === 'needChanges') {
-        actions = { primary: { label: 'Send to Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        actions = { primary: { label: 'Send for review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         handlePrimaryClick = () => {
           setUploadedFileName(null)
-          setPhase('consolidation')
+          setPhase('inPreparation')
         }
       } else {
         actions = { primary: { label: 'Send for approval', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
@@ -560,13 +542,14 @@ export function ParentVatGroupCasePage() {
   } else if (parentPhase === 'clientApproval') {
     if (isCreator) {
       // Same button the single-case Creator sees at Client Approval — disabled until the
-      // client's decision is "Approved"; "Send for Consolidation" replaces it entirely once
-      // changes are requested (Feature 7), same reset pattern as In Review's own needChanges.
+      // client's decision is "Approved"; replaced entirely by a reset back to In Preparation
+      // (Consolidation task included) once changes are requested (Feature 7), same reset
+      // pattern as In Review's own needChanges.
       if (creatorClientApprovalState === 'needChanges') {
-        actions = { primary: { label: 'Send for Consolidation', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        actions = { primary: { label: 'Send for review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         handlePrimaryClick = () => {
           setUploadedFileName(null)
-          setPhase('consolidation')
+          setPhase('inPreparation')
         }
       } else {
         actions = { primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
@@ -619,34 +602,33 @@ export function ParentVatGroupCasePage() {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
       <HeaderRenderer descriptor={descriptor} primaryDisabled={primaryDisabled} onPrimaryClick={handlePrimaryClick} />
-      {/* Client never sees the step-by-step progress bar (Feature 11.3) — In Preparation, In
-          Review, and Consolidation are all the same child-list view for Client; only Client
-          Approval and Submission have distinct Client-facing content. */}
+      {/* Client never sees the step-by-step progress bar (Feature 11.3) — In Preparation and In
+          Review are the same child-list view for Client; only Client Approval and Submission
+          have distinct Client-facing content. */}
       {!isClient && (
         <div className="border-b border-border bg-background px-6 py-6">
           <Stepper steps={parentStepperStates(displayedParentPhase)} />
         </div>
       )}
 
-      {/* Consolidation is a self-contained step — the Group Case Package + upload only, no
-          Child Case list here (that list is re-added, view-only, further below). Creator can
-          upload and progress; Reviewer/Partner get a view-only version (package + download
-          only); Client doesn't see this step at all (Feature 10 — same child list as In
-          Preparation instead, rendered further below). */}
-      {parentPhase === 'consolidation' && !isClient && (
-        <div className="flex flex-col gap-4 border-b border-border bg-muted/30 p-6">
-          <PackageBanner
-            descriptor={consolidationBannerDescriptor(isCreator, PARENT_CASE.children.length)}
-            packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
-            hideVersionHistory
+      {/* Consolidation task — folded into In Preparation (see the "Merge Consolidation Step
+          into In Preparation" ticket) instead of being its own step. Gated behind every Child
+          Case being ready (Feature 4.4): the Creator can only upload once `allChildrenReady`,
+          and the top-right "Send for review" button only enables once this task is Done
+          (Feature 4.5). Reviewer/Partner get the same card read-only (no upload button); Client
+          doesn't see it at all, consistent with every other WTS-team-only element on this page. */}
+      {parentPhase === 'inPreparation' && !isClient && (
+        <div className="flex flex-col gap-3 border-b border-border bg-background px-6 py-6">
+          <SectionLabel>Tasks</SectionLabel>
+          <TaskRow
+            title="Consolidation"
+            status={consolidationTaskStatus}
+            showUpload={isCreator && allChildrenReady}
+            showStatus
+            showStatusDropdown={false}
+            files={uploadedFileName ? [uploadedFileName] : []}
+            onUploadFile={isCreator && allChildrenReady ? setUploadedFileName : undefined}
           />
-          {isCreator && (
-            <FileDropzone
-              id="consolidation-document-upload"
-              label="Upload consolidation document"
-              onFileChange={setUploadedFileName}
-            />
-          )}
         </div>
       )}
 
@@ -687,6 +669,30 @@ export function ParentVatGroupCasePage() {
         </div>
       )}
 
+      {/* Submission confirmation — the same two documents the single-case Submission step
+          shows, added here for Creator and Reviewer (Partner too, view-only like Reviewer);
+          Client doesn't see this, consistent with every other WTS-team-only element on this
+          page. Creator can upload to both (showTaskUploadButton already gates this exactly the
+          same way the single-case flow does); Reviewer/Partner get a read-only version. */}
+      {parentPhase === 'submitted' && !isClient && (
+        <div className="flex flex-col gap-3 border-b border-border bg-background px-6 py-6">
+          <SectionLabel>Submission confirmation</SectionLabel>
+          <div className="flex flex-col gap-2">
+            {WTS_CASE_DEMO_SUBMISSION_DOCUMENTS.map((doc) => (
+              <TaskRow
+                key={doc.id}
+                title={doc.title}
+                status="notStarted"
+                showUpload={showTaskUploadButton('vat', role)}
+                showStatus={false}
+                showStatusDropdown={false}
+                files={[]}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Child Case list: the full, actionable version during In Preparation; a simplified,
           view-only reference (3/page, every case already Ready for Consolidation) on every
           later stage, for Creator and Reviewer only (Feature 8 — this re-adds what an earlier
@@ -710,12 +716,13 @@ export function ParentVatGroupCasePage() {
             </div>
           </div>
 
+          {/* Click-triggered, not persistent: only appears after clicking a Child Case the
+              current role can't open, at the top of the list — not shown by default, and not
+              inline on the row itself. Same contact-names copy as before, just relocated. */}
           {deniedChild && (
             <Alert variant="warning" title="No access" onClose={() => setDeniedChild(null)}>
-              You don't have access to {deniedChild.client}'s Child Case with the currently
-              selected role. For updates on this case, contact{' '}
-              {CHILD_PEOPLE[deniedChild.id]?.creator} (Creator) or{' '}
-              {CHILD_PEOPLE[deniedChild.id]?.reviewer} (Reviewer).
+              You don't have access. For access, contact {CHILD_PEOPLE[deniedChild.id]?.reviewer},{' '}
+              {CHILD_PEOPLE[deniedChild.id]?.creator}.
             </Alert>
           )}
 

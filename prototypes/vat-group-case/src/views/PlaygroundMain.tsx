@@ -17,6 +17,8 @@ import {
   isNeedChangesCreatorCase,
   isSubmissionProtocolGateActive,
   NEED_CHANGES_CREATOR_HEADER_ACTIONS,
+  VAT_GROUP_CHILD_CASE_INITIAL_STATUSES,
+  VAT_GROUP_CHILD_CASE_TASKS,
 } from '@/lib/caseTasks'
 import {
   isPackageBannerPhase,
@@ -296,6 +298,16 @@ export function PlaygroundMain() {
             ? {
                 title: 'Submitted for Consolidation',
                 description: 'This child case has been submitted. The consolidation process will follow.',
+              }
+            : undefined
+        }
+        taskListOverride={isChildCaseView ? VAT_GROUP_CHILD_CASE_TASKS : undefined}
+        initialTaskStatusesOverride={isChildCaseView ? VAT_GROUP_CHILD_CASE_INITIAL_STATUSES : undefined}
+        sectionHeadingOverride={
+          isChildCaseView
+            ? {
+                title: 'Preparation tasks',
+                description: 'Upload the finalised task documents that will form the data package.',
               }
             : undefined
         }

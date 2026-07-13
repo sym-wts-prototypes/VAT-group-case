@@ -16,11 +16,12 @@ import {
   EntityIdentifier, entityIdentifiers, identifierLabel,
 } from "./org-details-data";
 import { OrgWorkspaceData } from "./demo-data";
+import { useOrgStore } from "@/store/useOrgStore";
+import { useDataStore } from "@/store/useDataStore";
 import { can } from "./permissions";
 import { GroupsTab, EntityGroupMembershipsSection } from "./groups-tab";
 import { CreateGroupModal, AddMembersModal, CreateGroupDraft } from "./group-modals";
 import { LegalEntityModal, LegalEntityDraft, VatRow } from "./legal-entity-modal";
-import { InviteUserModal, InviteDraft } from "./invite-user-modal";
 import { AccessUserModal, AccessUserDraft } from "./access-user-modal";
 import { EngagementDetailPage } from "./engagement-detail-page";
 import { DisableEntityDialog } from "./entity-dialogs";
@@ -46,7 +47,15 @@ const DEFAULT_WORKSPACE_DATA: OrgWorkspaceData = {
   activityLog: ACTIVITY_LOG,
 };
 
-export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admin", data = DEFAULT_WORKSPACE_DATA }: {
+const WORKSPACE_TABS: WorkspaceTab[] = ["entities", "engagements", "users", "groups", "activity", "org-details"];
+function asTab(v: string | null | undefined): WorkspaceTab | null {
+  return v && (WORKSPACE_TABS as string[]).includes(v) ? (v as WorkspaceTab) : null;
+}
+
+export function OrgWorkspace({
+  org: initialOrg, onBack, actingRole = "Super Admin", data = DEFAULT_WORKSPACE_DATA,
+  initialTab = null, initialEngagement = false, initialDialog = null,
+}: {
   org: Organization;
   onBack: () => void;
   // V7 — the acting lens. Every role sees every tab and all content; capability-gated
@@ -55,8 +64,13 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   actingRole?: UserRole;
   // Injected seed dataset (empty / mixed / full). Defaults to the mixed world.
   data?: OrgWorkspaceData;
+  // Deep-link support for the Flow canvas — initial tab / engagement view / open dialog,
+  // parsed from the URL hash. Read once on mount; live navigation syncs back to the store.
+  initialTab?: string | null;
+  initialEngagement?: boolean;
+  initialDialog?: string | null;
 }) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("entities");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(asTab(initialTab) ?? "entities");
   // Local copy so Edit / Disable from the Organization Details tab reflect live.
   const [org, setOrg] = useState<Organization>(initialOrg);
 
@@ -76,7 +90,14 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
     userInviteEntity: can(actingRole, "user.invite.entity"),
     userInviteEngagement: can(actingRole, "user.invite.engagement"),
     userManage: can(actingRole, "user.manage"),
+    // Approve / reject a Pending invited user — Organisation + Engagement Admin only.
+    userApprove: can(actingRole, "user.approve"),
   };
+
+  // Contributor is a restricted lens: only the Legal Entities tab is shown (no tab bar),
+  // they cannot open engagements or groups (so they can't navigate away), and their only
+  // write action is inviting a user (who lands in Pending for an admin to approve).
+  const isContributor = actingRole === "Contributor";
 
   // Entity state — seeded from the injected dataset, filtered to this org.
   const [entities, setEntities] = useState<LegalEntity[]>(() => data.legalEntities.filter((e) => e.orgId === org.id));
@@ -87,13 +108,22 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
 
   // Engagement state
   const [engagements, setEngagements] = useState<Engagement[]>(() => data.engagements.filter((e) => e.orgId === org.id));
-  const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(null);
+  const [selectedEngagementId, setSelectedEngagementId] = useState<string | null>(() => {
+    // Flow-canvas deep link: `.../engagement` opens the detail page on the first engagement.
+    if (!initialEngagement) return null;
+    const first = data.engagements.find((e) => e.orgId === org.id);
+    return first ? first.id : null;
+  });
 
-  // User state — a user belongs to this org if any of their legal entities is in
-  // the org, or they are a WTS super admin with access to all entities.
+  // User state — a user belongs to this org if any of their legal entities is in the org.
+  // Super Admin is a platform lens (reachable only via the left-side controls), never a
+  // managed user inside an organisation, so it is excluded from every users list for all
+  // acting roles.
   const [users, setUsers] = useState<OrgUser[]>(() => {
     const orgEntityIds = new Set(data.legalEntities.filter((e) => e.orgId === org.id).map((e) => e.id));
-    return data.users.filter((u) => u.allEntities || u.entityIds.some((id) => orgEntityIds.has(id)));
+    return data.users.filter(
+      (u) => u.role !== "Super Admin" && (u.allEntities || u.entityIds.some((id) => orgEntityIds.has(id))),
+    );
   });
 
   // VAT state (managed only through entity modals)
@@ -122,7 +152,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   const [disableEntityTarget, setDisableEntityTarget] = useState<LegalEntity | null>(null);
 
   // User modal (add / edit). kind "access" = new Access-Scope modal (Users tab); "invite" = legacy entity-level invite.
-  const [userModal, setUserModal] = useState<{ kind: "access" | "invite"; mode: "add" | "edit"; user: OrgUser | null; defaultEntityId: string | null; allowSuperAdmin?: boolean } | null>(null);
+  const [userModal, setUserModal] = useState<{ kind: "access" | "invite"; mode: "add" | "edit"; user: OrgUser | null; defaultEntityId: string | null } | null>(null);
 
   // Engagement modals
   const [createEngOpen, setCreateEngOpen] = useState(false);
@@ -151,6 +181,78 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
     }
   }, [noEntities, activeTab]);
 
+  // ─── Flow-canvas deep linking (URL hash ⇄ view state) ───
+  // On mount, open the dialog named in the hash so the gallery canvas can render every
+  // modal state as its own screen. Runs once; live opens are reflected back below.
+  useEffect(() => {
+    if (!initialDialog) return;
+    const firstEntity = entities[0] ?? null;
+    const firstEngagement = engagements[0] ?? null;
+    const firstGroup = groups[0] ?? null;
+    switch (initialDialog) {
+      case "edit-org": setEditOrgOpen(true); break;
+      case "disable-org": setDisableOrgOpen(true); break;
+      case "create-entity": setEntityModal({ mode: "create", entity: null }); break;
+      case "edit-entity": if (firstEntity) setEntityModal({ mode: "edit", entity: firstEntity }); break;
+      case "disable-entity": if (firstEntity) setDisableEntityTarget(firstEntity); break;
+      case "add-user":
+        setUserModal({ kind: "access", mode: "add", user: null, defaultEntityId: null }); break;
+      case "invite-user":
+        setUserModal({ kind: "invite", mode: "add", user: null, defaultEntityId: selectedEntityId }); break;
+      case "create-engagement": setCreateEngOpen(true); break;
+      case "edit-engagement": if (firstEngagement) setEditEngTarget(firstEngagement); break;
+      case "disable-engagement": if (firstEngagement) setDisableEngTarget(firstEngagement); break;
+      case "create-group": setGroupModal({ mode: "create" }); break;
+      case "add-members": if (firstGroup) setAddMembersTarget(firstGroup); break;
+      default: break;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Session persistence — mirror target + the active preset this workspace belongs to.
+  const dataMode = useOrgStore((s) => s.dataMode);
+  const replaceOrgSlice = useDataStore((s) => s.replaceOrgSlice);
+
+  // Reflect the active tab / engagement view back into the URL hash.
+  const setStoreTab = useOrgStore((s) => s.setTab);
+  const setStoreEngagement = useOrgStore((s) => s.setEngagement);
+  const setStoreDialog = useOrgStore((s) => s.setDialog);
+  useEffect(() => { setStoreTab(activeTab); }, [activeTab, setStoreTab]);
+  useEffect(() => { setStoreEngagement(!!selectedEngagementId); }, [selectedEngagementId, setStoreEngagement]);
+
+  // Reflect the currently-open dialog back into the hash (keeps canvas deep links honest).
+  const openDialogKey =
+    entityModal?.mode === "create" ? "create-entity"
+    : entityModal?.mode === "edit" ? "edit-entity"
+    : disableEntityTarget ? "disable-entity"
+    : userModal?.kind === "invite" ? "invite-user"
+    : userModal?.kind === "access" && userModal.mode === "add" ? "add-user"
+    : createEngOpen ? "create-engagement"
+    : editEngTarget ? "edit-engagement"
+    : disableEngTarget ? "disable-engagement"
+    : groupModal ? "create-group"
+    : addMembersTarget ? "add-members"
+    : editOrgOpen ? "edit-org"
+    : disableOrgOpen ? "disable-org"
+    : null;
+  useEffect(() => { setStoreDialog(openDialogKey); }, [openDialogKey, setStoreDialog]);
+
+  // Mirror this org's working state back into the session-persisted data store, so edits
+  // survive role switches and page refresh. Seeding is init-only, so writing here never
+  // re-seeds the mounted component (no loop); it only fires on real mutations (and once on
+  // mount, which is an idempotent no-op).
+  useEffect(() => {
+    replaceOrgSlice(dataMode, org.id, {
+      org,
+      legalEntities: entities,
+      engagements,
+      users,
+      vatRegistrations: vatRegs,
+      groups,
+      activityLog,
+    });
+  }, [dataMode, org, entities, engagements, users, vatRegs, groups, activityLog, replaceOrgSlice]);
+
   // The acting user in this prototype is always the WTS Super Admin.
   // V11-G — optional {previous, current} pair for change events. Left off for pure
   // creations / deletions where a delta isn't meaningful.
@@ -177,7 +279,6 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
     vatRows: VatRow[],
     groupAssignments: { groupId: string; makeRepresentative: boolean }[] = [],
     createNewGroup = false,
-    assignedUserIds: string[] = [],
   ) {
     if (entityModal?.mode === "create") {
       const id = `le-${Date.now()}`;
@@ -195,18 +296,6 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
       addLogEntry(`Created legal entity "${draft.legalName}"`, draft.legalName);
       // Surface 2 hand-off: apply checked group assignments, then optionally open Create Group.
       applyGroupAssignments(id, groupAssignments);
-      // V10-C — attach selected org users to the new entity (org-pool users) so they show
-      // up in its Users section immediately.
-      if (assignedUserIds.length) {
-        setUsers((prev) => prev.map((u) => {
-          if (!assignedUserIds.includes(u.id)) return u;
-          const rows = u.access ?? [];
-          if (rows.some((r) => r.entityId === id)) return u; // already
-          const nextAccess = [...rows, { entityId: id, engagementIds: [], vatRegistrationIds: [] }];
-          return { ...u, access: nextAccess, entityIds: Array.from(new Set([...(u.entityIds ?? []), id])) };
-        }));
-        addLogEntry(`Assigned ${assignedUserIds.length} user(s) to "${draft.legalName}"`, draft.legalName);
-      }
       if (createNewGroup) {
         setGroupModal({ mode: "create", prefill: { jurisdiction: draft.jurisdiction, memberEntityId: id } });
       }
@@ -390,28 +479,20 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
   }
 
   // User handlers
-  function handleSubmitUser(d: InviteDraft) {
-    // A Super Admin user has access to every legal entity ("ALL").
-    const isSuperAdmin = d.role === "Super Admin";
-    const entityIds = isSuperAdmin ? [] : d.entityIds;
-    const allEntities = isSuperAdmin || undefined;
-    const accessLabel = isSuperAdmin ? "ALL" : entityNamesLabel(d.entityIds);
-    if (userModal?.mode === "edit" && userModal.user) {
-      const id = userModal.user.id;
-      setUsers((prev) => prev.map((u) => u.id === id ? {
-        ...u, email: d.email, userType: d.userType, role: d.role as any, entityIds, allEntities,
-      } : u));
-      addLogEntry(`Updated user ${d.email}`, accessLabel);
-    } else {
-      // Super admin adds users directly (no invitation step) → Active
-      const name = d.email.split("@")[0].replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-      setUsers((prev) => [{
-        id: `u-${Date.now()}`, entityIds, allEntities, name, email: d.email,
-        userType: d.userType, role: d.role as any, status: "Active",
-        invitedBy: "Thomas Becker", dateAdded: new Date().toISOString().slice(0, 10),
-      }, ...prev]);
-      addLogEntry(`Added user ${d.email}`, accessLabel);
-    }
+  // A Contributor invites a user rather than adding one directly: the invitee lands in
+  // Pending and stays there until an Organisation / Engagement Admin approves or rejects.
+  // The invite form is the Add User (Access Scope) form with the role locked to Contributor,
+  // so we receive the same AccessUserDraft and just force role + Pending status.
+  function handleInviteAccessUser(d: AccessUserDraft) {
+    const entityIds = Array.from(new Set(d.access.map((a) => a.entityId)));
+    setUsers((prev) => [{
+      id: `u-${Date.now()}`, entityIds, access: d.access, name: d.name, email: d.email,
+      userType: d.userType, role: "Contributor", roles: ["Contributor"],
+      poolLevel: d.poolLevel, canCreateCases: d.canCreateCases, caseCountryScope: d.caseCountryScope,
+      status: "Pending",
+      invitedBy: "Thomas Becker", dateAdded: new Date().toISOString().slice(0, 10),
+    }, ...prev]);
+    addLogEntry(`Invited user ${d.email}`, entityNamesLabel(entityIds));
   }
 
   // Users tab Add/Edit via the Access-Scope modal.
@@ -442,7 +523,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
 
   function approveUser(id: string) {
     const u = users.find((x) => x.id === id);
-    setUsers((prev) => prev.map((x) => x.id === id ? { ...x, status: "Approved" } : x));
+    setUsers((prev) => prev.map((x) => x.id === id ? { ...x, status: "Active" } : x));
     if (u) addLogEntry(`Approved user ${u.email}`, entityNamesLabel(u.entityIds));
   }
 
@@ -679,7 +760,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
 
   return (
     <div className="flex flex-col min-h-full">
-      {selectedEngagement ? (
+      {selectedEngagement && !isContributor ? (
         <EngagementDetailPage
           org={org}
           engagement={selectedEngagement}
@@ -699,6 +780,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           onOpenEntity={(id) => { setSelectedEngagementId(null); setActiveTab("entities"); setSelectedEntityId(id); }}
           canEdit={caps.engagementEditDetail}
           canInviteUsers={caps.userInviteEngagement}
+          initialDialog={initialEngagement ? initialDialog : null}
         />
       ) : (
       <>
@@ -722,19 +804,22 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           </h1>
         </div>
 
-        <Tabs
-          variant="line"
-          value={activeTab}
-          onChange={(v) => setActiveTab(v as WorkspaceTab)}
-          options={[
-            { value: "entities", label: <span className="inline-flex items-center gap-1.5"><Building2 className="size-4" /> Legal Entities</span>, count: entities.length },
-            { value: "engagements", label: <span className="inline-flex items-center gap-1.5"><FileText className="size-4" /> Engagements</span>, count: engagements.length, disabled: noEntities },
-            { value: "users", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Users</span>, count: users.length },
-            { value: "groups", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Groups</span>, count: groups.length, disabled: noEntities },
-            { value: "activity", label: <span className="inline-flex items-center gap-1.5"><Activity className="size-4" /> Activity Log</span>, count: activityLog.length },
-            { value: "org-details", label: <span className="inline-flex items-center gap-1.5"><ClipboardList className="size-4" /> Organization Details</span> },
-          ]}
-        />
+        {/* Contributor sees only the Legal Entities content — no tab bar at all. */}
+        {!isContributor && (
+          <Tabs
+            variant="line"
+            value={activeTab}
+            onChange={(v) => setActiveTab(v as WorkspaceTab)}
+            options={[
+              { value: "entities", label: <span className="inline-flex items-center gap-1.5"><Building2 className="size-4" /> Legal Entities</span>, count: entities.length },
+              { value: "engagements", label: <span className="inline-flex items-center gap-1.5"><FileText className="size-4" /> Engagements</span>, count: engagements.length, disabled: noEntities },
+              { value: "users", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Users</span>, count: users.length },
+              { value: "groups", label: <span className="inline-flex items-center gap-1.5"><UsersIcon className="size-4" /> Groups</span>, count: groups.length, disabled: noEntities },
+              { value: "activity", label: <span className="inline-flex items-center gap-1.5"><Activity className="size-4" /> Activity Log</span> },
+              { value: "org-details", label: <span className="inline-flex items-center gap-1.5"><ClipboardList className="size-4" /> Organization Details</span> },
+            ]}
+          />
+        )}
       </div>
 
       {/* Tab Content */}
@@ -754,14 +839,19 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
             onReenableEntity={(e) => setEntityStatus(e.id, "Active")}
             onAssignEng={() => selectedEntityId && setAssignEngEntityId(selectedEntityId)}
             onRemoveEngAssignment={(eng) => selectedEntityId && setRemoveAssign({ engagement: eng, entityId: selectedEntityId })}
-            onOpenEngagement={(id) => setSelectedEngagementId(id)}
-            onAddUser={() => setUserModal({ kind: "access", mode: "add", user: null, defaultEntityId: selectedEntityId })}
+            onOpenEngagement={isContributor ? undefined : (id) => setSelectedEngagementId(id)}
+            onAddUser={() => setUserModal(
+              isContributor
+                ? { kind: "invite", mode: "add", user: null, defaultEntityId: selectedEntityId }
+                : { kind: "access", mode: "add", user: null, defaultEntityId: selectedEntityId },
+            )}
             onEditUser={(u) => setUserModal({ kind: "access", mode: "edit", user: u, defaultEntityId: null })}
             onApproveUser={approveUser}
             onRejectUser={requestRejectUser}
             onRemoveUser={requestRemoveUser}
             groups={groups}
-            onOpenGroup={(id) => { setActiveTab("groups"); setSelectedGroupId(id); }}
+            onOpenGroup={isContributor ? undefined : (id) => { setActiveTab("groups"); setSelectedGroupId(id); }}
+            inviteLabel={isContributor ? "Invite User" : undefined}
             caps={caps}
           />
         )}
@@ -797,6 +887,7 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
               onDisable={setDisableEngTarget}
               onReenable={setReenableEngTarget}
               onOpenEngagement={(id) => setSelectedEngagementId(id)}
+              onOpenEntity={(id) => { setActiveTab("entities"); setSelectedEntityId(id); }}
               canCreate={caps.engagementCreate}
               canManage={caps.engagementEditDetail}
             />
@@ -810,13 +901,15 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
               entities={entities}
               engagements={engagements}
               onOpenEngagement={(id) => setSelectedEngagementId(id)}
-              onAdd={() => setUserModal({ kind: "access", mode: "add", user: null, defaultEntityId: null, allowSuperAdmin: true })}
-              onEditUser={(u) => setUserModal({ kind: "access", mode: "edit", user: u, defaultEntityId: null, allowSuperAdmin: true })}
+              onOpenEntity={(id) => { setActiveTab("entities"); setSelectedEntityId(id); }}
+              onAdd={() => setUserModal({ kind: "access", mode: "add", user: null, defaultEntityId: null })}
+              onEditUser={(u) => setUserModal({ kind: "access", mode: "edit", user: u, defaultEntityId: null })}
               onApproveUser={approveUser}
               onRejectUser={requestRejectUser}
               onRemoveUser={requestRemoveUser}
               canInvite={caps.userInviteOrg}
               canManage={caps.userManage}
+              canApprove={caps.userApprove}
             />
           </div>
         )}
@@ -854,7 +947,6 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           initialVatRegs={entityModal.entity ? entityVatRows(entityModal.entity.id) : []}
           orgId={org.id}
           groups={groups}
-          orgUsers={users.filter((u) => !u.allEntities)}
           onClose={() => setEntityModal(null)}
           onSubmit={handleEntitySubmit}
         />
@@ -874,21 +966,23 @@ export function OrgWorkspace({ org: initialOrg, onBack, actingRole = "Super Admi
           user={userModal.user}
           entities={entities}
           engagements={engagements}
-          allowSuperAdminRole={userModal.allowSuperAdmin}
           defaultEntityId={userModal.defaultEntityId}
+          lockEntity={userModal.mode === "add" && !!userModal.defaultEntityId}
           onClose={() => setUserModal(null)}
           onSubmit={(d) => handleSubmitAccessUser(d, userModal.mode === "edit" ? userModal.user?.id ?? null : null)}
         />
       )}
       {userModal && userModal.kind === "invite" && (
-        <InviteUserModal
-          entities={entities}
+        <AccessUserModal
+          variant="invite"
           mode={userModal.mode}
           user={userModal.user}
+          entities={entities}
+          engagements={engagements}
           defaultEntityId={userModal.defaultEntityId}
-          allowSuperAdminRole={userModal.allowSuperAdmin}
+          lockEntity={userModal.mode === "add" && !!userModal.defaultEntityId}
           onClose={() => setUserModal(null)}
-          onSubmit={handleSubmitUser}
+          onSubmit={handleInviteAccessUser}
         />
       )}
 
@@ -1008,6 +1102,7 @@ export type WorkspaceCaps = {
   userInviteEntity: boolean;
   userInviteEngagement: boolean;
   userManage: boolean;
+  userApprove: boolean;
 };
 
 function EntitiesTab({
@@ -1016,7 +1111,7 @@ function EntitiesTab({
   onEditEntity, onDisableEntity, onReenableEntity,
   onAssignEng, onRemoveEngAssignment, onOpenEngagement,
   onAddUser, onEditUser, onApproveUser, onRejectUser, onRemoveUser,
-  groups, onOpenGroup,
+  groups, onOpenGroup, inviteLabel,
   caps,
 }: {
   entities: LegalEntity[];
@@ -1032,14 +1127,18 @@ function EntitiesTab({
   onReenableEntity: (e: LegalEntity) => void;
   onAssignEng: () => void;
   onRemoveEngAssignment: (eng: Engagement) => void;
-  onOpenEngagement: (id: string) => void;
+  // Optional — Contributor can't open engagements (links render as plain text).
+  onOpenEngagement?: (id: string) => void;
   onAddUser: () => void;
   onEditUser: (u: OrgUser) => void;
   onApproveUser: (id: string) => void;
   onRejectUser: (id: string) => void;
   onRemoveUser: (id: string) => void;
   groups: Group[];
-  onOpenGroup: (id: string) => void;
+  // Optional — Contributor can't open groups (memberships render as plain rows).
+  onOpenGroup?: (id: string) => void;
+  // Contributor sees "Invite User" instead of "Add User".
+  inviteLabel?: string;
   caps: WorkspaceCaps;
 }) {
   const childrenOf = (id: string) => entities.filter((e) => e.parentId === id);
@@ -1265,6 +1364,8 @@ function EntitiesTab({
                   onRemove={onRemoveUser}
                   canInvite={caps.userInviteEntity}
                   canManage={caps.userManage}
+                  canApprove={caps.userApprove}
+                  ctaLabel={inviteLabel}
                 />
               </section>
             </div>
@@ -1384,7 +1485,8 @@ export function EntityEngagementsSection({
 
 /* ─── Entity-level Users section ─────────────────────────────────────────── */
 export function EntityUsersSection({
-  users, entityName, onAdd, onEdit, onApprove, onReject, onRemove, canInvite = true, canManage = true,
+  users, entityName, onAdd, onEdit, onApprove, onReject, onRemove,
+  canInvite = true, canManage = true, canApprove = false, ctaLabel,
 }: {
   users: OrgUser[];
   entityName: string;
@@ -1397,7 +1499,12 @@ export function EntityUsersSection({
   // user.manage (admins only). Defaults kept `true` so callers that only pass one still work.
   canInvite?: boolean;
   canManage?: boolean;
+  // Approve / reject Pending users — Org + Engagement Admin only (never Super Admin).
+  canApprove?: boolean;
+  // Contributor sees "Invite User" instead of the default "Add User".
+  ctaLabel?: string;
 }) {
+  const label = ctaLabel ?? "Add User";
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -1408,7 +1515,7 @@ export function EntityUsersSection({
             onClick={onAdd}
             className="items-center flex gap-2 border border-neutral-200 bg-white text-neutral-700 text-[14px] leading-[20px] px-3 py-2 rounded-lg hover:bg-neutral-50"
           >
-            <UserPlus className="w-4 h-4" /> Add User
+            <UserPlus className="w-4 h-4" /> {label}
           </button>
         )}
       </div>
@@ -1417,7 +1524,7 @@ export function EntityUsersSection({
           icon={<UsersIcon className="w-7 h-7 text-neutral-300" />}
           title="No users yet"
           text={`No users are associated with ${entityName}.`}
-          cta={canInvite ? "Add User" : undefined}
+          cta={canInvite ? label : undefined}
           onCta={canInvite ? onAdd : undefined}
         />
       ) : (
@@ -1425,7 +1532,7 @@ export function EntityUsersSection({
           <table className="w-full min-w-[720px] text-[14px] leading-[20px]">
             <thead>
               <tr className="border-b border-neutral-200 text-neutral-500 text-left bg-neutral-50">
-                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Role</Th><Th>Status</Th><Th>Invited By</Th><ThActions>Actions</ThActions>
+                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Role</Th><Th>Status</Th><Th>Added By</Th><ThActions>Actions</ThActions>
               </tr>
             </thead>
             <tbody>
@@ -1439,7 +1546,7 @@ export function EntityUsersSection({
                   <Td className="text-neutral-600">{u.invitedBy}</Td>
                   <TdActions>
                     {canManage ? (
-                      <UserRowActions user={u} onEdit={onEdit} onApprove={onApprove} onReject={onReject} onRemove={onRemove} />
+                      <UserRowActions user={u} onEdit={onEdit} onApprove={onApprove} onReject={onReject} onRemove={onRemove} canApprove={canApprove} />
                     ) : (
                       <span className="text-neutral-300">—</span>
                     )}
@@ -1456,7 +1563,7 @@ export function EntityUsersSection({
 
 /* Status-aware action set for a user row.
    - Pending external request → Super Admin can Approve / Reject
-   - Active / Approved → Edit / Remove
+   - Active → Edit / Remove
    - Rejected → Remove */
 // V11-C — shared 3-dot menu trigger for table row actions. Radix DropdownMenu is portaled
 // to the document body so it renders above overflow containers (fixes the last-row clipping).
@@ -1480,13 +1587,15 @@ export function RowActionsMenu({ children, ariaLabel = "Row actions" }: { childr
 }
 
 function UserRowActions({
-  user, onEdit, onApprove, onReject, onRemove,
+  user, onEdit, onApprove, onReject, onRemove, canApprove = false,
 }: {
   user: OrgUser;
   onEdit: (u: OrgUser) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onRemove: (id: string) => void;
+  // Approve / reject a Pending user — Org + Engagement Admin only (never Super Admin).
+  canApprove?: boolean;
 }) {
   // The WTS Super Admin is fixed — it cannot be edited or removed by anyone.
   if (user.role === "Super Admin") {
@@ -1494,7 +1603,7 @@ function UserRowActions({
   }
   return (
     <RowActionsMenu ariaLabel={`Actions for ${user.email}`}>
-      {user.status === "Pending" && (
+      {user.status === "Pending" && canApprove && (
         <>
           <DropdownMenuItem onSelect={() => onApprove(user.id)} className="text-emerald-700 focus:text-emerald-800 focus:bg-emerald-50">
             <Check className="w-3.5 h-3.5" /> Approve
@@ -1519,7 +1628,7 @@ function UserRowActions({
 
 /* ─── TAB 2 — Engagements ────────────────────────────────────────────────── */
 export function EngagementsTab({
-  engagements, entities, onCreate, onEdit, onDisable, onReenable, onOpenEngagement,
+  engagements, entities, onCreate, onEdit, onDisable, onReenable, onOpenEngagement, onOpenEntity,
   canCreate = true, canManage = true,
 }: {
   engagements: Engagement[];
@@ -1529,11 +1638,17 @@ export function EngagementsTab({
   onDisable: (e: Engagement) => void;
   onReenable: (e: Engagement) => void;
   onOpenEngagement: (id: string) => void;
+  onOpenEntity?: (id: string) => void;
   // Change 3 — gate structural actions. canCreate: Organisation Admin (creates engagements);
   // canManage: edit/disable/re-enable rows (engagement-detail edit → Engagement Admin).
   canCreate?: boolean;
   canManage?: boolean;
 }) {
+  const entityMap = useMemo(() => {
+    const m = new Map<string, string>();
+    entities.forEach((e) => m.set(e.id, e.legalName));
+    return m;
+  }, [entities]);
   return (
     <div className="flex grow flex-col">
       <div className="flex items-center justify-between mb-4">
@@ -1577,7 +1692,19 @@ export function EngagementsTab({
                   <Td className="text-neutral-700">{eng.startDate}</Td>
                   <Td className="text-neutral-700">{eng.endDate ?? "—"}</Td>
                   <Td className="text-neutral-700"><ServiceLinesCell serviceLines={eng.serviceLines} /></Td>
-                  <Td><span className="text-neutral-700">{eng.entityIds.length}</span></Td>
+                  <Td>
+                    <TruncatedCell
+                      items={eng.entityIds.map((id) => ({
+                        key: id,
+                        node: onOpenEntity ? (
+                          <Button variant="link" type="button" onClick={() => onOpenEntity(id)} className="h-auto p-0 justify-start text-left">{entityMap.get(id) ?? id}</Button>
+                        ) : (
+                          <span className="text-neutral-700">{entityMap.get(id) ?? id}</span>
+                        ),
+                      }))}
+                      emptyText="—"
+                    />
+                  </Td>
                   <TdActions>
                     {!canManage ? (
                       <span className="text-neutral-300">—</span>
@@ -1644,13 +1771,14 @@ export function UserScopeCell({ user }: { user: OrgUser }) {
 }
 
 function UsersTab({
-  users, entities, engagements, onOpenEngagement, onAdd, onEditUser, onApproveUser, onRejectUser, onRemoveUser,
-  canInvite = true, canManage = true,
+  users, entities, engagements, onOpenEngagement, onOpenEntity, onAdd, onEditUser, onApproveUser, onRejectUser, onRemoveUser,
+  canInvite = true, canManage = true, canApprove = false,
 }: {
   users: OrgUser[];
   entities: LegalEntity[];
   engagements: Engagement[];
   onOpenEngagement: (id: string) => void;
+  onOpenEntity?: (id: string) => void;
   onAdd: () => void;
   onEditUser: (u: OrgUser) => void;
   onApproveUser: (id: string) => void;
@@ -1658,6 +1786,7 @@ function UsersTab({
   onRemoveUser: (id: string) => void;
   canInvite?: boolean;
   canManage?: boolean;
+  canApprove?: boolean;
 }) {
   const entityMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -1701,7 +1830,7 @@ function UsersTab({
           <table className="w-full min-w-[720px] text-[14px] leading-[20px]">
             <thead>
               <tr className="border-b border-neutral-200 text-neutral-500 text-left bg-neutral-50">
-                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Roles</Th><Th>Legal Entities</Th><Th>Engagements</Th><Th>Scope</Th><Th>Status</Th><Th>Invited By</Th><ThActions>Actions</ThActions>
+                <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Roles</Th><Th>Legal Entities</Th><Th>Engagements</Th><Th>Scope</Th><Th>Status</Th><Th>Added By</Th><ThActions>Actions</ThActions>
               </tr>
             </thead>
             <tbody>
@@ -1731,7 +1860,11 @@ function UsersTab({
                             key: id,
                             node: (
                               <span className="text-neutral-700">
-                                {entityMap.get(id) ?? id}
+                                {onOpenEntity ? (
+                                  <Button variant="link" type="button" onClick={() => onOpenEntity(id)} className="h-auto p-0 justify-start text-left">{entityMap.get(id) ?? id}</Button>
+                                ) : (
+                                  entityMap.get(id) ?? id
+                                )}
                                 {codes.length > 0 && (
                                   <span className="ml-1.5 text-[11px] leading-[14px] text-neutral-500" title="VAT-registration (country) scope on this entity">({codes.join(", ")} only)</span>
                                 )}
@@ -1763,7 +1896,7 @@ function UsersTab({
                   <Td className="text-neutral-600">{u.invitedBy}</Td>
                   <TdActions>
                     {canManage ? (
-                      <UserRowActions user={u} onEdit={onEditUser} onApprove={onApproveUser} onReject={onRejectUser} onRemove={onRemoveUser} />
+                      <UserRowActions user={u} onEdit={onEditUser} onApprove={onApproveUser} onReject={onRejectUser} onRemove={onRemoveUser} canApprove={canApprove} />
                     ) : (
                       <span className="text-neutral-300">—</span>
                     )}
@@ -2105,9 +2238,8 @@ export function UserTypeBadge({ type }: { type: OrgUser["userType"] }) {
 }
 
 export function UserStatusBadge({ status }: { status: OrgUser["status"] }) {
-  const tone: Record<OrgUser["status"], "green" | "blue" | "orange" | "gray"> = {
+  const tone: Record<OrgUser["status"], "green" | "orange" | "gray"> = {
     Active: "green",
-    Approved: "blue",
     Pending: "orange",
     Rejected: "gray",
   };
@@ -2140,7 +2272,7 @@ export function TdActions({ children }: { children: React.ReactNode }) {
 }
 
 // Compact cell: shows the first item + a "+N" chip that expands to the full list.
-function TruncatedCell({
+export function TruncatedCell({
   items, emptyText, expandedItems,
 }: {
   items: { key: string; node: React.ReactNode }[];
@@ -2166,8 +2298,9 @@ function TruncatedCell({
         )}
       </div>
       {open && extra > 0 && (
-        <div className="absolute z-30 mt-1 min-w-[220px] max-w-[320px] bg-white border border-neutral-200 rounded-lg shadow-lg p-2 flex flex-col gap-1.5">
-          {list.map((it) => <div key={it.key} className="text-[13px] leading-[18px]">{it.node}</div>)}
+        // Separator between each row; caps at ~5 rows tall, then scrolls vertically.
+        <div className="absolute z-30 mt-1 min-w-[220px] max-w-[320px] max-h-[200px] overflow-y-auto bg-white border border-neutral-200 rounded-lg shadow-lg divide-y divide-neutral-100">
+          {list.map((it) => <div key={it.key} className="text-[13px] leading-[18px] px-3 py-2">{it.node}</div>)}
         </div>
       )}
     </div>

@@ -648,7 +648,8 @@ export function EntityGroupMembershipsSection({
 }: {
   entity: LegalEntity
   groups: Group[]
-  onOpenGroup: (groupId: string) => void
+  // Optional — when absent (Contributor lens) the rows are read-only and don't navigate.
+  onOpenGroup?: (groupId: string) => void
 }) {
   const memberships = groupsForEntity(entity.id, groups)
 
@@ -670,13 +671,15 @@ export function EntityGroupMembershipsSection({
                 : m.representative
                   ? { label: 'Representative', tone: 'sky' as const }
                   : { label: 'Member', tone: 'gray' as const }
+            const clickable = !!onOpenGroup
+            const Row = clickable ? 'button' : 'div'
             return (
-              <button
+              <Row
                 key={g.id}
-                type="button"
-                onClick={() => onOpenGroup(g.id)}
+                {...(clickable ? { type: 'button' as const, onClick: () => onOpenGroup!(g.id) } : {})}
                 className={cn(
-                  'flex w-full items-center justify-between gap-4 px-5 py-3 text-left hover:bg-neutral-50',
+                  'flex w-full items-center justify-between gap-4 px-5 py-3 text-left',
+                  clickable && 'hover:bg-neutral-50',
                   i < memberships.length - 1 && 'border-b border-neutral-100',
                 )}
               >
@@ -692,7 +695,7 @@ export function EntityGroupMembershipsSection({
                     {role.label}
                   </Badge>
                 </div>
-              </button>
+              </Row>
             )
           })}
         </div>

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 
 import { useOrgStore } from '@/store/useOrgStore'
+import { useDataStore } from '@/store/useDataStore'
 import { Organization, OrgStatus } from '@/components/organizations-data'
 import { getDataset, OrgWorkspaceData } from '@/components/demo-data'
 import { OrganizationsPage, OrgFormData } from '@/components/organizations-page'
@@ -13,15 +14,25 @@ export function PlaygroundMain() {
   const dataMode = useOrgStore((state) => state.dataMode)
   const selectedOrgId = useOrgStore((state) => state.selectedOrgId)
   const setSelectedOrgId = useOrgStore((state) => state.setSelectedOrgId)
+  const initialTab = useOrgStore((state) => state.tab)
+  const initialEngagement = useOrgStore((state) => state.engagement)
+  const dialog = useOrgStore((state) => state.dialog)
 
-  const dataset = useMemo(() => getDataset(dataMode), [dataMode])
+  // The working dataset lives in the session-persisted store so edits survive role
+  // switches and refresh. Each preset caches its own snapshot; seed it on first use.
+  const ensureSeeded = useDataStore((state) => state.ensureSeeded)
+  const storedDataset = useDataStore((state) => state.datasets[dataMode])
+  const createOrgAction = useDataStore((state) => state.createOrg)
+  const updateOrgAction = useDataStore((state) => state.updateOrg)
+  const setOrgStatusAction = useDataStore((state) => state.setOrgStatus)
 
-  // The org list lives here (not inside OrganizationsPage) so that newly-created
-  // orgs are resolvable when opened, and so switching dataset reseeds the list.
-  const [orgs, setOrgs] = useState<Organization[]>(dataset.organizations)
   useEffect(() => {
-    setOrgs(dataset.organizations)
-  }, [dataset])
+    ensureSeeded(dataMode)
+  }, [dataMode, ensureSeeded])
+
+  // Fall back to a fresh seed for the first render before the store hydrates/seeds.
+  const dataset = useMemo(() => storedDataset ?? getDataset(dataMode), [storedDataset, dataMode])
+  const orgs = dataset.organizations
 
   const selectedOrg: Organization | null = selectedOrgId
     ? orgs.find((o) => o.id === selectedOrgId) ?? null
@@ -45,25 +56,22 @@ export function PlaygroundMain() {
       lastModified: today(),
       lastModifiedBy: 'Super Admin',
     }
-    setOrgs((prev) => [newOrg, ...prev])
+    createOrgAction(dataMode, newOrg)
   }
 
   const onUpdateOrg = (id: string, data: OrgFormData) => {
-    setOrgs((prev) =>
-      prev.map((o) =>
-        o.id === id
-          ? { ...o, name: data.name, description: data.description, status: data.status, logoUrl: data.logoUrl, lastModified: today(), lastModifiedBy: 'Super Admin' }
-          : o,
-      ),
-    )
+    updateOrgAction(dataMode, id, {
+      name: data.name,
+      description: data.description,
+      status: data.status,
+      logoUrl: data.logoUrl,
+      lastModified: today(),
+      lastModifiedBy: 'Super Admin',
+    })
   }
 
   const onSetOrgStatus = (id: string, status: OrgStatus) => {
-    setOrgs((prev) =>
-      prev.map((o) =>
-        o.id === id ? { ...o, status, lastModified: today(), lastModifiedBy: 'Super Admin' } : o,
-      ),
-    )
+    setOrgStatusAction(dataMode, id, status)
   }
 
   // V7 — every role uses the same workspace: all tabs and content are visible to everyone,
@@ -82,11 +90,16 @@ export function PlaygroundMain() {
 
   return selectedOrg ? (
     <OrgWorkspace
-      key={`${role}-${dataMode}-${selectedOrg.id}`}
+      // Role is deliberately NOT in the key: switching lens must not remount/wipe the
+      // workspace. Switching dataset preset does remount so it re-seeds cleanly.
+      key={`${dataMode}-${selectedOrg.id}`}
       org={selectedOrg}
       onBack={onBack}
       actingRole={role}
       data={workspaceData}
+      initialTab={initialTab}
+      initialEngagement={initialEngagement}
+      initialDialog={dialog}
     />
   ) : (
     <OrganizationsPage
@@ -96,6 +109,7 @@ export function PlaygroundMain() {
       onCreateOrg={onCreateOrg}
       onUpdateOrg={onUpdateOrg}
       onSetOrgStatus={onSetOrgStatus}
+      initialDialog={dialog}
     />
   )
 }

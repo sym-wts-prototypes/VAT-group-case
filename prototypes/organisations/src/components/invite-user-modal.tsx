@@ -4,6 +4,7 @@ import { LegalEntity, OrgUser, UserType } from "./org-details-data";
 import { ModalShell, ModalFooter, Field, inputCls, primaryBtn, secondaryBtn } from "./legal-entity-modal";
 
 export interface InviteDraft {
+  name: string;
   email: string;
   userType: UserType;
   role: string;
@@ -30,7 +31,10 @@ export function InviteUserModal({
   onSubmit: (draft: InviteDraft) => void;
 }) {
   const isEdit = mode === "edit";
-  const isInvite = variant === "invite"; // User role: locked entity, fixed Contributor role, "invite" wording
+  // Invite = minimal Contributor invitation: Name + Email + User Type only. Role is locked to
+  // Contributor and the legal-entity scope is inherited from `defaultEntityId` (both hidden).
+  const isInvite = variant === "invite";
+  const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [userType, setUserType] = useState<UserType>(user?.userType ?? "Internal");
   const [role, setRole] = useState<string>(user?.role ?? "Contributor");
@@ -51,12 +55,14 @@ export function InviteUserModal({
   const internalRoles = allowSuperAdminRole ? ["Super Admin", "Organisation Admin", "Engagement Admin", "Contributor"] : ["Organisation Admin", "Engagement Admin", "Contributor"];
 
   function submit() {
-    const needsEntity = !isSuperAdminRole; // Super Admins get ALL entities
-    if (!email.trim() || !email.includes("@") || (needsEntity && entityIds.length === 0)) { setErr(true); return; }
-    onSubmit({ email: email.trim(), userType, role: isInvite ? "Contributor" : role, entityIds });
+    const needsEntity = !isInvite && !isSuperAdminRole; // Super Admins get ALL entities; invite inherits the entity
+    const missingName = isInvite && !name.trim();
+    if (missingName || !email.trim() || !email.includes("@") || (needsEntity && entityIds.length === 0)) { setErr(true); return; }
+    onSubmit({ name: name.trim(), email: email.trim(), userType, role: isInvite ? "Contributor" : role, entityIds });
     if (isEdit || closeOnSubmit) {
       onClose();
     } else {
+      setName("");
       setEmail("");
       setEntityIds(defaultEntityId ? [defaultEntityId] : []);
       setErr(false);
@@ -66,6 +72,17 @@ export function InviteUserModal({
   return (
     <ModalShell title={isEdit ? "Edit User" : isInvite ? "Invite User" : "Add User"} onClose={onClose} width="480px">
       <div className="flex flex-col gap-4">
+        {isInvite && (
+          <Field label="Name" required error={err}>
+            <input
+              className={inputCls(err && !name.trim())}
+              value={name}
+              onChange={(e) => { setName(e.target.value); setErr(false); }}
+              placeholder="Full name"
+            />
+          </Field>
+        )}
+
         <Field label="Email" required error={err}>
           <input
             className={inputCls(err && (!email.trim() || !email.includes("@")))}
@@ -93,14 +110,10 @@ export function InviteUserModal({
           </div>
         </Field>
 
-        {/* Role */}
+        {/* Role — hidden for invites (role is always Contributor). */}
+        {!isInvite && (
         <Field label="Role">
-          {isInvite ? (
-            <div className="flex items-center h-10 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-[14px] leading-[20px] text-neutral-600 gap-2">
-              Contributor
-              <span className="text-neutral-400 text-[12px]">(invited users join as Contributor)</span>
-            </div>
-          ) : userType === "External" ? (
+          {userType === "External" ? (
             <div className="flex items-center h-10 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-[14px] leading-[20px] text-neutral-600 gap-2">
               Contributor
               <span className="text-neutral-400 text-[12px]">(auto-selected for External users)</span>
@@ -122,15 +135,10 @@ export function InviteUserModal({
             </div>
           )}
         </Field>
+        )}
 
-        {/* Legal Entities */}
-        {isInvite ? (
-          <Field label="Legal Entity">
-            <div className="flex items-center h-10 px-3 bg-neutral-50 border border-neutral-200 rounded-lg text-[14px] leading-[20px] text-neutral-500">
-              {entities.find((e) => e.id === entityIds[0])?.legalName ?? "—"}
-            </div>
-          </Field>
-        ) : isSuperAdminRole ? (
+        {/* Legal Entities — hidden for invites (scope inherited from the entity in context). */}
+        {isInvite ? null : isSuperAdminRole ? (
           <Field label="Legal Entities">
             <div className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 flex items-center gap-2 opacity-70 cursor-not-allowed">
               <span className="items-center inline-flex font-medium border bg-neutral-900 border-neutral-900 text-white text-[11px] leading-[14px] px-2 py-0.5 rounded-full">ALL</span>

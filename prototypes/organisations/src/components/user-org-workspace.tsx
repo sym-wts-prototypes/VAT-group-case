@@ -260,7 +260,7 @@ export function UserOrgWorkspace({ org, onBack }: { org: Organization; onBack: (
                     <table className="w-full min-w-[720px] text-[14px] leading-[20px]">
                       <thead>
                         <tr className="border-b border-neutral-200 text-neutral-500 text-left bg-neutral-50">
-                          <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Role</Th><Th>Status</Th><Th>Invited By</Th>
+                          <Th>Name</Th><Th>Email</Th><Th>User Type</Th><Th>Role</Th><Th>Status</Th><Th>Added By</Th>
                         </tr>
                       </thead>
                       <tbody>

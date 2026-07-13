@@ -30,7 +30,8 @@ export type Capability =
   | "user.invite.org"            // Add User on the org-level Users tab
   | "user.invite.entity"         // Add User on an entity-detail Users section
   | "user.invite.engagement"     // Assign User on an engagement detail page
-  | "user.manage"                // edit / approve / reject / remove existing users
+  | "user.manage"                // edit / remove existing users
+  | "user.approve"              // approve / reject a Pending invited user (Org + Engagement Admin only)
   | "case.create";               // subject additionally to per-user canCreateCases + country scope
 
 const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
@@ -42,13 +43,15 @@ const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
     "group.manage",
     "user.invite.org", "user.invite.entity", "user.invite.engagement",
     "user.manage", "case.create",
+    // NOT: user.approve — Super Admin never approves/rejects invited users; that is the
+    // Organisation Admin's / Engagement Admin's decision.
   ],
   "Organisation Admin": [
     // Sets up legal entities + manages users at ORG and ENTITY level only.
     "entity.create", "entity.edit", "entity.disable",
     "group.manage",
     "user.invite.org", "user.invite.entity",
-    "user.manage",
+    "user.manage", "user.approve",
     // NOT: engagement.create / engagement.editDetail — that belongs to the Engagement Admin.
     // NOT: user.invite.engagement — engagement user assignment is the Engagement Admin's remit.
   ],
@@ -56,13 +59,14 @@ const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
     // Creates engagements, assigns engagement users, connects engagements to entities.
     "engagement.create", "engagement.editDetail",
     "user.invite.engagement",
-    "user.manage",
+    "user.manage", "user.approve",
     // NOT: entity.* — never touches legal-entity data.
     // NOT: user.invite.org / user.invite.entity — no org- or entity-level user creation.
   ],
   Contributor: [
-    // See-only lens with the ability to invite users at every level.
-    "user.invite.org", "user.invite.entity", "user.invite.engagement",
+    // Restricted lens: sees only the Legal Entities tab and can INVITE users (who land in
+    // Pending until an Organisation/Engagement Admin approves them). No other write actions.
+    "user.invite.entity",
   ],
 };
 

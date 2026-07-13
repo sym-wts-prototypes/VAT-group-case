@@ -21,17 +21,32 @@ export function PlaygroundView() {
   const [controlsHidden, setControlsHidden] = useState(false)
 
   useEffect(() => {
+    const toggle = () => setControlsHidden((hidden) => !hidden)
+
+    // Capture phase + `event.code` (physical key, layout-independent) so the shortcut
+    // fires before other page handlers and preventDefault reliably suppresses the
+    // browser's own Cmd/Ctrl+Shift+H default.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'h') return
+      if (event.code !== 'KeyH') return
       if (!event.shiftKey || !(event.metaKey || event.ctrlKey)) return
       if (isEditableTarget(event.target)) return
 
       event.preventDefault()
-      setControlsHidden((hidden) => !hidden)
+      toggle()
     }
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    // When running inside the gallery, focus may sit on the parent chrome (outside this
+    // iframe), so keydown never reaches us. The parent forwards the shortcut as a message.
+    const onMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'wts:toggle-fullscreen') toggle()
+    }
+
+    window.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('message', onMessage)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('message', onMessage)
+    }
   }, [])
 
   // Tell the embedding gallery to hide its chrome so fullscreen fills the whole window.

@@ -250,13 +250,21 @@ const CIT: ProcessConfig = {
           },
         },
       },
-      // CIT-only post-submission stage: tracking tax assessments + closing the case.
+      // CIT-only post-submission stage: tracking tax assessments + moving to the summary.
       assessmentClosure: {
         default: {
           actions: {
+            secondary: [
+              { label: 'Requirements', icon: 'ListChecks', variant: 'outline' },
+            ],
+          },
+        },
+        // Only the creator can advance the phase; the CTA navigates to the summary.
+        creator: {
+          actions: {
             primary: {
-              label: 'Close case',
-              icon: 'CheckCheck',
+              label: 'Go to summary',
+              icon: 'ArrowRight',
               iconSide: 'right',
               variant: 'default',
             },

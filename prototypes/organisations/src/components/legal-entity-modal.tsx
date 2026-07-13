@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { Badge, Checkbox } from "@wts/ui";
-import { LegalEntity, EntityType, Establishment, LEGAL_FORMS, COUNTRIES } from "./org-details-data";
-import { Group, groupsForJurisdiction, representativeOf, EntityIdentifier, IdentifierType, IDENTIFIER_TYPES, entityIdentifiers, identifierLabel, OrgUser } from "./org-details-data";
+import { LegalEntity, EntityType, Establishment, LEGAL_FORMS, COUNTRIES, ALL_COUNTRIES } from "./org-details-data";
+import { Group, groupsForJurisdiction, representativeOf, EntityIdentifier, IdentifierType, IDENTIFIER_TYPES, entityIdentifiers, identifierLabel } from "./org-details-data";
+import { CountrySelect } from "./country-select";
 
 // Change 1/6 — a VAT registration row carries its own validity window (its VAT ID's validity)
 // and an optional id (preserved on edit so access rules / group membership keep referencing it).
@@ -19,7 +20,6 @@ export function LegalEntityModal({
   initialVatRegs,
   orgId,
   groups = [],
-  orgUsers = [],
   onClose,
   onSubmit,
 }: {
@@ -29,10 +29,8 @@ export function LegalEntityModal({
   initialVatRegs?: VatRow[];
   orgId: string;
   groups?: Group[];
-  // V10-C — existing org users available to attach to the new entity on save. Optional.
-  orgUsers?: OrgUser[];
   onClose: () => void;
-  onSubmit: (draft: LegalEntityDraft, vatRows: VatRow[], groupAssignments?: GroupAssignment[], createNewGroup?: boolean, assignedUserIds?: string[]) => void;
+  onSubmit: (draft: LegalEntityDraft, vatRows: VatRow[], groupAssignments?: GroupAssignment[], createNewGroup?: boolean) => void;
 }) {
   const [f, setF] = useState<LegalEntityDraft>({
     legalName: entity?.legalName ?? "",
@@ -40,17 +38,17 @@ export function LegalEntityModal({
     clientId: entity?.clientId ?? "",
     taxAuthority: entity?.taxAuthority ?? "",
     citNumber: entity?.citNumber ?? "",
-    establishments: entity?.establishments ? entity.establishments.map((b) => ({ ...b })) : [],
+    establishments: entity?.establishments ? entity.establishments.map((b, i) => ({ ...b, id: b.id ?? `est-seed-${i}` })) : [],
     levelOfShareholding: entity?.levelOfShareholding ?? "",
     incomeTaxGroup: entity?.incomeTaxGroup ?? false,
     vatGroup: entity?.vatGroup ?? false,
     vatGroupRepresentative: entity?.vatGroupRepresentative ?? false,
     vatGroupRepresentativeId: entity?.vatGroupRepresentativeId,
-    jurisdiction: entity?.jurisdiction ?? entity?.country ?? "Germany",
+    jurisdiction: entity?.jurisdiction ?? entity?.country ?? "",
     address: entity?.address ?? "",
     city: entity?.city ?? "",
     postalCode: entity?.postalCode ?? "",
-    country: entity?.country ?? "Germany",
+    country: entity?.country ?? "",
     fiscalYearStart: entity?.fiscalYearStart ?? "1 January",
     fiscalYearEnd: entity?.fiscalYearEnd ?? "31 December",
     type: entity?.type ?? "HQ",
@@ -75,30 +73,9 @@ export function LegalEntityModal({
   const [groupRep, setGroupRep] = useState<string[]>([]);
   const [createNewGroup, setCreateNewGroup] = useState(false);
 
-  // V10-C — optional: attach existing org users to this new entity on save. Create mode only.
-  const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
-  const toggleAssignedUser = (id: string) =>
-    setAssignedUserIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-
   function set<K extends keyof LegalEntityDraft>(k: K, v: LegalEntityDraft[K]) {
     setF((prev) => ({ ...prev, [k]: v }));
   }
-
-  // V8-B — keep every branch's Country and Jurisdiction pinned to the head office's. Both
-  // are disabled / omitted in the UI; this effect makes changing HQ Country/Jurisdiction
-  // cascade to already-added branches too.
-  useEffect(() => {
-    const country = f.country;
-    const jurisdiction = f.jurisdiction ?? f.country;
-    if (!country) return;
-    setF((prev) => {
-      const branches = prev.establishments ?? [];
-      if (!branches.length) return prev;
-      const needsUpdate = branches.some((b) => b.country !== country || b.jurisdiction !== jurisdiction);
-      if (!needsUpdate) return prev;
-      return { ...prev, establishments: branches.map((b) => ({ ...b, country, jurisdiction })) };
-    });
-  }, [f.country, f.jurisdiction]);
 
   // Rule 2 in the form: checking a group of a given type auto-unchecks any
   // already-checked group of the SAME type (an entity can't be active in two).
@@ -116,17 +93,17 @@ export function LegalEntityModal({
   }
 
   function addEstablishment() {
-    // V8-B — a new branch inherits both the head office's Country (locked in the UI) and
-    // its Jurisdiction (which mirrors HQ jurisdiction downstream).
+    // Every new branch starts completely empty and independent — it inherits nothing from the
+    // head office, another branch, or the last selected country/jurisdiction. A stable id keys
+    // the row so removing a branch never shifts entered state into a neighbouring branch.
     setF((prev) => ({
       ...prev,
       establishments: [
         ...(prev.establishments ?? []),
         {
+          id: `est-${Date.now()}-${prev.establishments?.length ?? 0}`,
           address: "", city: "", postalCode: "",
-          country: prev.country ?? "Germany",
-          taxAuthority: "",
-          jurisdiction: prev.jurisdiction ?? prev.country ?? "Germany",
+          country: "", taxAuthority: "", jurisdiction: "",
           citNumber: "", wageTaxNumber: "",
         },
       ],
@@ -145,8 +122,10 @@ export function LegalEntityModal({
 
   function submit() {
     if (!f.legalName.trim()) { setErr(true); return; }
+    // Branches require Country + Jurisdiction. Incomplete branches block submission (rather
+    // than being silently dropped) so the user completes or explicitly removes them.
     const branches = f.establishments ?? [];
-    const branchesValid = branches.every((b) => b.jurisdiction.trim() && b.citNumber.trim());
+    const branchesValid = branches.every((b) => (b.country ?? "").trim() && (b.jurisdiction ?? "").trim());
     if (!branchesValid) { setBranchErr(true); return; }
     // Persist the identifier list onto the draft. Mirror the first Client Identifier back
     // into the legacy `clientId` scalar so downstream code that still reads it keeps working.
@@ -163,7 +142,7 @@ export function LegalEntityModal({
         groupId: id,
         makeRepresentative: groupRep.includes(id),
       }));
-      onSubmit(withIds, vatRows, assignments, createNewGroup, assignedUserIds);
+      onSubmit(withIds, vatRows, assignments, createNewGroup);
     } else {
       onSubmit(withIds, vatRows);
     }
@@ -285,10 +264,10 @@ export function LegalEntityModal({
         )}
       </div>
 
-      {/* Head Office (Hauptsitz) — same field layout as a Branch, without card chrome.
+      {/* Head Office — same field layout as a Branch, without card chrome.
           Includes TIN CIT and TIN Wage Tax at the entity level. */}
       <div className="mt-6 pt-5 border-t border-neutral-100">
-        <span className="text-[13px] leading-[18px] font-medium text-neutral-700 block mb-3">Head Office (Hauptsitz)</span>
+        <span className="text-[13px] leading-[18px] font-medium text-neutral-700 block mb-3">Head Office</span>
         <AddressFields
           values={{ address: f.address, city: f.city, postalCode: f.postalCode, country: f.country, taxAuthority: f.taxAuthority, jurisdiction: f.jurisdiction, citNumber: f.citNumber, wageTaxNumber: f.wageTaxNumber }}
           onChange={(field, value) => set(field as keyof LegalEntityDraft, value as never)}
@@ -313,7 +292,7 @@ export function LegalEntityModal({
         ) : (
           <div className="flex flex-col gap-3">
             {(f.establishments ?? []).map((b, i) => (
-              <div key={i} className="border border-neutral-200 rounded-lg p-3 flex flex-col gap-3">
+              <div key={b.id ?? i} className="border border-neutral-200 rounded-lg p-3 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] leading-[16px] font-medium text-neutral-500">Branch {i + 1}</span>
                   <button
@@ -328,15 +307,13 @@ export function LegalEntityModal({
                 <AddressFields
                   values={b}
                   onChange={(field, value) => updateEstablishment(i, field as keyof Establishment, value)}
-                  required
-                  addressPlaceholder="Address (optional)"
-                  lockedCountry={f.country}
+                  requireCountryJurisdiction
+                  showErrors={branchErr}
                 />
               </div>
             ))}
           </div>
         )}
-        {branchErr && <p className="text-[12px] leading-[16px] text-brand mt-2">Each branch needs a TIN CIT (address, tax authority &amp; TIN Wage Tax are optional; jurisdiction is inherited from the head office).</p>}
       </div>
 
       {/* VAT Registrations (TIN VAT) — one row per country. No validity dates. */}
@@ -527,40 +504,6 @@ export function LegalEntityModal({
         </div>
       )}
 
-      {/* V10-C — optional Users section: pick from the org user pool to seed access on the
-          new entity. Skipping this is fine — users can still be added later. */}
-      {mode === "create" && (
-        <div className="flex flex-col gap-3 mt-6 pt-5 border-t border-neutral-100">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] leading-[18px] font-medium text-neutral-700">Assign users <span className="text-neutral-400 font-normal">(optional)</span></span>
-            {orgUsers.length > 0 && (
-              <span className="text-[12px] leading-[16px] text-neutral-400">
-                {assignedUserIds.length} of {orgUsers.length} selected
-              </span>
-            )}
-          </div>
-          {orgUsers.length === 0 ? (
-            <p className="text-neutral-400 text-[13px] leading-[18px]">No org users yet — you can add them after the entity is created.</p>
-          ) : (
-            <div className="flex flex-col divide-y divide-neutral-100 rounded-lg border border-neutral-200 max-h-[220px] overflow-auto">
-              {orgUsers.map((u) => {
-                const on = assignedUserIds.includes(u.id);
-                return (
-                  <label key={u.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-neutral-50">
-                    <Checkbox checked={on} onCheckedChange={() => toggleAssignedUser(u.id)} />
-                    <span className="flex flex-col grow">
-                      <span className="text-[14px] leading-5 text-neutral-900">{u.name}</span>
-                      <span className="text-[12px] leading-4 text-neutral-500">{u.email}</span>
-                    </span>
-                    <Badge tone={u.userType === "Internal" ? "red" : "blue"} size="sm">{u.userType}</Badge>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       <ModalFooter>
         <button type="button" onClick={onClose} className={secondaryBtn}>Cancel</button>
         <button type="button" onClick={submit} className={primaryBtn}>
@@ -629,71 +572,79 @@ function YesNoChips({ value, onChange }: { value: boolean; onChange: (v: boolean
   );
 }
 
-/* ---------- Shared address block (Head Office + Branches) ---------- */
+/* ---------- Shared address + tax fields (Head Office + Branches) ----------
+
+   One component drives both sections so their fields, labels, layout and styling stay
+   identical. The only configurable behaviour is whether Country + Jurisdiction are required
+   (branches) and whether to surface required-field errors. Each rendered instance owns its
+   own local field state — there is no value copying between Head Office and Branches. */
 
 type AddressValues = { address?: string; city?: string; postalCode?: string; country?: string; taxAuthority?: string; jurisdiction?: string; citNumber?: string; wageTaxNumber?: string };
 
-function AddressFields({ values, onChange, required, addressPlaceholder = "Street and number", lockedCountry }: {
+function AddressFields({ values, onChange, requireCountryJurisdiction = false, showErrors = false }: {
   values: AddressValues;
   onChange: (field: string, value: string) => void;
-  required?: boolean;
-  addressPlaceholder?: string;
-  // V8-B — when set, the Country dropdown is disabled and pinned to this value; the
-  // Jurisdiction field is omitted entirely (branches inherit both from the head office).
-  lockedCountry?: string;
+  // Branches require Country + Jurisdiction; Head Office leaves them optional.
+  requireCountryJurisdiction?: boolean;
+  // When true (after a failed submit) missing required fields render in the error state.
+  showErrors?: boolean;
 }) {
-  const countryValue = lockedCountry ?? values.country ?? "";
+  const countryMissing = requireCountryJurisdiction && !(values.country ?? "").trim();
+  const jurisdictionMissing = requireCountryJurisdiction && !(values.jurisdiction ?? "").trim();
+
+  // Selecting/changing Country auto-fills Jurisdiction ONLY when Jurisdiction is currently
+  // empty — decided purely from the present value, with no persistent sync or override flag.
+  function handleCountry(v: string) {
+    onChange("country", v);
+    if (v && !(values.jurisdiction ?? "").trim()) onChange("jurisdiction", v);
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <input className={inputCls()} value={values.address ?? ""} onChange={(e) => onChange("address", e.target.value)} placeholder={addressPlaceholder} />
+      <input className={inputCls()} value={values.address ?? ""} onChange={(e) => onChange("address", e.target.value)} placeholder="Street and number" />
       <div className="grid grid-cols-4 gap-2">
         <input className={`${inputCls()} col-span-2`} value={values.city ?? ""} onChange={(e) => onChange("city", e.target.value)} placeholder="City" />
         <input className={inputCls()} value={values.postalCode ?? ""} onChange={(e) => onChange("postalCode", e.target.value)} placeholder="Postal" />
-        <select
-          className={`${inputCls()} ${lockedCountry ? "opacity-70 cursor-not-allowed" : ""}`}
-          value={countryValue}
-          disabled={!!lockedCountry}
-          onChange={(e) => onChange("country", e.target.value)}
-          title={lockedCountry ? "Same as head office" : undefined}
-        >
-          <option value="">Country</option>
-          {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
-        </select>
+        <CountrySelect
+          value={values.country ?? ""}
+          onChange={handleCountry}
+          options={ALL_COUNTRIES}
+          placeholder="Country"
+          ariaLabel="Country"
+          error={showErrors && countryMissing}
+        />
       </div>
-      {/* Head Office keeps the Jurisdiction control; branches (lockedCountry set) drop it —
-          they take the head office jurisdiction implicitly. */}
-      {!lockedCountry && (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] leading-[14px] text-neutral-500">Tax Authority</label>
-            <input className={inputCls()} value={values.taxAuthority ?? ""} onChange={(e) => onChange("taxAuthority", e.target.value)} placeholder="optional" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] leading-[14px] text-neutral-500">Jurisdiction {required && <span className="text-brand">*</span>}</label>
-            <select className={inputCls()} value={values.jurisdiction ?? ""} onChange={(e) => onChange("jurisdiction", e.target.value)}>
-              {COUNTRIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-        </div>
-      )}
-      {lockedCountry && (
+      <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
           <label className="text-[11px] leading-[14px] text-neutral-500">Tax Authority</label>
           <input className={inputCls()} value={values.taxAuthority ?? ""} onChange={(e) => onChange("taxAuthority", e.target.value)} placeholder="optional" />
         </div>
-      )}
-      {/* V6-C — TIN CIT + TIN Wage Tax, side by side. Head Office shows both; branches show
-          both too (Wage Tax optional). The TIN CIT is mandatory on branches. */}
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] leading-[14px] text-neutral-500">Jurisdiction {requireCountryJurisdiction && <span className="text-brand">*</span>}</label>
+          <CountrySelect
+            value={values.jurisdiction ?? ""}
+            onChange={(v) => onChange("jurisdiction", v)}
+            options={ALL_COUNTRIES}
+            placeholder="Jurisdiction"
+            ariaLabel="Jurisdiction"
+            error={showErrors && jurisdictionMissing}
+          />
+        </div>
+      </div>
+      {/* TIN CIT + TIN Wage Tax, side by side — both optional for Head Office and Branches. */}
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] leading-[14px] text-neutral-500">TIN CIT {required && <span className="text-brand">*</span>}</label>
-          <input className={inputCls()} value={values.citNumber ?? ""} onChange={(e) => onChange("citNumber", e.target.value)} placeholder={required ? "required" : "optional"} />
+          <label className="text-[11px] leading-[14px] text-neutral-500">TIN CIT</label>
+          <input className={inputCls()} value={values.citNumber ?? ""} onChange={(e) => onChange("citNumber", e.target.value)} placeholder="optional" />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-[11px] leading-[14px] text-neutral-500">TIN Wage Tax</label>
           <input className={inputCls()} value={values.wageTaxNumber ?? ""} onChange={(e) => onChange("wageTaxNumber", e.target.value)} placeholder="optional" />
         </div>
       </div>
+      {requireCountryJurisdiction && showErrors && (countryMissing || jurisdictionMissing) && (
+        <p className="text-[12px] leading-[16px] text-brand">Country and Jurisdiction are required.</p>
+      )}
     </div>
   );
 }

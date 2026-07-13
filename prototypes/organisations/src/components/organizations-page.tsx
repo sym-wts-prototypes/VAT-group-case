@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Building2 } from 'lucide-react'
 import { Button, EmptyState as UiEmptyState } from '@wts/ui'
 
@@ -25,6 +25,7 @@ export function OrganizationsPage({
   onCreateOrg,
   onUpdateOrg,
   onSetOrgStatus,
+  initialDialog,
 }: {
   orgs: Organization[]
   onOpenOrg: (o: Organization) => void
@@ -34,9 +35,19 @@ export function OrganizationsPage({
   onCreateOrg: (data: OrgFormData) => void
   onUpdateOrg: (id: string, data: OrgFormData) => void
   onSetOrgStatus: (id: string, status: OrgStatus) => void
+  // Deep-link a dialog open on mount (used by the Flow canvas). Currently: 'create-org'.
+  initialDialog?: string | null
 }) {
   const [panel, setPanel] = useState<{ mode: PanelMode; org: Organization | null } | null>(null)
   const [disableTarget, setDisableTarget] = useState<Organization | null>(null)
+
+  useEffect(() => {
+    if (initialDialog === 'create-org' && canManage) {
+      setPanel({ mode: 'create', org: null })
+    }
+    // Run once on mount for the deep-linked dialog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sorted = useMemo(() => {
     const visible = visibleOrgIds ? orgs.filter((o) => visibleOrgIds.includes(o.id)) : orgs

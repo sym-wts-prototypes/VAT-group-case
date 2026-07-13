@@ -109,7 +109,7 @@ export function CaseSummarySection({ role }: CaseSummarySectionProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <CaseClosedBanner />
+      <SummaryBanner />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-foreground">Case records</h2>
@@ -208,7 +208,7 @@ export function CaseSummarySection({ role }: CaseSummarySectionProps) {
   )
 }
 
-function CaseClosedBanner() {
+function SummaryBanner() {
   return (
     <div className="flex items-start gap-4 rounded-lg border border-green-200 bg-green-50 px-4 py-4">
       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
@@ -216,10 +216,10 @@ function CaseClosedBanner() {
       </span>
       <div className="min-w-0 flex flex-col gap-1">
         <p className="font-display text-lg font-semibold leading-7 text-foreground">
-          Case closed
+          Summary
         </p>
         <p className="text-sm text-muted-foreground">
-          Closed 16 Jun · 5 assessments · 3 approved · 2 objections filed
+          16 Jun · 5 assessments · 3 approved · 2 objections filed
         </p>
       </div>
     </div>

@@ -1,0 +1,74 @@
+{
+  "screens": [
+    { "id": "sa-list", "label": "Organisations list", "hash": "super-admin", "lane": "Super Admin", "col": 0, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Org list" } },
+    { "id": "sa-entities", "label": "Legal Entities", "hash": "super-admin/europipe/entities", "lane": "Super Admin", "col": 1, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Legal Entities" } },
+    { "id": "sa-engagements", "label": "Engagements", "hash": "super-admin/europipe/engagements", "lane": "Super Admin", "col": 2, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Engagements" } },
+    { "id": "sa-engagement", "label": "Engagement detail", "hash": "super-admin/europipe/engagement", "lane": "Super Admin", "col": 3, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Engagement detail" } },
+    { "id": "sa-users", "label": "Users", "hash": "super-admin/europipe/users", "lane": "Super Admin", "col": 4, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Users" } },
+    { "id": "sa-groups", "label": "Groups", "hash": "super-admin/europipe/groups", "lane": "Super Admin", "col": 5, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Groups" } },
+    { "id": "sa-activity", "label": "Activity Log", "hash": "super-admin/europipe/activity", "lane": "Super Admin", "col": 6, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Activity Log" } },
+    { "id": "sa-details", "label": "Organization Details", "hash": "super-admin/europipe/org-details", "lane": "Super Admin", "col": 7, "row": 0, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Details" } },
+
+    { "id": "dlg-create-org", "label": "Create organization", "hash": "super-admin/dialog/create-org", "lane": "Super Admin", "col": 0, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Create organization", "tier": "dialog" } },
+    { "id": "dlg-create-entity", "label": "Add legal entity", "hash": "super-admin/europipe/entities/dialog/create-entity", "lane": "Super Admin", "col": 1, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Add legal entity", "tier": "dialog" } },
+    { "id": "dlg-edit-entity", "label": "Edit legal entity", "hash": "super-admin/europipe/entities/dialog/edit-entity", "lane": "Super Admin", "col": 1, "row": 2, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Edit legal entity", "tier": "dialog" } },
+    { "id": "dlg-disable-entity", "label": "Disable legal entity", "hash": "super-admin/europipe/entities/dialog/disable-entity", "lane": "Super Admin", "col": 1, "row": 3, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Disable legal entity", "tier": "dialog" } },
+    { "id": "dlg-create-eng", "label": "Create engagement", "hash": "super-admin/europipe/engagements/dialog/create-engagement", "lane": "Super Admin", "col": 2, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Create engagement", "tier": "dialog" } },
+    { "id": "dlg-edit-eng", "label": "Edit engagement", "hash": "super-admin/europipe/engagements/dialog/edit-engagement", "lane": "Super Admin", "col": 2, "row": 2, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Edit engagement", "tier": "dialog" } },
+    { "id": "dlg-disable-eng", "label": "Disable engagement", "hash": "super-admin/europipe/engagements/dialog/disable-engagement", "lane": "Super Admin", "col": 2, "row": 3, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Disable engagement", "tier": "dialog" } },
+    { "id": "dlg-connect-entity", "label": "Connect legal entity", "hash": "super-admin/europipe/engagement/dialog/connect-entity", "lane": "Super Admin", "col": 3, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Connect legal entity", "tier": "dialog" } },
+    { "id": "dlg-assign-user", "label": "Assign user", "hash": "super-admin/europipe/engagement/dialog/assign-user", "lane": "Super Admin", "col": 3, "row": 2, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Assign user", "tier": "dialog" } },
+    { "id": "dlg-add-user", "label": "Add user", "hash": "super-admin/europipe/users/dialog/add-user", "lane": "Super Admin", "col": 4, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Add user", "tier": "dialog" } },
+    { "id": "dlg-create-group", "label": "Add group", "hash": "super-admin/europipe/groups/dialog/create-group", "lane": "Super Admin", "col": 5, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Add group", "tier": "dialog" } },
+    { "id": "dlg-add-members", "label": "Add members", "hash": "super-admin/europipe/groups/dialog/add-members", "lane": "Super Admin", "col": 5, "row": 2, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Add members", "tier": "dialog" } },
+    { "id": "dlg-edit-org", "label": "Edit organization", "hash": "super-admin/europipe/org-details/dialog/edit-org", "lane": "Super Admin", "col": 7, "row": 1, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Edit organization", "tier": "dialog" } },
+    { "id": "dlg-disable-org", "label": "Disable organization", "hash": "super-admin/europipe/org-details/dialog/disable-org", "lane": "Super Admin", "col": 7, "row": 2, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Disable organization", "tier": "dialog" } },
+
+    { "id": "empty-entities", "label": "No legal entities yet", "hash": "super-admin/provinzial/entities", "lane": "Super Admin", "col": 1, "row": 4, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Empty · Legal Entities" } },
+    { "id": "empty-users", "label": "No users yet", "hash": "super-admin/provinzial/users", "lane": "Super Admin", "col": 4, "row": 4, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Empty · Users" } },
+    { "id": "empty-activity", "label": "No activity yet", "hash": "super-admin/provinzial/activity", "lane": "Super Admin", "col": 6, "row": 4, "meta": { "process": "Organisations", "role": "Super Admin", "phase": "Empty · Activity" } },
+
+    { "id": "oa-list", "label": "Organisations list", "hash": "org-admin", "lane": "Organisation Admin", "col": 0, "row": 0, "meta": { "process": "Organisations", "role": "Organisation Admin", "phase": "Org list" } },
+    { "id": "oa-workspace", "label": "Workspace", "hash": "org-admin/europipe/entities", "lane": "Organisation Admin", "col": 1, "row": 0, "meta": { "process": "Organisations", "role": "Organisation Admin", "phase": "Workspace" } },
+
+    { "id": "ea-list", "label": "Organisations list", "hash": "engagement-admin", "lane": "Engagement Admin", "col": 0, "row": 0, "meta": { "process": "Organisations", "role": "Engagement Admin", "phase": "Org list" } },
+    { "id": "ea-workspace", "label": "Workspace", "hash": "engagement-admin/europipe/entities", "lane": "Engagement Admin", "col": 1, "row": 0, "meta": { "process": "Organisations", "role": "Engagement Admin", "phase": "Workspace" } },
+
+    { "id": "co-list", "label": "Organisations list", "hash": "contributor", "lane": "Contributor", "col": 0, "row": 0, "meta": { "process": "Organisations", "role": "Contributor", "phase": "Org list" } },
+    { "id": "co-workspace", "label": "Legal Entities (only view)", "hash": "contributor/europipe/entities", "lane": "Contributor", "col": 1, "row": 0, "meta": { "process": "Organisations", "role": "Contributor", "phase": "Legal Entities" } },
+    { "id": "co-invite", "label": "Invite user", "hash": "contributor/europipe/entities/dialog/invite-user", "lane": "Contributor", "col": 2, "row": 0, "meta": { "process": "Organisations", "role": "Contributor", "phase": "Invite user", "tier": "dialog" } }
+  ],
+  "edges": [
+    { "from": "sa-list", "to": "sa-entities", "label": "Open EUROPIPE" },
+    { "from": "sa-entities", "to": "sa-engagements", "label": "Engagements" },
+    { "from": "sa-engagements", "to": "sa-engagement", "label": "Open engagement" },
+    { "from": "sa-engagement", "to": "sa-users", "label": "Users" },
+    { "from": "sa-users", "to": "sa-groups", "label": "Groups" },
+    { "from": "sa-groups", "to": "sa-activity", "label": "Activity" },
+    { "from": "sa-activity", "to": "sa-details", "label": "Details" },
+
+    { "from": "sa-list", "to": "dlg-create-org", "label": "Create organization" },
+    { "from": "sa-entities", "to": "dlg-create-entity", "label": "Add legal entity" },
+    { "from": "sa-entities", "to": "dlg-edit-entity", "label": "Edit" },
+    { "from": "sa-entities", "to": "dlg-disable-entity", "label": "Disable" },
+    { "from": "sa-engagements", "to": "dlg-create-eng", "label": "Create engagement" },
+    { "from": "sa-engagements", "to": "dlg-edit-eng", "label": "Edit" },
+    { "from": "sa-engagements", "to": "dlg-disable-eng", "label": "Disable" },
+    { "from": "sa-engagement", "to": "dlg-connect-entity", "label": "Connect legal entity" },
+    { "from": "sa-engagement", "to": "dlg-assign-user", "label": "Assign user" },
+    { "from": "sa-users", "to": "dlg-add-user", "label": "Add user" },
+    { "from": "sa-groups", "to": "dlg-create-group", "label": "Add group" },
+    { "from": "sa-groups", "to": "dlg-add-members", "label": "Add members" },
+    { "from": "sa-details", "to": "dlg-edit-org", "label": "Edit" },
+    { "from": "sa-details", "to": "dlg-disable-org", "label": "Disable" },
+
+    { "from": "sa-list", "to": "empty-entities", "label": "Open Provinzial (empty)" },
+    { "from": "empty-entities", "to": "empty-users", "label": "Users" },
+    { "from": "empty-users", "to": "empty-activity", "label": "Activity" },
+
+    { "from": "oa-list", "to": "oa-workspace", "label": "Open org" },
+    { "from": "ea-list", "to": "ea-workspace", "label": "Open org" },
+    { "from": "co-list", "to": "co-workspace", "label": "Open org" },
+    { "from": "co-workspace", "to": "co-invite", "label": "Invite user" }
+  ]
+}

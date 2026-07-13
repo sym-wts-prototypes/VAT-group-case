@@ -7,7 +7,7 @@ export type UserType = "Internal" | "External";
 // Change 3 — platform role hierarchy. "Super Admin" is internal/platform; the two
 // admin roles are composable on one user (see OrgUser.roles); Contributor is operational.
 export type UserRole = "Super Admin" | "Organisation Admin" | "Engagement Admin" | "Contributor";
-export type UserStatus = "Active" | "Pending" | "Rejected" | "Approved";
+export type UserStatus = "Active" | "Pending" | "Rejected";
 export type EngagementStatus = "Draft" | "Active" | "Expired" | "Disabled";
 
 // Change 6/7 — a dated value with valid-from / valid-to, so IDs can carry history and a
@@ -52,6 +52,7 @@ export function identifierLabel(id: EntityIdentifier): string {
 // mandatory; address & taxAuthority & wageTaxNumber are optional. Jurisdiction is locked to
 // the head-office jurisdiction (branches share the entity's tax jurisdiction).
 export interface Establishment {
+  id?: string;            // stable client-side key for form rows (not persisted meaningfully)
   address?: string;
   city?: string;
   postalCode?: string;
@@ -176,8 +177,10 @@ export const LEGAL_ENTITIES: LegalEntity[] = [
   {
     id: "ea-1", orgId: "ea", legalName: "Electronic Arts GmbH", legalForm: "GmbH",
     clientId: "K110904", vatId: "DE 159933475", taxAuthority: "Köln-Altstadt", citNumber: "CIT-DE-110904",
+    // Branches must sit inside the Head Office country (Germany) — a branch can't be in a
+    // different jurisdiction than its HQ.
     establishments: [
-      { address: "Szabadság utca 35", city: "Mosonszolnok", postalCode: "9245", country: "Hungary", taxAuthority: "Mosonszolnok", jurisdiction: "Hungary", citNumber: "CIT-HU-12345678" },
+      { address: "Prinzregentenstraße 22", city: "München", postalCode: "80538", country: "Germany", taxAuthority: "München-Abteilung Körperschaften", jurisdiction: "Germany", citNumber: "CIT-DE-110905" },
     ],
     levelOfShareholding: "100%", incomeTaxGroup: true, vatGroup: false,
     address: "Im Zollhafen 05-07", city: "Köln", postalCode: "50678", country: "Germany", countryCode: "DE",
@@ -306,7 +309,7 @@ export const USERS: OrgUser[] = [
   // ONLY (vat-eu1-fr), but fuller (no registration restriction) on eu-2 — proving the
   // per-(user,entity) rule: a country limit on one entity does NOT carry to another.
   // Engagement-level pool user, and may create cases but only for France (Change 5).
-  { id: "u4", entityIds: ["eu-1", "eu-2"], access: [{ entityId: "eu-1", engagementIds: ["eng-eu-1"], vatRegistrationIds: ["vat-eu1-fr"] }, { entityId: "eu-2", engagementIds: ["eng-eu-1", "eng-eu-2"] }], name: "Sofia Rossi", email: "sofia.rossi@europipe.com", userType: "External", role: "Contributor", roles: ["Contributor"], poolLevel: "engagement", canCreateCases: true, caseCountryScope: { mode: "only", countries: ["France"] }, status: "Approved", invitedBy: "Julia Hoffmann", dateAdded: "2026-04-15" },
+  { id: "u4", entityIds: ["eu-1", "eu-2"], access: [{ entityId: "eu-1", engagementIds: ["eng-eu-1"], vatRegistrationIds: ["vat-eu1-fr"] }, { entityId: "eu-2", engagementIds: ["eng-eu-1", "eng-eu-2"] }], name: "Sofia Rossi", email: "sofia.rossi@europipe.com", userType: "External", role: "Contributor", roles: ["Contributor"], poolLevel: "engagement", canCreateCases: true, caseCountryScope: { mode: "only", countries: ["France"] }, status: "Active", invitedBy: "Julia Hoffmann", dateAdded: "2026-04-15" },
   // u5 Markus — Engagement Admin (builds engagement detail, cannot touch entity data);
   // engagement-level pool; may create German cases only.
   { id: "u5", entityIds: ["eu-2"], access: [{ entityId: "eu-2", engagementIds: ["eng-eu-1", "eng-eu-2"] }], name: "Markus Weber", email: "markus.weber@europipe.com", userType: "External", role: "Engagement Admin", roles: ["Engagement Admin"], poolLevel: "engagement", canCreateCases: true, caseCountryScope: { mode: "only", countries: ["Germany"] }, status: "Pending", invitedBy: "Julia Hoffmann", dateAdded: "2026-04-18" },
@@ -396,6 +399,37 @@ export const ACTIVITY_LOG: ActivityLogEntry[] = [
 
 export const LEGAL_FORMS = ["GmbH", "AG", "KGaA", "GmbH & Co. KG", "SE", "UG (haftungsbeschränkt)", "OHG"];
 export const COUNTRIES = ["Germany", "Austria", "Belgium", "Switzerland", "Italy", "France", "Hungary", "Netherlands", "Spain", "Poland"];
+
+// Complete list of countries for the searchable Country / Jurisdiction selects on the
+// Create/Edit Legal Entity form. Country and Jurisdiction share this exact dataset. Sovereign
+// states only — no regions, federal states, provinces, cities or custom jurisdictions.
+export const ALL_COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina",
+  "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados",
+  "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana",
+  "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada",
+  "Cape Verde", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros",
+  "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Democratic Republic of the Congo",
+  "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador",
+  "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France",
+  "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea",
+  "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran",
+  "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+  "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho",
+  "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia",
+  "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia",
+  "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru",
+  "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia",
+  "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru",
+  "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis",
+  "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe",
+  "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia",
+  "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka",
+  "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand",
+  "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+  "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan",
+  "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe",
+];
 
 // Country → ISO-ish display code (matches the WTS mock; Poland shows "PO").
 export const COUNTRY_CODES: Record<string, string> = {

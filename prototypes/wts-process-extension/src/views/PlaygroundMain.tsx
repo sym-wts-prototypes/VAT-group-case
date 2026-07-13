@@ -1,6 +1,3 @@
-import { useState } from 'react'
-
-import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { getRequirementCategory } from '@/config/requirements'
@@ -43,7 +40,6 @@ export function PlaygroundMain() {
     setSelectedRequirementCategoryId,
     setPhase,
   } = useDemoStore()
-  const [closeCaseOpen, setCloseCaseOpen] = useState(false)
   const ctx = { process, platform, role, headerType, phase }
   const resolved = resolveHeader(ctx)
   const packageBannerState =
@@ -117,12 +113,12 @@ export function PlaygroundMain() {
 
   const handlePrimaryClick = (label: string) => {
     if (
-      label === 'Close case' &&
+      label === 'Go to summary' &&
       phase === 'assessmentClosure' &&
       role === 'creator' &&
       !primaryDisabled
     ) {
-      setCloseCaseOpen(true)
+      setPhase('summary')
     }
   }
 
@@ -193,12 +189,6 @@ export function PlaygroundMain() {
           <span className="font-semibold">Design note:</span> {descriptor.note}
         </div>
       )}
-
-      <CloseCaseDialog
-        open={closeCaseOpen}
-        onClose={() => setCloseCaseOpen(false)}
-        onConfirm={() => setPhase('summary')}
-      />
     </div>
   )
 }

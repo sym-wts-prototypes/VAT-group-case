@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { ArrowLeft, Pencil, Ban, RotateCcw, Plus, Unlink, Trash2, ExternalLink, FileText, Users as UsersIcon, Activity, Check } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Pencil, Ban, RotateCcw, Plus, Unlink, Trash2, FileText, Users as UsersIcon, Activity, Check } from "lucide-react";
 import { Badge, Button, ConfirmDialog, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenuItem, cn } from "@wts/ui";
 import {
   Organization,
@@ -8,7 +8,7 @@ import {
   Engagement, LegalEntity, OrgUser, ActivityLogEntry, userEngagementCombos,
 } from "./org-details-data";
 import {
-  DetailCard, DetailRow, StatusBadge, Th, Td, ThActions, TdActions, EmptyBlock, UserTypeBadge, UserStatusBadge, RowActionsMenu,
+  DetailCard, DetailRow, StatusBadge, Th, Td, ThActions, TdActions, EmptyBlock, UserTypeBadge, UserStatusBadge, RowActionsMenu, RoleBadges, TruncatedCell,
 } from "./org-workspace";
 import { EngagementStatusPill, ServiceLinesCell, ConnectEntityModal } from "./engagement-modals";
 import { AccessUserModal, AccessUserDraft } from "./access-user-modal";
@@ -18,7 +18,7 @@ export function EngagementDetailPage({
   onBack, onEditEngagement, onDisable, onReenable,
   onConnectEntities, onDisconnectEntity,
   onSubmitUser, onRemoveUser, onOpenEntity, onAssignUsers,
-  canEdit = true, canInviteUsers = true,
+  canEdit = true, canInviteUsers = true, initialDialog = null,
 }: {
   org: Organization;
   engagement: Engagement;
@@ -45,6 +45,8 @@ export function EngagementDetailPage({
   // Inviting engagement users is a lower-privilege capability (user.invite) — all roles
   // including Contributor have it, so it is gated independently of the edit boundary.
   canInviteUsers?: boolean;
+  // Flow-canvas deep link — open a dialog on mount: 'connect-entity' | 'assign-user'.
+  initialDialog?: string | null;
 }) {
   const [connectOpen, setConnectOpen] = useState(false);
   const [userModal, setUserModal] = useState<{ mode: "edit"; user: OrgUser } | null>(null);
@@ -62,6 +64,12 @@ export function EngagementDetailPage({
     else onDisconnectEntity(confirm.id);
     setConfirm(null);
   };
+
+  useEffect(() => {
+    if (initialDialog === "connect-entity") setConnectOpen(true);
+    else if (initialDialog === "assign-user") setAssignOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const entityMap = new Map(entities.map((e) => [e.id, e]));
   const connectedEntities = entities.filter((e) => engagement.entityIds.includes(e.id));
@@ -190,8 +198,8 @@ export function EngagementDetailPage({
                   {connectedEntities.map((e) => (
                     <tr key={e.id} className="border-b border-neutral-100 last:border-0">
                       <Td>
-                        <Button variant="link" type="button" onClick={() => onOpenEntity?.(e.id)} className="h-auto p-0 gap-1.5">
-                          {e.legalName}<ExternalLink className="w-3.5 h-3.5" />
+                        <Button variant="link" type="button" onClick={() => onOpenEntity?.(e.id)} className="h-auto p-0 justify-start text-left">
+                          {e.legalName}
                         </Button>
                       </Td>
                       <Td className="text-neutral-700">{e.legalForm}</Td>
@@ -246,10 +254,10 @@ export function EngagementDetailPage({
                     <Th>Name</Th>
                     <Th>Email</Th>
                     <Th>User Type</Th>
-                    <Th>Role</Th>
+                    <Th>Roles</Th>
                     <Th>Legal Entities</Th>
                     <Th>Status</Th>
-                    <Th>Invited By</Th>
+                    <Th>Added By</Th>
                     <ThActions>Actions</ThActions>
                   </tr>
                 </thead>
@@ -259,8 +267,20 @@ export function EngagementDetailPage({
                       <Td className="text-neutral-900">{u.name}</Td>
                       <Td className="text-neutral-600">{u.email}</Td>
                       <Td><UserTypeBadge type={u.userType} /></Td>
-                      <Td className="text-neutral-700">{u.role}</Td>
-                      <Td className="text-neutral-700">{userEntitiesHere(u).map((e) => e.legalName).join(", ") || "—"}</Td>
+                      <Td><RoleBadges user={u} /></Td>
+                      <Td>
+                        <TruncatedCell
+                          items={userEntitiesHere(u).map((e) => ({
+                            key: e.id,
+                            node: onOpenEntity ? (
+                              <Button variant="link" type="button" onClick={() => onOpenEntity(e.id)} className="h-auto p-0 justify-start text-left">{e.legalName}</Button>
+                            ) : (
+                              <span className="text-neutral-700">{e.legalName}</span>
+                            ),
+                          }))}
+                          emptyText="—"
+                        />
+                      </Td>
                       <Td><UserStatusBadge status={u.status} /></Td>
                       <Td className="text-neutral-600">{u.invitedBy}</Td>
                       <TdActions>

@@ -167,7 +167,7 @@ export function AdminOrgWorkspace({ org, onBack, actingRole = "Organisation Admi
       }, ...prev]);
     }
   }
-  function approveUser(id: string) { setUsers((prev) => prev.map((x) => x.id === id ? { ...x, status: "Approved" } : x)); }
+  function approveUser(id: string) { setUsers((prev) => prev.map((x) => x.id === id ? { ...x, status: "Active" } : x)); }
   function rejectUser(id: string) { setUsers((prev) => prev.map((x) => x.id === id ? { ...x, status: "Rejected" } : x)); }
   function removeUser(id: string) { setUsers((prev) => prev.filter((u) => u.id !== id)); }
 

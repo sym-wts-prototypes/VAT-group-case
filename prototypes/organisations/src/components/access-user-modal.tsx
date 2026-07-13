@@ -171,21 +171,29 @@ function RegistrationMultiSelect({
 }
 
 export function AccessUserModal({
-  mode, user, entities, engagements, lockedEngagement, allowSuperAdminRole, defaultEntityId, onClose, onSubmit,
+  mode, user, entities, engagements, lockedEngagement, defaultEntityId, lockEntity, variant = "add", onClose, onSubmit,
 }: {
   mode: "add" | "edit";
   user?: OrgUser | null;
   entities: LegalEntity[];
   engagements: Engagement[];
   lockedEngagement?: Engagement;
-  allowSuperAdminRole?: boolean;
   // V10-A — when the modal is opened from an entity-detail Users section, this seeds the
   // first Access Scope row with that entity so the flow feels contextual.
   defaultEntityId?: string | null;
+  // When opened from a Legal Entity's Users section the entity is fixed and can't be changed,
+  // so the seeded Access Scope row's Legal Entity picker is locked to `defaultEntityId`.
+  lockEntity?: boolean;
+  // "invite" = Contributor invitation flow: the exact same form as Add User, but the role is
+  // locked to Contributor (picker hidden) and the invitee lands in Pending on submit.
+  variant?: "add" | "invite";
   onClose: () => void;
   onSubmit: (draft: AccessUserDraft) => void;
 }) {
   const isEngagementMode = !!lockedEngagement;
+  const isInvite = variant === "invite";
+  // The single entity that stays fixed when the form is opened in a legal-entity context.
+  const lockedEntityId = lockEntity && !isEngagementMode ? defaultEntityId ?? null : null;
 
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -209,9 +217,9 @@ export function AccessUserModal({
   const [err, setErr] = useState(false);
 
   const isSuperAdminRole = roles.includes("Super Admin");
-  const roleOptions: UserRole[] = allowSuperAdminRole
-    ? ["Super Admin", "Organisation Admin", "Engagement Admin", "Contributor"]
-    : ["Organisation Admin", "Engagement Admin", "Contributor"];
+  // Super Admin is a platform role — it can only be provisioned by developers (via seed
+  // data), never granted through the user creation form. So it is never offered here.
+  const roleOptions: UserRole[] = ["Organisation Admin", "Engagement Admin", "Contributor"];
 
   function primaryRole(rs: UserRole[]): UserRole {
     if (rs.includes("Super Admin")) return "Super Admin";
@@ -268,8 +276,12 @@ export function AccessUserModal({
 
   function handleTypeChange(t: UserType) {
     setUserType(t);
-    if (t === "External") setRoles(["Contributor"]);
+    // External users are always Contributors and can never create cases.
+    if (t === "External") { setRoles(["Contributor"]); setCanCreateCases(false); }
   }
+
+  // "May create cases" is not available to External users.
+  const canCreateDisabled = userType === "External";
 
   const effectiveRole: UserRole = userType === "External" ? "Contributor" : primaryRole(roles);
   const requiresAccess = !isSuperAdminRole && (effectiveRole === "Contributor" || userType === "External");
@@ -299,7 +311,10 @@ export function AccessUserModal({
     } else {
       access = filledRows.filter((r) => r.engagementIds.length > 0).map((r) => ({ entityId: r.entityId, engagementIds: [...r.engagementIds], vatRegistrationIds: r.vatRegistrationIds && r.vatRegistrationIds.length ? [...r.vatRegistrationIds] : undefined }));
     }
-    const finalRoles: UserRole[] = userType === "External" ? ["Contributor"] : roles;
+    // Invitations only ever grant Contributor; External users are Contributors too.
+    const finalRoles: UserRole[] = userType === "External" || isInvite ? ["Contributor"] : roles;
+    // External users can never create cases (the checkbox is disabled for them).
+    const submitCanCreate = canCreateDisabled ? false : canCreateCases;
     // V8-C — countries where the user may create cases are inherited from Access Scope:
     // the union of every selected VAT registration's country across their scopes.
     const inheritedCountries = Array.from(new Set(
@@ -309,16 +324,16 @@ export function AccessUserModal({
     ));
     onSubmit({
       name: name.trim(), email: email.trim(), userType,
-      role: effectiveRole, roles: finalRoles,
-      poolLevel: derivedPoolLevel, canCreateCases,
-      caseCountryScope: canCreateCases && inheritedCountries.length ? { mode: "only", countries: inheritedCountries } : undefined,
+      role: isInvite ? "Contributor" : effectiveRole, roles: finalRoles,
+      poolLevel: derivedPoolLevel, canCreateCases: submitCanCreate,
+      caseCountryScope: submitCanCreate && inheritedCountries.length ? { mode: "only", countries: inheritedCountries } : undefined,
       access,
     });
     onClose();
   }
 
   return (
-    <ModalShell title={mode === "edit" ? "Edit User Access" : "Add User"} onClose={onClose} width="640px">
+    <ModalShell title={mode === "edit" ? "Edit User Access" : isInvite ? "Invite User" : "Add User"} onClose={onClose} width="640px">
       <div className="flex flex-col gap-4">
         <Field label="Name" required error={err && !nameValid}>
           <input
@@ -359,8 +374,14 @@ export function AccessUserModal({
           </div>
 
           <div className="flex flex-col gap-1.5 min-w-0">
-            <label className="text-[13px] leading-[18px] font-medium text-neutral-500">Roles</label>
-            {userType === "External" ? (
+            <label className="text-[13px] leading-[18px] font-medium text-neutral-500">{isInvite ? "Role" : "Roles"}</label>
+            {isInvite ? (
+              // Invitations can only grant the Contributor role, so the picker is locked.
+              <div className="flex items-center px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[14px] leading-[20px] text-neutral-600 gap-2">
+                Contributor
+                <span className="text-neutral-400 text-[12px]">(invited users join as Contributor)</span>
+              </div>
+            ) : userType === "External" ? (
               <div className="flex items-center px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-[14px] leading-[20px] text-neutral-600 gap-2">
                 Contributor
                 <span className="text-neutral-400 text-[12px]">(auto-selected for External users)</span>
@@ -402,17 +423,26 @@ export function AccessUserModal({
             reachable via their Access Scope VAT-registration selections. */}
         {!isSuperAdminRole && (
           <div className="mt-2 pt-4 border-t border-neutral-100 flex flex-col gap-2">
-            <label className="items-center flex gap-2.5 text-[13px] leading-[18px] text-neutral-700 cursor-pointer">
+            <label className={`items-center flex gap-2.5 text-[13px] leading-[18px] ${canCreateDisabled ? "text-neutral-400 cursor-not-allowed" : "text-neutral-700 cursor-pointer"}`}>
               <span
                 role="checkbox"
-                aria-checked={canCreateCases}
-                tabIndex={0}
-                onClick={() => setCanCreateCases((v) => !v)}
-                className={`items-center flex justify-center w-4 h-4 rounded border shrink-0 ${canCreateCases ? "bg-brand border-brand text-white" : "border-neutral-300"}`}
+                aria-checked={canCreateDisabled ? false : canCreateCases}
+                aria-disabled={canCreateDisabled}
+                tabIndex={canCreateDisabled ? -1 : 0}
+                onClick={() => { if (!canCreateDisabled) setCanCreateCases((v) => !v); }}
+                className={`items-center flex justify-center w-4 h-4 rounded border shrink-0 ${
+                  canCreateDisabled
+                    ? "bg-neutral-100 border-neutral-200 text-neutral-300"
+                    : canCreateCases ? "bg-brand border-brand text-white" : "border-neutral-300"
+                }`}
               >
-                {canCreateCases && <Check className="w-3 h-3" />}
+                {canCreateCases && !canCreateDisabled && <Check className="w-3 h-3" />}
               </span>
-              May create cases <span className="text-neutral-400 text-[12px]">(a distinct right — countries are inherited from the Access Scope below)</span>
+              May create cases <span className="text-neutral-400 text-[12px]">
+                {canCreateDisabled
+                  ? "(not available for External users)"
+                  : "(a distinct right — countries are inherited from the Access Scope below)"}
+              </span>
             </label>
           </div>
         )}
@@ -452,11 +482,12 @@ export function AccessUserModal({
                 const entOptions = entityOptionsFor(i);
                 const engOptions = row.entityId ? engagementsForEntity(row.entityId, engagements) : [];
                 const regOptions = row.entityId ? registrationsForEntity(row.entityId) : [];
+                const rowLocked = !!lockedEntityId && row.entityId === lockedEntityId;
                 return (
                   <div key={i} className="border border-neutral-200 rounded-lg p-3 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] leading-[16px] font-medium text-neutral-500">Access Scope {i + 1}</span>
-                      {rows.length > 1 && (
+                      {rows.length > 1 && !rowLocked && (
                         <button
                           type="button"
                           onClick={() => removeRow(i)}
@@ -470,7 +501,12 @@ export function AccessUserModal({
                     <div className={isEngagementMode ? "" : "grid grid-cols-2 gap-3"}>
                       <div className="flex flex-col gap-1">
                         <label className="text-[11px] leading-[14px] text-neutral-500">Legal Entity</label>
-                        <select className={inputCls()} value={row.entityId} onChange={(e) => setRowEntity(i, e.target.value)}>
+                        <select
+                          className={`${inputCls()} disabled:cursor-not-allowed disabled:text-neutral-500`}
+                          value={row.entityId}
+                          onChange={(e) => setRowEntity(i, e.target.value)}
+                          disabled={rowLocked}
+                        >
                           <option value="">— Select legal entity</option>
                           {entOptions.map((e) => <option key={e.id} value={e.id}>{e.legalName}</option>)}
                         </select>
@@ -526,7 +562,7 @@ export function AccessUserModal({
       <ModalFooter>
         <button type="button" onClick={onClose} className={secondaryBtn}>Cancel</button>
         <button type="button" onClick={submit} className={primaryBtn}>
-          {mode === "edit" ? "Save Changes" : "Add User"}
+          {mode === "edit" ? "Save Changes" : isInvite ? "Send Invitation" : "Add User"}
         </button>
       </ModalFooter>
     </ModalShell>

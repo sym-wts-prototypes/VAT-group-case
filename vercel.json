@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm turbo run build && node scripts/assemble-dist.mjs",
+  "outputDirectory": "worker/public",
+  "rewrites": [
+    { "source": "/((?!prototypes/|assets/|favicon\\.svg).*)", "destination": "/index.html" }
+  ]
+}

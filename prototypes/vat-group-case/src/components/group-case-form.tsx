@@ -100,6 +100,16 @@ export function GroupCaseFormContent({
     return rep?.entityId ?? orgEntities[0]?.id ?? ''
   }, [activeGroup, orgEntities])
 
+  // "<Group Identifier> · <Representative Entity Name>" — same representativeOf() + entities
+  // lookup pattern already used above (legalEntityId) and below (groupMembers), just resolving
+  // the name instead of the id. Falls back to the group name alone if a group somehow has no
+  // active representative yet (shouldn't happen for a real VAT group, but avoids "· undefined").
+  const groupOptionLabel = (g: Group) => {
+    const rep = representativeOf(g)
+    const repName = rep ? entities.find((e) => e.id === rep.entityId)?.legalName : undefined
+    return repName ? `${g.name} · ${repName}` : g.name
+  }
+
   const [jurisdiction, setJurisdiction] = useState(group?.jurisdiction ?? '')
   const [caseType, setCaseType] = useState(CASE_TYPE_OPTIONS[0])
   const [projectCode, setProjectCode] = useState('')
@@ -220,7 +230,7 @@ export function GroupCaseFormContent({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={group.id}>{group.name}</SelectItem>
+                  <SelectItem value={group.id}>{groupOptionLabel(group)}</SelectItem>
                 </SelectContent>
               </Select>
             ) : (
@@ -243,7 +253,7 @@ export function GroupCaseFormContent({
                 <SelectContent>
                   {availableGroups.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
-                      {g.name}
+                      {groupOptionLabel(g)}
                     </SelectItem>
                   ))}
                 </SelectContent>

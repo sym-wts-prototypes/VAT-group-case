@@ -71,6 +71,7 @@ interface EntityRoleAssignment {
   creatorIds: string[]
   reviewerIds: string[]
   partnerIds: string[]
+  clientIds: string[]
 }
 
 export interface GroupMember {
@@ -153,14 +154,20 @@ export function VatSchedulerModal({
 
   const setEntityRole = (entityId: string, field: 'creatorIds' | 'reviewerIds', value: string[]) =>
     setEntityRoles((prev) => {
-      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [] }
+      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [], clientIds: [] }
       return { ...prev, [entityId]: { ...existing, [field]: value } }
     })
 
   const setEntityPartners = (entityId: string, partnerIds: string[]) =>
     setEntityRoles((prev) => {
-      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [] }
+      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [], clientIds: [] }
       return { ...prev, [entityId]: { ...existing, partnerIds } }
+    })
+
+  const setEntityClients = (entityId: string, clientIds: string[]) =>
+    setEntityRoles((prev) => {
+      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [], clientIds: [] }
+      return { ...prev, [entityId]: { ...existing, clientIds } }
     })
 
   const visibleGroupMembers = useMemo(() => {
@@ -181,11 +188,17 @@ export function VatSchedulerModal({
         name: m.name,
         requiresClientApproval: !!approvalByEntityId[m.id],
         roles: m.isRepresentative
-          ? { creator: creatorNames, reviewer: reviewerNames, partners: partnerNames }
+          ? {
+              creator: creatorNames,
+              reviewer: reviewerNames,
+              partners: partnerNames,
+              clients: clientName ? [clientName] : [],
+            }
           : {
               creator: userNames(entityRoles[m.id]?.creatorIds ?? []),
               reviewer: userNames(entityRoles[m.id]?.reviewerIds ?? []),
               partners: userNames(entityRoles[m.id]?.partnerIds ?? []),
+              clients: userNames(entityRoles[m.id]?.clientIds ?? []),
             },
       })),
       cases: schedule.cases.map((c) => ({
@@ -194,7 +207,7 @@ export function VatSchedulerModal({
       })),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groupName, groupMembers, approvalByEntityId, entityRoles, creatorNames, reviewerNames, partnerNames, schedule.cases],
+    [groupName, groupMembers, approvalByEntityId, entityRoles, creatorNames, reviewerNames, partnerNames, clientName, schedule.cases],
   )
 
   const canSubmit = schedule.canSubmitSchedule
@@ -276,7 +289,7 @@ export function VatSchedulerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName="bg-background/40 backdrop-blur-sm"
-        className="flex max-h-[85vh] max-w-6xl flex-row gap-0 overflow-hidden p-0"
+        className="flex max-h-[85vh] max-w-7xl flex-row gap-0 overflow-hidden p-0"
       >
         {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
             scrolls (it's always short static case info, unlike the scheduler form beside it). */}
@@ -421,7 +434,7 @@ export function VatSchedulerModal({
                         </div>
                         <div
                           className={cn(
-                            'grid grid-cols-3 gap-3 border-t px-3 py-3',
+                            'grid grid-cols-4 gap-3 border-t px-3 py-3',
                             requiresApproval ? 'border-amber-200' : 'border-border',
                           )}
                         >
@@ -464,6 +477,20 @@ export function VatSchedulerModal({
                                 value={roles?.partnerIds ?? []}
                                 onChange={(ids) => setEntityPartners(m.id, ids)}
                                 data-testid={`entity-partner-${m.id}`}
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <Label className="text-xs text-muted-foreground">Clients</Label>
+                            {m.isRepresentative ? (
+                              <p className="text-foreground text-sm">{clientLabel || '—'}</p>
+                            ) : (
+                              <UserSelect
+                                multiple
+                                users={DUMMY_USERS}
+                                value={roles?.clientIds ?? []}
+                                onChange={(ids) => setEntityClients(m.id, ids)}
+                                data-testid={`entity-client-${m.id}`}
                               />
                             )}
                           </div>

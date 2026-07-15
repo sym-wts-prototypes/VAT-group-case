@@ -116,15 +116,16 @@ export function PlaygroundMain() {
           },
         }
       : withDueDateLabel
-  // Client Approval's "Submit to tax authorities" becomes "Submit for consolidation" — the
-  // child-case parallel to the Parent Case's own final action, since a child's own filing feeds
-  // into the Parent Case's Consolidation step rather than going to the tax authority directly.
-  // Skipped during the needChanges reset (excluded via the label check above already handling
-  // that case with its own label).
-  const descriptorWithConsolidationLabel =
+  // In Review's default label ("Send for approval") depends on whether this Child Case's
+  // workflow includes Client Approval at all: relabelled to "Send to approval" when it does
+  // (same next step, Client Approval, just worded for the child-case context) or straight to
+  // "Submit for consolidation" when it doesn't — skipping Client Approval entirely and landing
+  // on the terminal Ready for Consolidation step instead (see the "Child-Case Default Opening &
+  // Step-Dependent Behaviour" ticket). Skipped during the needChanges reset, same as above.
+  const withChildInReviewLabel =
     withChildCreatorSubmitLabel &&
     isChildCaseView &&
-    phase === 'clientApproval' &&
+    phase === 'inReview' &&
     role === 'creator' &&
     !needChangesCreator &&
     withChildCreatorSubmitLabel.actions.primary
@@ -132,10 +133,33 @@ export function PlaygroundMain() {
           ...withChildCreatorSubmitLabel,
           actions: {
             ...withChildCreatorSubmitLabel.actions,
-            primary: { ...withChildCreatorSubmitLabel.actions.primary, label: 'Submit for consolidation' },
+            primary: {
+              ...withChildCreatorSubmitLabel.actions.primary,
+              label: skipClientApproval ? 'Submit for consolidation' : 'Send to approval',
+            },
           },
         }
       : withChildCreatorSubmitLabel
+  // Client Approval's "Submit to tax authorities" becomes "Submit for consolidation" — the
+  // child-case parallel to the Parent Case's own final action, since a child's own filing feeds
+  // into the Parent Case's Consolidation step rather than going to the tax authority directly.
+  // Skipped during the needChanges reset (excluded via the label check above already handling
+  // that case with its own label).
+  const descriptorWithConsolidationLabel =
+    withChildInReviewLabel &&
+    isChildCaseView &&
+    phase === 'clientApproval' &&
+    role === 'creator' &&
+    !needChangesCreator &&
+    withChildInReviewLabel.actions.primary
+      ? {
+          ...withChildInReviewLabel,
+          actions: {
+            ...withChildInReviewLabel.actions,
+            primary: { ...withChildInReviewLabel.actions.primary, label: 'Submit for consolidation' },
+          },
+        }
+      : withChildInReviewLabel
 
   // Group Case Child Case flow, Client role at Client Approval: the button follows the package
   // review outcome exactly like the Parent Case's own Client Approval button does — "Submit
@@ -212,10 +236,12 @@ export function PlaygroundMain() {
     ) {
       setCloseCaseOpen(true)
     }
-    // Child Case Creator: the same two case-progressing actions the Parent Case page itself
+    // Child Case Creator: the same case-progressing actions the Parent Case page itself
     // navigates on click for (see parent-vat-group-case-page.tsx) — In Preparation moves on to
-    // In Review once every task is done, Client Approval's final action moves the child case to
-    // its terminal Ready for Consolidation step.
+    // In Review once every task is done; In Review then branches by whether Client Approval
+    // applies to this Child Case — "Send to approval" moves on to Client Approval, "Submit for
+    // consolidation" skips straight to the terminal Ready for Consolidation step; Client
+    // Approval's own final action (when it applies) reaches that same terminal step too.
     if (
       isChildCaseView &&
       role === 'creator' &&
@@ -228,7 +254,16 @@ export function PlaygroundMain() {
     if (
       isChildCaseView &&
       role === 'creator' &&
-      phase === 'clientApproval' &&
+      phase === 'inReview' &&
+      label === 'Send to approval' &&
+      !primaryDisabled
+    ) {
+      setPhase('clientApproval')
+    }
+    if (
+      isChildCaseView &&
+      role === 'creator' &&
+      (phase === 'inReview' || phase === 'clientApproval') &&
       label === 'Submit for consolidation' &&
       !primaryDisabled
     ) {

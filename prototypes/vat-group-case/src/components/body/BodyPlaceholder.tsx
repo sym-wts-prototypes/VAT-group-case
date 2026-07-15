@@ -486,6 +486,7 @@ export function CaseWtsTasksBody({
 // pattern (title, status pill, file count, upload/download) instead of building a second one.
 export function TaskRow({
   title,
+  helperText,
   status,
   showUpload,
   showStatus,
@@ -494,6 +495,9 @@ export function TaskRow({
   onUploadFile,
 }: {
   title: string
+  /** Small clarification line under the title — e.g. what unlocks this task, or what to do now
+   * that it's done. Optional: most TaskRows leave this unset. */
+  helperText?: string
   status: TaskStatus
   showUpload: boolean
   showStatus: boolean
@@ -512,9 +516,12 @@ export function TaskRow({
   return (
     <div className="rounded-lg border border-border bg-background shadow-header-sm">
       <div className="flex flex-wrap items-center gap-3 px-4 py-3.5">
-        <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-          {title}
-        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-sm font-medium text-foreground">{title}</span>
+          {helperText && (
+            <span className="text-xs text-muted-foreground">{helperText}</span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {showStatus && (
             <Badge tone={tone}>

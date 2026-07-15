@@ -73,9 +73,11 @@ export function PackageBanner({
                 {descriptor.description}
               </p>
             </div>
-            <Badge variant="soft" tone="default" className="shrink-0 self-start">
-              {descriptor.meta}
-            </Badge>
+            {descriptor.meta && (
+              <Badge variant="soft" tone="default" className="shrink-0 self-start">
+                {descriptor.meta}
+              </Badge>
+            )}
           </div>
         </div>
       </div>

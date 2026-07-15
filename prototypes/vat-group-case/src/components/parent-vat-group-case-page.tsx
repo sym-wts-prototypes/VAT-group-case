@@ -240,6 +240,33 @@ const PARENT_SUBMITTED_BANNER: PackageBannerDescriptor = {
   showVersionHistory: false,
 }
 
+// "All Child Cases ready" banner — In Preparation, once every Child Case has reached Ready for
+// Consolidation (same `allChildrenReady` gate as the Consolidation task itself). No `meta` pill
+// here (no single actor/timestamp to attribute — this reflects every Child Case at once, not one
+// person's action) and no Version history (nothing has a version yet at this stage); Download
+// package is still available since the combined package already exists once every child is
+// ready. Creator sees an action-oriented message (Segment 1); Reviewer and Partner see the same
+// banner, same copy, download-only, since neither can act on Consolidation.
+const ALL_CHILDREN_READY_BANNER_CREATOR: PackageBannerDescriptor = {
+  variant: 'purple',
+  icon: 'fileText',
+  title: 'The child packages are ready for consolidation',
+  description:
+    'Every Child Case has reached Ready for Consolidation. Download the combined package below, then upload the consolidated document to continue.',
+  showFooter: true,
+  showVersionHistory: false,
+}
+
+const ALL_CHILDREN_READY_BANNER_VIEW_ONLY: PackageBannerDescriptor = {
+  variant: 'purple',
+  icon: 'fileText',
+  title: 'The child cases are with the creator for consolidation',
+  description:
+    'Every Child Case has reached Ready for Consolidation. The creator is preparing the consolidated package — you can download it below.',
+  showFooter: true,
+  showVersionHistory: false,
+}
+
 const SKIPPED_APPROVAL_TOOLTIP =
   'Client Approval has been intentionally skipped for this Legal Entity — its workflow has one fewer step.'
 
@@ -611,17 +638,41 @@ export function ParentVatGroupCasePage() {
         </div>
       )}
 
+      {/* "All Child Cases ready" banner — In Preparation only, once every Child Case has reached
+          Ready for Consolidation. Same visual component every other package-status banner on
+          this page uses; Creator gets the action-oriented copy, Reviewer/Partner get the same
+          view-only banner (download only, matches the read-only Consolidation task card below). */}
+      {parentPhase === 'inPreparation' && !isClient && allChildrenReady && (
+        <div className="border-b border-border bg-background px-6 py-6">
+          <PackageBanner
+            descriptor={isCreator ? ALL_CHILDREN_READY_BANNER_CREATOR : ALL_CHILDREN_READY_BANNER_VIEW_ONLY}
+            packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
+            hideVersionHistory
+          />
+        </div>
+      )}
+
       {/* Consolidation task — folded into In Preparation (see the "Merge Consolidation Step
           into In Preparation" ticket) instead of being its own step. Gated behind every Child
           Case being ready (Feature 4.4): the Creator can only upload once `allChildrenReady`,
           and the top-right "Send for review" button only enables once this task is Done
           (Feature 4.5). Reviewer/Partner get the same card read-only (no upload button); Client
-          doesn't see it at all, consistent with every other WTS-team-only element on this page. */}
+          doesn't see it at all, consistent with every other WTS-team-only element on this page.
+          Helper text under the title clarifies the gate before it's met, and confirms the next
+          step once the document is uploaded — no separate copy for the in-between "ready, not
+          yet uploaded" state, since the now-visible Upload button already communicates that. */}
       {parentPhase === 'inPreparation' && !isClient && (
         <div className="flex flex-col gap-3 border-b border-border bg-background px-6 py-6">
           <SectionLabel>Tasks</SectionLabel>
           <TaskRow
             title="Consolidation"
+            helperText={
+              consolidationTaskStatus === 'notStarted'
+                ? 'Available when all child cases reach "ready for consolidation"'
+                : consolidationTaskStatus === 'done'
+                  ? 'Consolidation document uploaded — send it for internal review'
+                  : undefined
+            }
             status={consolidationTaskStatus}
             showUpload={isCreator && allChildrenReady}
             showStatus

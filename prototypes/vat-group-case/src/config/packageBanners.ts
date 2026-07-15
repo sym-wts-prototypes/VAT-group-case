@@ -29,7 +29,10 @@ export interface PackageBannerDescriptor {
   icon: PackageBannerIcon
   title: string
   description: string
-  meta: string
+  /** Omitted entirely (no pill rendered) for banners with no single actor/timestamp to
+   * attribute — e.g. the Parent Case's "all child cases ready" banner, which reflects the
+   * aggregate state of every Child Case rather than one person's action. */
+  meta?: string
   showFooter: boolean
   showVersionHistory: boolean
   comments?: PackageBannerComments

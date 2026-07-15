@@ -112,7 +112,11 @@ const DEFAULTS = {
   showCaseManagement: true,
   caseKind: 'single' as CaseKind,
   groupCaseView: 'parent' as GroupCaseView,
-  childCaseRequiresClientApproval: true,
+  // Defaults to the Child Case that skips Client Approval (3 steps) — see the "Child-Case
+  // Default Opening & Step-Dependent Behaviour" ticket: opening Group + Child by default, or
+  // toggling into it from the Playground controls, should land on the simpler workflow variant
+  // rather than always assuming Client Approval applies.
+  childCaseRequiresClientApproval: false,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -377,9 +381,9 @@ export const useDemoStore = create<DemoState>((set) => ({
               process: 'vat',
               phase: prev.groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
               showCaseManagement: false,
-              childCaseRequiresClientApproval: true,
+              childCaseRequiresClientApproval: false,
             }
-          : { caseKind, childCaseRequiresClientApproval: true },
+          : { caseKind, childCaseRequiresClientApproval: false },
         prev,
       ),
     ),
@@ -389,7 +393,7 @@ export const useDemoStore = create<DemoState>((set) => ({
         {
           groupCaseView,
           phase: groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
-          childCaseRequiresClientApproval: true,
+          childCaseRequiresClientApproval: false,
         },
         prev,
       ),

@@ -9,7 +9,9 @@ import {
   Label,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
   SheetFooter,
@@ -23,12 +25,22 @@ type DateRange = NonNullable<DateRangePickerProps['value']>
 import type { CaseListItem } from './case-management-data'
 import {
   COUNTRIES,
+  countryCodeFor,
   LegalEntity,
   SERVICE_CATALOGUE,
-  vatRegistrationForJurisdiction,
 } from './org-details-data'
 import { SingleCaseSchedulerModal } from './single-case-scheduler-modal'
 import { SelectableUser, UserSelect } from './user-select'
+
+// Single Case drawer only (see the "Single Case Creation Drawer: Case Types, Country Lock,
+// VAT Registration" ticket) — none of this touches the Group Case drawer/VAT Scheduler, which
+// keep their own separate `CASE_TYPE_OPTIONS`/flow untouched.
+const CUSTOM_VAT_FILING_CASE_TYPE = 'Custom VAT filing'
+// Cross-border EU case types (see org-details-data.ts's VAT_CASE_TYPE_GROUPS) — the only case
+// types that restrict "Country (of VAT registration)" to EU countries only.
+const CROSS_BORDER_EU_CASE_TYPES = ['EC Sales (ECSL)', 'Intrastat arrival', 'Intrastat dispatch']
+const EU_VAT_COUNTRIES = ['Austria', 'Germany', 'Spain', 'France', 'Hungary', 'Italy', 'Netherlands', 'Poland']
+const NON_EU_VAT_COUNTRIES = ['United Kingdom', 'United States']
 
 // Replicates reference/WTS20Platform/src/components/case-management/create-case-drawer.tsx's
 // single-case flow (the CreateCaseContent branch, not EditCaseAssignmentsContent) — same field
@@ -78,6 +90,14 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
   const [partnerIds, setPartnerIds] = useState<string[]>([])
   const [clientIds, setClientIds] = useState<string[]>([])
   const [schedulerOpen, setSchedulerOpen] = useState(false)
+  // VAT only — the country this filing's VAT registration is for (distinct from Jurisdiction,
+  // which is the Legal Entity's own home country, locked below). Drives the auto-generated,
+  // locked VAT Registration number.
+  const [vatRegCountry, setVatRegCountry] = useState<string | undefined>(undefined)
+  const [vatRegistrationNumber, setVatRegistrationNumber] = useState('')
+  // VAT "Custom / Other" → Custom VAT filing only — the user-entered name that becomes this
+  // case's case type everywhere downstream (case name preview, Case Management table).
+  const [customCaseTypeName, setCustomCaseTypeName] = useState('')
 
   // Reset to a fresh, empty form every time the drawer opens — mirrors the group-case form's
   // reset-on-open behavior so switching the Case Type toggle back to Single Case never shows
@@ -98,19 +118,82 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
     setPartnerIds([])
     setClientIds([])
     setSchedulerOpen(false)
+    setVatRegCountry(undefined)
+    setVatRegistrationNumber('')
+    setCustomCaseTypeName('')
   }, [open])
 
   const isHrOrVat = serviceLineKey === 'HR Tax' || serviceLineKey === 'VAT'
   const isCit = serviceLineKey === 'CIT'
   const isVat = serviceLineKey === 'VAT'
+  const isCustomVatFiling = isVat && caseType === CUSTOM_VAT_FILING_CASE_TYPE
 
-  const caseTypeOptions = useMemo(
-    () => SERVICE_CATALOGUE.find((s) => s.key === serviceLineKey)?.caseTypes ?? [],
+  const selectedServiceLine = useMemo(
+    () => SERVICE_CATALOGUE.find((s) => s.key === serviceLineKey),
     [serviceLineKey],
   )
+  const caseTypeOptions = selectedServiceLine?.caseTypes ?? []
+  // VAT only — grouped case types (grayish section headers + items, see Segment 1's screenshot).
+  // CIT/HR Tax have no groups, so they fall through to the flat `caseTypeOptions` list as before.
+  const caseTypeGroups = selectedServiceLine?.caseTypeGroups
 
-  // Deterministic per-jurisdiction dummy VAT number — same mapping the Group Case form uses.
-  const vatRegistration = isVat && jurisdiction ? vatRegistrationForJurisdiction(jurisdiction) : ''
+  // Segment 2 — once a Legal Entity is picked, its real country (from the Organisations data,
+  // i.e. LEGAL_ENTITIES) locks in as the Jurisdiction — no more free-picking. Falls back to
+  // Germany on the rare entity with no country on file (there always is one today, but the
+  // ticket calls for a safety fallback). Applies to every service line, not just VAT — the
+  // Jurisdiction field means the same thing everywhere in this drawer.
+  useEffect(() => {
+    if (!legalEntityId) {
+      setJurisdiction(undefined)
+      return
+    }
+    const entity = entities.find((e) => e.id === legalEntityId)
+    setJurisdiction(entity?.jurisdiction ?? entity?.country ?? 'Germany')
+  }, [legalEntityId, entities])
+
+  // Segment 3 — the country list depends on the selected case type: Cross-border EU case types
+  // (EC Sales, Intrastat) only make sense for an EU registration; every other VAT case type
+  // (including Custom VAT filing) can also register in the UK or US. Sorted alphabetically by
+  // country name throughout.
+  const vatRegCountryOptions = useMemo(() => {
+    if (!isVat || !caseType) return []
+    const isCrossBorderEu = CROSS_BORDER_EU_CASE_TYPES.includes(caseType)
+    const list = isCrossBorderEu ? EU_VAT_COUNTRIES : [...EU_VAT_COUNTRIES, ...NON_EU_VAT_COUNTRIES]
+    return [...list].sort((a, b) => a.localeCompare(b))
+  }, [isVat, caseType])
+
+  // The available country list changes with the case type — clear a selection that's no longer
+  // offered (e.g. switching from a non-cross-border case type, which includes UK/US, to a
+  // Cross-border EU one) rather than silently keeping an invalid value.
+  useEffect(() => {
+    if (vatRegCountry && !vatRegCountryOptions.includes(vatRegCountry)) {
+      setVatRegCountry(undefined)
+    }
+  }, [vatRegCountry, vatRegCountryOptions])
+
+  // Segment 4 — VAT Registration auto-fills from the chosen Country (of VAT registration): its
+  // 2-letter code + 11 random digits. Locked (no manual edits); only regenerates when the
+  // country selection itself changes, not on every render.
+  useEffect(() => {
+    if (!vatRegCountry) {
+      setVatRegistrationNumber('')
+      return
+    }
+    const code = countryCodeFor(vatRegCountry)
+    const digits = Array.from({ length: 11 }, () => Math.floor(Math.random() * 10)).join('')
+    setVatRegistrationNumber(`${code}${digits}`)
+  }, [vatRegCountry])
+
+  // Clears a stale custom name if the user switches away from Custom VAT filing.
+  useEffect(() => {
+    if (!isCustomVatFiling) setCustomCaseTypeName('')
+  }, [isCustomVatFiling])
+
+  // What actually becomes this case's "case type" everywhere downstream (case name preview,
+  // Case Management table) — the entered custom name for Custom VAT filing, the picked case
+  // type for everything else.
+  const effectiveCaseType =
+    isCustomVatFiling && customCaseTypeName.trim() ? customCaseTypeName.trim() : caseType
 
   const deadlineOrderInvalid =
     !!internalDeadline && !!statutoryDeadline && internalDeadline.getTime() > statutoryDeadline.getTime()
@@ -135,18 +218,19 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
         !!internalDeadline &&
         !!statutoryDeadline &&
         !deadlineOrderInvalid &&
-        projectCode.trim().length > 0))
+        projectCode.trim().length > 0)) &&
+    (!isVat || (!!vatRegCountry && (!isCustomVatFiling || customCaseTypeName.trim().length > 0)))
 
   const caseNamePreview = useMemo(() => {
-    if (!serviceLineKey || !caseType) return null
+    if (!serviceLineKey || !effectiveCaseType) return null
     if (isCit) {
       if (!fiscalYear?.from || !fiscalYear?.to) return null
       const startYear = fiscalYear.from.getFullYear()
       const endYear = fiscalYear.to.getFullYear()
-      return `${serviceLineKey} – ${caseType} – FY ${startYear}–${endYear}`
+      return `${serviceLineKey} – ${effectiveCaseType} – FY ${startYear}–${endYear}`
     }
-    return `${serviceLineKey} | ${caseType}`
-  }, [serviceLineKey, caseType, isCit, fiscalYear])
+    return `${serviceLineKey} | ${effectiveCaseType}`
+  }, [serviceLineKey, effectiveCaseType, isCit, fiscalYear])
 
   const legalEntityName = entities.find((e) => e.id === legalEntityId)?.legalName ?? ''
   const creatorNames = creatorIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
@@ -219,11 +303,27 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
                 <SelectValue placeholder="Select case type" />
               </SelectTrigger>
               <SelectContent>
-                {caseTypeOptions.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
+                {/* VAT only — grayish section headers grouping the case types (Segment 1 of the
+                    "Single Case Creation Drawer" ticket); CIT/HR Tax have no groups on
+                    `SERVICE_CATALOGUE`, so they keep the original flat list untouched. */}
+                {caseTypeGroups
+                  ? caseTypeGroups.map((group) => (
+                      <SelectGroup key={group.label}>
+                        <SelectLabel className="text-muted-foreground text-xs font-medium">
+                          {group.label}
+                        </SelectLabel>
+                        {group.caseTypes.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))
+                  : caseTypeOptions.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
               </SelectContent>
             </Select>
           </div>
@@ -233,11 +333,30 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
             selection — keeps the initial form to just Legal Entity/Service Line/Case Type. */}
         {!!caseType && (
           <>
+          {/* Segment 5 — Custom VAT filing only: names the case type the rest of the form (and
+              eventually the Case Management table) shows in its place. */}
+          {isCustomVatFiling && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Custom case type name</Label>
+              <Input
+                value={customCaseTypeName}
+                onChange={(e) => setCustomCaseTypeName(e.target.value)}
+                placeholder="e.g. Local sales reporting, ad-hoc VAT filing..."
+                data-testid="create-single-case-custom-type-name"
+              />
+              <p className="text-muted-foreground text-xs">
+                The name is used as the case type for the scheduled case.
+              </p>
+            </div>
+          )}
+
           {serviceLineKey ? (
             isHrOrVat ? (
               <div className="flex flex-col gap-1.5">
                 <Label className="text-sm">Jurisdiction</Label>
-                <Select value={jurisdiction} onValueChange={setJurisdiction}>
+                {/* Segment 2 — locked to the Legal Entity's own country (see the useEffect
+                    above); no longer a free pick once an entity is selected. */}
+                <Select value={jurisdiction} onValueChange={setJurisdiction} disabled>
                   <SelectTrigger data-testid="create-single-case-jurisdiction">
                     <SelectValue placeholder="Select a jurisdiction" />
                   </SelectTrigger>
@@ -271,7 +390,8 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm">Jurisdiction</Label>
-                    <Select value={jurisdiction} onValueChange={setJurisdiction}>
+                    {/* Segment 2 — same lock as the HR/VAT Jurisdiction field above. */}
+                    <Select value={jurisdiction} onValueChange={setJurisdiction} disabled>
                       <SelectTrigger data-testid="create-single-case-jurisdiction">
                         <SelectValue placeholder="Select a jurisdiction" />
                       </SelectTrigger>
@@ -328,10 +448,42 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
             </>
           )}
 
+          {/* Segment 3 — appears once Jurisdiction (Segment 2, locked from the Legal Entity) and
+              Case Type are both filled. Country list depends on the case type: EU-only for
+              Cross-border EU case types, EU + UK + US for everything else (including Custom VAT
+              filing — see Segment 5). Name on the left, 2-letter code on the right. */}
+          {isVat && !!jurisdiction && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Country (of VAT registration)</Label>
+              <Select value={vatRegCountry} onValueChange={setVatRegCountry}>
+                <SelectTrigger data-testid="create-single-case-vat-reg-country">
+                  <SelectValue placeholder="Select a country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vatRegCountryOptions.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      <span className="flex w-full items-center justify-between gap-4">
+                        <span>{c}</span>
+                        <span className="text-muted-foreground">{countryCodeFor(c)}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Segment 4 — auto-fills from Country (of VAT registration): 2-letter code + 11
+              random digits. Locked; only regenerates when that country selection changes. */}
           {isVat && (
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">VAT registration</Label>
-              <Input value={vatRegistration} disabled readOnly data-testid="create-single-case-registration" />
+              <Input
+                value={vatRegistrationNumber}
+                disabled
+                readOnly
+                data-testid="create-single-case-registration"
+              />
             </div>
           )}
 
@@ -447,9 +599,9 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
         onCasesGenerated={onCasesGenerated}
         legalEntityName={legalEntityName}
         jurisdiction={jurisdiction ?? ''}
-        vatRegistration={vatRegistration}
+        vatRegistration={vatRegistrationNumber}
         projectCode={projectCode}
-        caseTypeLabel={caseType ?? ''}
+        caseTypeLabel={effectiveCaseType ?? ''}
         creatorNames={creatorNames}
         reviewerNames={reviewerNames}
         partnerNames={partnerNames}

@@ -62,16 +62,40 @@ export interface Establishment {
   wageTaxNumber?: string;  // TIN Wage Tax — optional at the branch level
 }
 
+// A named, ordered subset of a service line's case types — grayish section header + items in
+// the Case Type dropdown (see the "Single Case Creation Drawer" ticket's case-type screenshot).
+// Only VAT uses this today; CIT/HR Tax keep a flat `caseTypes` list, rendered without groups.
+export interface CaseTypeGroup {
+  label: string;
+  caseTypes: string[];
+}
+
 // Engagement scope catalogue: a service line (parent) groups case types (children).
 export interface ServiceLine {
   key: string;
   label: string;
   caseTypes: string[];
+  /** VAT only — the Single Case drawer's Case Type dropdown renders these groups (with header)
+   * instead of the flat `caseTypes` list above when present. `caseTypes` is still kept in sync
+   * (flattened) for any consumer that only needs the plain option list. */
+  caseTypeGroups?: CaseTypeGroup[];
 }
+
+const VAT_CASE_TYPE_GROUPS: CaseTypeGroup[] = [
+  { label: "Standard VAT declarations", caseTypes: ["Preliminary VAT return", "VAT return", "Annual VAT return"] },
+  { label: "Cross-border EU", caseTypes: ["EC Sales (ECSL)", "Intrastat arrival", "Intrastat dispatch"] },
+  { label: "Country-Specific Formats", caseTypes: ["Control lists / Statements"] },
+  { label: "Custom / Other", caseTypes: ["Custom VAT filing"] },
+];
 
 // V10-H — three service lines only: VAT, CIT, HR Tax. Transfer Pricing dropped.
 export const SERVICE_CATALOGUE: ServiceLine[] = [
-  { key: "VAT", label: "VAT", caseTypes: ["VAT Return", "Annual VAT Return", "EC Sales List", "Intrastat Return"] },
+  {
+    key: "VAT",
+    label: "VAT",
+    caseTypes: VAT_CASE_TYPE_GROUPS.flatMap((g) => g.caseTypes),
+    caseTypeGroups: VAT_CASE_TYPE_GROUPS,
+  },
   { key: "CIT", label: "CIT", caseTypes: ["CIT Return Yearly", "CIT Return Quarterly", "Trade Tax Return", "Annual Report"] },
   { key: "HR Tax", label: "HR Tax", caseTypes: ["HR Audit Yearly"] },
 ];
@@ -397,10 +421,14 @@ export const ACTIVITY_LOG: ActivityLogEntry[] = [
 export const LEGAL_FORMS = ["GmbH", "AG", "KGaA", "GmbH & Co. KG", "SE", "UG (haftungsbeschränkt)", "OHG"];
 export const COUNTRIES = ["Germany", "Austria", "Belgium", "Switzerland", "Italy", "France", "Hungary", "Netherlands", "Spain", "Poland"];
 
-// Country → ISO-ish display code (matches the WTS mock; Poland shows "PO").
+// Country → ISO-ish display code (matches the WTS mock; Poland shows "PO"). United Kingdom /
+// United States are additions for the Single Case drawer's "Country (of VAT registration)"
+// field (see the "Single Case Creation Drawer" ticket) — not part of the original org-country
+// set, so they're additive here rather than touching any existing entry.
 export const COUNTRY_CODES: Record<string, string> = {
   Germany: "DE", Austria: "AT", Belgium: "BE", Switzerland: "CH", Italy: "IT",
   France: "FR", Hungary: "HU", Netherlands: "NL", Spain: "ES", Poland: "PL",
+  "United Kingdom": "GB", "United States": "US",
 };
 export function countryCodeFor(country: string): string {
   return COUNTRY_CODES[country] ?? country.slice(0, 2).toUpperCase();

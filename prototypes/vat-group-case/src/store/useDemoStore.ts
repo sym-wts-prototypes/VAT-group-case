@@ -195,8 +195,16 @@ function reconcile(
 
   proposed.platform = platformForRole(proposed.role)
 
+  // VAT Group Parent Case: "Tasks Done" is repurposed as "every Child Case is Ready for
+  // Consolidation" (see parent-vat-group-case-page.tsx) — a fact about the world, not a
+  // per-visit gate, so it must survive navigating away from and back to In Preparation (e.g.
+  // Send for review, or a Reviewer/Client "Need Changes" reset — see the "In Progress Label &
+  // Return-State" ticket's Segments 3-4). Every other case type keeps the original per-phase
+  // reset below.
+  const isGroupParentCase = proposed.caseKind === 'group' && proposed.groupCaseView === 'parent'
+
   if (next.phase !== undefined) {
-    if (proposed.phase !== 'inPreparation') {
+    if (proposed.phase !== 'inPreparation' && !isGroupParentCase) {
       proposed.tasksDoneChecked = false
     }
     if (
@@ -232,11 +240,15 @@ function reconcile(
     if (next.packageReviewOutcome !== 'approved') {
       proposed.tasksReconfirmedDone = false
     }
-    if (next.packageReviewOutcome === 'needChanges') {
+    if (next.packageReviewOutcome === 'needChanges' && !isGroupParentCase) {
       proposed.tasksDoneChecked = false
     }
   } else if (next.phase !== undefined || next.role !== undefined) {
-    if (isPackageBannerPhase(proposed.phase) && proposed.phase !== 'submitted') {
+    // VAT Group Parent Case: the Reviewer/Client's review decision is a fact about the case,
+    // not a per-role demo preview — it must survive switching role back to Creator so the
+    // "Need Changes" reset (Segment 4 of the "In Progress Label & Return-State" ticket) is
+    // actually visible to them, instead of silently reverting to "sent" the moment they switch.
+    if (isPackageBannerPhase(proposed.phase) && proposed.phase !== 'submitted' && !isGroupParentCase) {
       proposed.packageReviewOutcome = defaultPackageReviewOutcome()
       proposed.approvedChecked = false
       proposed.tasksReconfirmedDone = false

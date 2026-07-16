@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
 import {
   ArrowRight,
   Check,
@@ -496,8 +496,10 @@ export function TaskRow({
 }: {
   title: string
   /** Small clarification line under the title — e.g. what unlocks this task, or what to do now
-   * that it's done. Optional: most TaskRows leave this unset. */
-  helperText?: string
+   * that it's done. Optional: most TaskRows leave this unset. Accepts a node (not just a plain
+   * string) so callers can italicize part of the sentence — e.g. a step name — the same way
+   * groups-tab.tsx does inline elsewhere in this codebase. */
+  helperText?: ReactNode
   status: TaskStatus
   showUpload: boolean
   showStatus: boolean

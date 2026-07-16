@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 
 import {
@@ -250,9 +250,9 @@ const PARENT_SUBMITTED_BANNER: PackageBannerDescriptor = {
 const ALL_CHILDREN_READY_BANNER_CREATOR: PackageBannerDescriptor = {
   variant: 'purple',
   icon: 'fileText',
-  title: 'The child packages are ready for consolidation',
+  title: 'The Group Case package is ready to be consolidated.',
   description:
-    'Every Child Case has reached Ready for Consolidation. Download the combined package below, then upload the consolidated document to continue.',
+    'Every child case has reached the Ready for Consolidation stage. Download the combined package below, then upload the consolidated document to continue.',
   showFooter: true,
   showVersionHistory: false,
 }
@@ -456,6 +456,30 @@ export function ParentVatGroupCasePage() {
     (parentPhase === 'inReview' || parentPhase === 'clientApproval') && packageReviewOutcome === 'needChanges'
   const displayedParentPhase: ParentPhase = isNeedChangesReset ? 'inPreparation' : parentPhase
 
+  // Every time the Creator freshly lands back on In Preparation — whether by manually
+  // navigating back from In Review (Segment 3 of the "In Progress Label & Return-State" ticket),
+  // or via the Reviewer/Client's own "Need Changes" reset above (Segment 4) — the previously
+  // uploaded consolidation document is cleared so the Creator is prompted to upload a fresh one,
+  // same as the single-case flow already discards a stale package on a needChanges reset
+  // elsewhere. Every Child Case stays Ready for Consolidation (nothing here unchecks
+  // `tasksDoneChecked`), so the task falls straight back to "In Progress" rather than
+  // "Not started".
+  const prevDisplayedPhaseRef = useRef(displayedParentPhase)
+  useEffect(() => {
+    if (prevDisplayedPhaseRef.current !== 'inPreparation' && displayedParentPhase === 'inPreparation') {
+      setUploadedFileName(null)
+    }
+    prevDisplayedPhaseRef.current = displayedParentPhase
+  }, [displayedParentPhase])
+
+  // Consolidation task visibility: real In Preparation shows it to Creator/Reviewer/Partner as
+  // before (unchanged). During the Reviewer/Client "Need Changes" visual reset, though, only the
+  // Creator additionally sees it — the Reviewer's own page during that same reset is already
+  // correct as-is (see the "Creator In Progress Task Element on Needs Changes / Client Return"
+  // ticket) and must not gain a task card it didn't have before. Client never sees this task,
+  // consistent with every other WTS-team-only element on this page.
+  const showConsolidationTask = !isClient && (parentPhase === 'inPreparation' || (isNeedChangesReset && isCreator))
+
   // Client sees the same child-case list the Creator/Reviewer see In Preparation — full page
   // size, real per-child status — all the way through In Review (Feature 10); Client Approval
   // switches to the simplified, paginated, all-green reference list instead (Feature 11.1), same
@@ -638,6 +662,47 @@ export function ParentVatGroupCasePage() {
         </div>
       )}
 
+      {/* Consolidation task — folded into In Preparation (see the "Merge Consolidation Step
+          into In Preparation" ticket) instead of being its own step. Gated behind every Child
+          Case being ready (Feature 4.4): the Creator can only upload once `allChildrenReady`,
+          and the top-right "Send for review" button only enables once this task is Done
+          (Feature 4.5). Reviewer/Partner get the same card read-only (no upload button); Client
+          doesn't see it at all, consistent with every other WTS-team-only element on this page.
+          Helper text under the title clarifies the gate before it's met ("Not started"),
+          prompts the (re-)upload once it's actionable ("In Progress" — same copy whether this is
+          the very first upload or a re-upload after a Need Changes / Client return reset, see the
+          "Creator In Progress Task Element on Needs Changes / Client Return" ticket), and
+          confirms the next step once the document is uploaded ("Done"). Rendered above the "all
+          children ready" banner below (see the "In Progress Label & Banner Ordering" ticket) —
+          the task is the actionable item, the banner is supporting context for it, so the task
+          leads. */}
+      {showConsolidationTask && (
+        <div className="flex flex-col gap-3 border-b border-border bg-background px-6 py-6">
+          <SectionLabel>Tasks</SectionLabel>
+          <TaskRow
+            title="Consolidation"
+            helperText={
+              consolidationTaskStatus === 'notStarted' ? (
+                <>
+                  Available when all child cases reach the <span className="italic">Ready for Consolidation</span>{' '}
+                  step
+                </>
+              ) : consolidationTaskStatus === 'inProgress' ? (
+                'Upload the consolidated Group Case package'
+              ) : consolidationTaskStatus === 'done' ? (
+                'Consolidation document uploaded — send it for internal review'
+              ) : undefined
+            }
+            status={consolidationTaskStatus}
+            showUpload={isCreator && allChildrenReady}
+            showStatus
+            showStatusDropdown={false}
+            files={uploadedFileName ? [uploadedFileName] : []}
+            onUploadFile={isCreator && allChildrenReady ? setUploadedFileName : undefined}
+          />
+        </div>
+      )}
+
       {/* "All Child Cases ready" banner — In Preparation only, once every Child Case has reached
           Ready for Consolidation. Same visual component every other package-status banner on
           this page uses; Creator gets the action-oriented copy, Reviewer/Partner get the same
@@ -648,37 +713,6 @@ export function ParentVatGroupCasePage() {
             descriptor={isCreator ? ALL_CHILDREN_READY_BANNER_CREATOR : ALL_CHILDREN_READY_BANNER_VIEW_ONLY}
             packageFileName={`${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`}
             hideVersionHistory
-          />
-        </div>
-      )}
-
-      {/* Consolidation task — folded into In Preparation (see the "Merge Consolidation Step
-          into In Preparation" ticket) instead of being its own step. Gated behind every Child
-          Case being ready (Feature 4.4): the Creator can only upload once `allChildrenReady`,
-          and the top-right "Send for review" button only enables once this task is Done
-          (Feature 4.5). Reviewer/Partner get the same card read-only (no upload button); Client
-          doesn't see it at all, consistent with every other WTS-team-only element on this page.
-          Helper text under the title clarifies the gate before it's met, and confirms the next
-          step once the document is uploaded — no separate copy for the in-between "ready, not
-          yet uploaded" state, since the now-visible Upload button already communicates that. */}
-      {parentPhase === 'inPreparation' && !isClient && (
-        <div className="flex flex-col gap-3 border-b border-border bg-background px-6 py-6">
-          <SectionLabel>Tasks</SectionLabel>
-          <TaskRow
-            title="Consolidation"
-            helperText={
-              consolidationTaskStatus === 'notStarted'
-                ? 'Available when all child cases reach "ready for consolidation"'
-                : consolidationTaskStatus === 'done'
-                  ? 'Consolidation document uploaded — send it for internal review'
-                  : undefined
-            }
-            status={consolidationTaskStatus}
-            showUpload={isCreator && allChildrenReady}
-            showStatus
-            showStatusDropdown={false}
-            files={uploadedFileName ? [uploadedFileName] : []}
-            onUploadFile={isCreator && allChildrenReady ? setUploadedFileName : undefined}
           />
         </div>
       )}

@@ -19,6 +19,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | Alert | shadcn + customized | — | info/success/warning/destructive variants |
 | AspectRatio | shadcn | `aspect-ratio.figma.tsx` | |
 | Avatar | shadcn | `avatar.figma.tsx` | |
+| AvatarGroup | WTS custom | — | Overlapping avatar stack (`-space-x-2` + background ring); `AvatarGroupCount` for "+N" overflow disc |
 | Badge | shadcn + customized | — | Tones (gray/blue/green/amber/red); `size` (sm/md) + icon |
 | Button | shadcn + customized | `button.figma.tsx` | 7 variants, 4 sizes; `loading` prop; `brand` variant |
 | Calendar | shadcn (v10) | `calendar.figma.tsx` | react-day-picker v10 |
@@ -39,6 +40,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | OptionPills | WTS custom | — | Pill-styled radio group (filled primary when selected) |
 | Pagination | shadcn | — | Page number links + Previous/Next, with ellipsis for long ranges |
 | Popover | shadcn (Radix) | — | Floating panel primitive; backs DatePicker/DateRangePicker |
+| Progress | WTS custom | — | Percentage bar (h-2, rounded-full); same track/fill treatment as FileDropzone's upload bar |
 | RadioGroup | shadcn (Radix) | — | Bare Radix radio group |
 | RadioPills | WTS custom | — | Vertical native-radio group with label |
 | SegmentedTabs | WTS custom | — | Segmented control with optional count badge |

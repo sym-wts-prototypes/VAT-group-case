@@ -130,6 +130,13 @@ export interface HeaderDescriptor {
   /** Client requirement bucket workflow status (Figma soft badge). */
   bucketStatus?: BucketStatus
   people?: PeopleRow
+  /** Rich {name, email}-per-role assignee data for the AssignedPeople avatar-cluster component
+   * (see assigned-people.tsx). When omitted, CaseHeader falls back to adapting `people` above. */
+  assignedPeople?: import('@/components/assigned-people').AssignedPeopleData
+  /** Overrides who can open AssignedPeople's Edit action — Creator/Reviewer per this
+   * component's own rule, independent of the broader `editable` flag below (which also gates
+   * unrelated workflow actions). Defaults to `editable` when omitted. */
+  assignedPeopleEditable?: boolean
   dueDate?: string
   /** Overrides the due-date pill's label — e.g. "Group Case Deadline" for VAT Group cases.
    * Defaults to "Due Date" (see DueDate.tsx) when omitted. */

@@ -58,6 +58,12 @@ interface BodyPlaceholderProps {
   phase: Phase
   role: Role
   tasksDoneChecked?: boolean
+  /** Captured once by CloseCaseDialog at close time — rendered on the Summary phase only.
+   * Internal-only: never shown when `role === 'client'`. */
+  internalClosingComment?: string
+  /** Captured once by CloseCaseDialog at close time — rendered on the Summary phase for every
+   * role, including the Client Portal, with identical text. */
+  clientClosingComment?: string
   approvedChecked?: boolean
   tasksReconfirmedDone?: boolean
   protocolConfirmationChecked?: boolean
@@ -92,6 +98,12 @@ interface BodyPlaceholderProps {
   /** Group Case Child Cases: a bigger "Preparation tasks" heading + description above the task
    * list instead of the small "Tasks" section label. */
   sectionHeadingOverride?: { title: string; description: string }
+  /** Feature 6 of the "button states & child-case comments" ticket — this specific Child Case's
+   * own comment, written per-entity in the Reviewer/Client reopen modal
+   * (needs-changes-reopen-modal.tsx), verbatim. Only ever applied when the resolved banner state
+   * is "needChanges" (see CaseWtsTasksBody) — every other state keeps the single-case dummy
+   * copy untouched, and non-Group-Case flows never pass this prop at all. */
+  childCommentOverride?: string | null
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
@@ -120,6 +132,8 @@ export function BodyPlaceholder({
   phase,
   role,
   tasksDoneChecked = false,
+  internalClosingComment,
+  clientClosingComment,
   approvedChecked = false,
   tasksReconfirmedDone = false,
   protocolConfirmationChecked = false,
@@ -134,6 +148,7 @@ export function BodyPlaceholder({
   taskListOverride,
   initialTaskStatusesOverride,
   sectionHeadingOverride,
+  childCommentOverride,
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
@@ -149,7 +164,13 @@ export function BodyPlaceholder({
 
   function renderWtsCaseContent() {
     if (phase === 'summary') {
-      return <CaseSummarySection role={role} />
+      return (
+        <CaseSummarySection
+          role={role}
+          internalClosingComment={internalClosingComment}
+          clientClosingComment={clientClosingComment}
+        />
+      )
     }
     if (phase === 'assessmentClosure') {
       return (
@@ -192,6 +213,7 @@ export function BodyPlaceholder({
         taskListOverride={taskListOverride}
         initialTaskStatusesOverride={initialTaskStatusesOverride}
         sectionHeadingOverride={sectionHeadingOverride}
+        childCommentOverride={childCommentOverride}
       />
     )
   }
@@ -269,7 +291,11 @@ export function BodyPlaceholder({
       {headerType === 'case' &&
         platform === 'client' &&
         (phase === 'summary' ? (
-          <CaseSummarySection role={role} />
+          <CaseSummarySection
+            role={role}
+            internalClosingComment={internalClosingComment}
+            clientClosingComment={clientClosingComment}
+          />
         ) : phase === 'assessmentClosure' ? (
           <AssessmentClosureSection
             role={role}
@@ -345,6 +371,7 @@ export function CaseWtsTasksBody({
   taskListOverride,
   initialTaskStatusesOverride,
   sectionHeadingOverride,
+  childCommentOverride,
 }: {
   process: Process
   role: Role
@@ -370,6 +397,10 @@ export function CaseWtsTasksBody({
    * tasks" / "Upload the finalised task documents…") instead of the small "Tasks" SectionLabel.
    * No effect on the Submission phase's own "Submission confirmation" label. */
   sectionHeadingOverride?: { title: string; description: string }
+  /** Feature 6 of the "button states & child-case comments" ticket — this Child Case's exact
+   * reopen comment, applied only when the resolved banner state is "needChanges" (replacing the
+   * dummy body text, same pattern as parent-vat-group-case-page.tsx's applyReviewComment). */
+  childCommentOverride?: string | null
 }) {
   const statuses = taskStatusesForDemo(phase, tasksDoneChecked, {
     process,
@@ -412,12 +443,29 @@ export function CaseWtsTasksBody({
       ? WTS_CASE_DEMO_SUBMISSION_DOCUMENTS.filter((item) => item.id !== 'sub-doc-3')
       : WTS_CASE_DEMO_SUBMISSION_DOCUMENTS
     : (taskListOverride ?? caseTasksForProcess(process))
-  const displayedPackageBanner =
+  const bannerWithTitleOverrides =
     packageBanner && isSubmissionPhase && submittedBannerOverride
       ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...submittedBannerOverride } }
       : packageBanner && phase === 'inReview' && packageBannerState === 'requested' && inReviewRequestedBannerOverride
         ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...inReviewRequestedBannerOverride } }
         : packageBanner
+  // Feature 6 — the exact per-entity comment written in the Reviewer/Client reopen modal,
+  // scoped to the "needChanges" banner state only (every other state's dummy comment, if any,
+  // stays untouched) and only when a Child Case's own comment override was actually passed in
+  // (non-Group-Case flows never pass this prop, so they're unaffected).
+  const displayedPackageBanner =
+    bannerWithTitleOverrides &&
+    packageBannerState === 'needChanges' &&
+    childCommentOverride != null &&
+    bannerWithTitleOverrides.descriptor.comments
+      ? {
+          ...bannerWithTitleOverrides,
+          descriptor: {
+            ...bannerWithTitleOverrides.descriptor,
+            comments: { ...bannerWithTitleOverrides.descriptor.comments, body: childCommentOverride },
+          },
+        }
+      : bannerWithTitleOverrides
   const requiredItems = listItems.filter((item) => !item.optional)
   const optionalItems = listItems.filter((item) => item.optional)
   const sectionLabel = isSubmissionPhase ? 'Submission confirmation' : 'Tasks'

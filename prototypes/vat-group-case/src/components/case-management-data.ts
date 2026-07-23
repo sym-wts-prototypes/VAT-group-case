@@ -181,10 +181,11 @@ export const DUMMY_CASES: Case[] = [
 ]
 
 // The DE VAT Group's members — reused for both reporting periods below so every static VAT
-// Group Case has the same ~20 Child Cases (large enough to exercise the Parent Case page's
-// legal-entity search/filter). EUROPIPE GmbH is the Representative Legal Entity, so it always
-// sits first (see case-management-page.tsx / parent-vat-group-case-page.tsx's `isRepresentative`
-// checks, which key off list position + name, not an explicit flag on this table).
+// Group Case has the same ~12 Child Cases (a mid-sized group: enough to exercise the Parent
+// Case page's legal-entity search/filter without feeling overcrowded). EUROPIPE GmbH is the
+// Representative Legal Entity, so it always sits first (see case-management-page.tsx /
+// parent-vat-group-case-page.tsx's `isRepresentative` checks, which key off list position +
+// name, not an explicit flag on this table).
 const DE_VAT_GROUP_MEMBERS: Array<{
   client: string
   jurisdiction: string
@@ -203,19 +204,11 @@ const DE_VAT_GROUP_MEMBERS: Array<{
   { client: 'EUROPIPE Manufacturing GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'ClientApproval', actor: 'Lucas Brown', description: 'Awaiting client sign-off' },
   { client: 'EUROPIPE Distribution GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'InReview', actor: 'Noah Davis', description: 'Reviewer comments added' },
   { client: 'EUROPIPE Trading GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'InPreparation', actor: 'Olivia Taylor', description: 'Data provision pending' },
-  { client: 'EUROPIPE Services GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'Draft', actor: 'Maria Fischer', description: 'Case created' },
   { client: 'EUROPIPE Holdings GmbH', jurisdiction: 'Germany', myRole: 'Reviewer', status: 'ClientApproval', actor: 'Jordan Miller', description: 'Client approval requested' },
-  { client: 'EUROPIPE Consulting GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'InReview', actor: 'Sophie Martin', description: 'Reviewer comments added' },
   { client: 'EUROPIPE Engineering GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'InPreparation', actor: 'Oscar Wilson', description: 'Data provision pending' },
-  { client: 'EUROPIPE Real Estate GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'Draft', actor: 'Emma Johnson', description: 'Case created' },
   { client: 'EUROPIPE Italy', jurisdiction: 'Italy', myRole: 'Creator', status: 'ClientApproval', actor: 'Lucas Brown', description: 'Awaiting client sign-off' },
   { client: 'EUROPIPE Netherlands', jurisdiction: 'Netherlands', myRole: 'Creator', status: 'InReview', actor: 'Noah Davis', description: 'Reviewer comments added' },
-  { client: 'EUROPIPE Spain', jurisdiction: 'Spain', myRole: 'Creator', status: 'InPreparation', actor: 'Olivia Taylor', description: 'Data provision pending' },
-  { client: 'EUROPIPE Austria', jurisdiction: 'Austria', myRole: 'Creator', status: 'Draft', actor: 'Maria Fischer', description: 'Case created' },
-  { client: 'EUROPIPE Belgium', jurisdiction: 'Belgium', myRole: 'Reviewer', status: 'ClientApproval', actor: 'Jordan Miller', description: 'Client approval requested' },
-  { client: 'EUROPIPE Hungary', jurisdiction: 'Hungary', myRole: 'Creator', status: 'InReview', actor: 'Sophie Martin', description: 'Reviewer comments added' },
   { client: 'EUROPIPE Switzerland', jurisdiction: 'Switzerland', myRole: 'Creator', status: 'InPreparation', actor: 'Oscar Wilson', description: 'Data provision pending' },
-  { client: 'EUROPIPE Ventures GmbH', jurisdiction: 'Germany', myRole: 'Creator', status: 'Draft', actor: 'Emma Johnson', description: 'Case created' },
 ]
 
 // Builds one reporting period's parent + children from DE_VAT_GROUP_MEMBERS. `allDraft` mirrors

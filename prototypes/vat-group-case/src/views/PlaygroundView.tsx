@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 
 import {
-  navigateToPrototype,
   SIDEBAR_CASE_MANAGEMENT_ID,
   SIDEBAR_ORGANISATIONS_ID,
   WtsAppShell,
@@ -30,6 +29,7 @@ export function PlaygroundView() {
   const [panelCollapsed, setPanelCollapsed] = useState(false)
   const role = useDemoStore((state) => state.role)
   const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
+  const setShowOrganisations = useDemoStore((state) => state.setShowOrganisations)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -52,9 +52,10 @@ export function PlaygroundView() {
     }
   }, [controlsHidden])
 
-  // "Case Management" routes into this prototype's own Case Management page (not the default
-  // cross-prototype nav WtsSidebar would otherwise use for that item) — every other item keeps
-  // the default behaviour.
+  // "Case Management" and "Organisations" both route into this prototype's own pages (Feature 4
+  // of the "upload modal & data-package visuals" ticket — Organisations no longer navigates out
+  // to the separate Organisations prototype) — every other sidebar item keeps the default
+  // cross-prototype behaviour.
   const sidebar = {
     role,
     activeItemId: SIDEBAR_CASE_MANAGEMENT_ID,
@@ -62,7 +63,7 @@ export function PlaygroundView() {
       if (id === SIDEBAR_CASE_MANAGEMENT_ID) {
         setShowCaseManagement(true)
       } else if (id === SIDEBAR_ORGANISATIONS_ID) {
-        navigateToPrototype('organisations')
+        setShowOrganisations(true)
       }
     },
   }

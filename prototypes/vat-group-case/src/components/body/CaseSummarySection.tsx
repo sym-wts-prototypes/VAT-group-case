@@ -12,6 +12,7 @@ import {
   FolderOpen,
   History,
   Landmark,
+  MessageSquareText,
   StickyNote,
 } from 'lucide-react'
 
@@ -100,16 +101,47 @@ const GROUP_ORDER: AssessmentGroupLabel[] = ['Federal', 'Municipal']
 
 interface CaseSummarySectionProps {
   role: Role
+  /** Captured once at close time (CloseCaseDialog) — internal-only, never shown to the Client
+   * Portal. A blank/whitespace-only value renders no row at all. */
+  internalClosingComment?: string
+  /** Captured once at close time (CloseCaseDialog) — shown identically here and on the Client
+   * Portal. A blank/whitespace-only value renders no row at all. */
+  clientClosingComment?: string
 }
 
 /** CIT Summary phase — read-only archive after the case is closed. */
-export function CaseSummarySection({ role }: CaseSummarySectionProps) {
+export function CaseSummarySection({
+  role,
+  internalClosingComment,
+  clientClosingComment,
+}: CaseSummarySectionProps) {
   const isClient = role === 'client'
   const assessments = SUMMARY_ASSESSMENTS
+  const trimmedInternalComment = internalClosingComment?.trim()
+  const trimmedClientComment = clientClosingComment?.trim()
 
   return (
     <div className="flex flex-col gap-8">
       <CaseClosedBanner />
+
+      {(!isClient && trimmedInternalComment) || trimmedClientComment ? (
+        <div className="flex flex-col gap-3">
+          {!isClient && trimmedInternalComment && (
+            <ClosingCommentCard
+              label="Internal closing comment"
+              text={trimmedInternalComment}
+              tone="neutral"
+            />
+          )}
+          {trimmedClientComment && (
+            <ClosingCommentCard
+              label="Client comment"
+              text={trimmedClientComment}
+              tone="blue"
+            />
+          )}
+        </div>
+      ) : null}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-foreground">Case records</h2>
@@ -222,6 +254,34 @@ function CaseClosedBanner() {
           Closed 16 Jun · 5 assessments · 3 approved · 2 objections filed
         </p>
       </div>
+    </div>
+  )
+}
+
+/** One of the two closing comments captured by CloseCaseDialog — same card shape as
+ * NoteBanner below. The label alone tells the two comments apart (Internal vs Client), so
+ * both share the same plain comment icon rather than a role/audience-specific one. */
+function ClosingCommentCard({
+  label,
+  text,
+  tone,
+}: {
+  label: string
+  text: string
+  tone: 'neutral' | 'blue'
+}) {
+  const toneClass =
+    tone === 'blue'
+      ? 'border-blue-200 bg-blue-50 text-blue-950'
+      : 'border-border bg-muted/50 text-foreground'
+
+  return (
+    <div className={cn('rounded-lg border px-4 py-3', toneClass)}>
+      <span className="inline-flex items-center gap-2 text-sm font-medium">
+        <MessageSquareText className="h-4 w-4" aria-hidden />
+        {label}
+      </span>
+      <p className="mt-1.5 whitespace-pre-wrap break-words text-sm">{text}</p>
     </div>
   )
 }

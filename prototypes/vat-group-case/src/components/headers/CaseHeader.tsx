@@ -1,8 +1,9 @@
+import { AssignedPeople, adaptLegacyPeople } from '@/components/assigned-people'
+
 import { Actions } from './parts/Actions'
 import { Breadcrumb } from './parts/Breadcrumb'
 import { DueDate } from './parts/DueDate'
 import { HeaderShell } from './parts/HeaderShell'
-import { PeopleRow } from './parts/PeopleRow'
 import { Title, TitleSubtitle } from './parts/Title'
 import type { HeaderDescriptor } from '@/types'
 
@@ -25,7 +26,7 @@ export function CaseHeader({
 }: CaseHeaderProps) {
   return (
     <HeaderShell variant="case" compact={compact}>
-      <div className="flex h-full flex-col gap-7">
+      <div className="flex flex-1 flex-col gap-7">
         <div className="flex flex-1 flex-col gap-2">
           <div className="flex items-center justify-between gap-4">
             {descriptor.breadcrumb ? (
@@ -52,13 +53,16 @@ export function CaseHeader({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          {descriptor.people ? (
-            <PeopleRow
-              people={descriptor.people}
-              editable={descriptor.editable}
+        {/* items-center — the AssignedPeople pill (~42px, driven by its 32px avatars) is
+            noticeably taller than the DueDate badge (~26px, Badge's default `sm` size);
+            bottom-aligning them left the badge visually offset below the pill's center. */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {descriptor.people || descriptor.assignedPeople ? (
+            <AssignedPeople
+              people={descriptor.assignedPeople ?? adaptLegacyPeople(descriptor.people)}
+              editable={descriptor.assignedPeopleEditable ?? descriptor.editable}
               editTooltip={descriptor.editTooltip}
-              className="min-w-0 flex-1"
+              className="min-w-0"
             />
           ) : (
             <span />

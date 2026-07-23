@@ -76,7 +76,7 @@ export function AddItemDialog({ open, onClose, onSubmit }: AddItemDialogProps) {
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 sm:p-6"
+      className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-background/40 backdrop-blur-sm p-4 sm:p-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()

@@ -32,6 +32,9 @@ export interface ConfirmDialogProps {
   destructive?: boolean
   /** Optional content rendered between the description and the footer. */
   children?: React.ReactNode
+  /** Overrides the backdrop's own className (e.g. to blur instead of blacken it). Opt-in —
+   * omitting it keeps every existing caller's current backdrop unchanged. */
+  overlayClassName?: string
 }
 
 /**
@@ -49,10 +52,11 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   destructive = true,
   children,
+  overlayClassName,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent overlayClassName={overlayClassName}>
         <AlertDialogHeader>
           <AlertDialogTitle className="text-xl leading-7">{title}</AlertDialogTitle>
           {description ? (

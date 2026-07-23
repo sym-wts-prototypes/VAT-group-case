@@ -31,6 +31,11 @@ interface PackageBannerProps {
   packageFileName: string
   hideVersionHistory?: boolean
   className?: string
+  /** Feature 4 of the "VAT-registration alignment" ticket — opens the shared
+   * PackageVersionHistoryDrawer. Optional and only wired up by callers that actually have that
+   * drawer mounted (the VAT Group Parent Case page); every other usage of this banner leaves the
+   * "Version history" link exactly as inert as it already was. */
+  onVersionHistoryClick?: () => void
 }
 
 /** Figma 15403:3973 — data package generated from case tasks. */
@@ -39,6 +44,7 @@ export function PackageBanner({
   packageFileName,
   hideVersionHistory = false,
   className,
+  onVersionHistoryClick,
 }: PackageBannerProps) {
   const Icon = ICON_MAP[descriptor.icon]
   const hasComments = Boolean(descriptor.comments)
@@ -105,6 +111,7 @@ export function PackageBanner({
             {descriptor.showVersionHistory && !hideVersionHistory && (
               <button
                 type="button"
+                onClick={onVersionHistoryClick}
                 className="inline-flex h-10 items-center gap-2 text-sm font-medium text-sky-800 hover:underline"
               >
                 <History className="h-4 w-4" aria-hidden />

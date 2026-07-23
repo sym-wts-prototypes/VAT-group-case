@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  Badge,
   Button,
   cn,
   DatePicker,
@@ -24,18 +25,28 @@ type DateRange = NonNullable<DateRangePickerProps['value']>
 
 import type { CaseListItem } from './case-management-data'
 import {
+  activeMembers,
   COUNTRIES,
   countryCodeFor,
+  Group,
   LegalEntity,
+  representativeOf,
   SERVICE_CATALOGUE,
 } from './org-details-data'
+import { Organization } from './organizations-data'
 import { SingleCaseSchedulerModal } from './single-case-scheduler-modal'
 import { SelectableUser, UserSelect } from './user-select'
+import { vatGroupsRepresentedBy } from './vat-group-representatives'
+import { VatSchedulerModal } from './vat-scheduler-modal'
 
 // Single Case drawer only (see the "Single Case Creation Drawer: Case Types, Country Lock,
 // VAT Registration" ticket) — none of this touches the Group Case drawer/VAT Scheduler, which
 // keep their own separate `CASE_TYPE_OPTIONS`/flow untouched.
 const CUSTOM_VAT_FILING_CASE_TYPE = 'Custom VAT filing'
+// Selecting this case type switches the drawer's submit flow from the normal single-case
+// scheduler over to the existing two-step group-case modal (VatSchedulerModal) — see Segment 5
+// of the "VAT Group Case" ticket.
+const VAT_GROUP_CASE_TYPE = 'VAT Group Case'
 // Cross-border EU case types (see org-details-data.ts's VAT_CASE_TYPE_GROUPS) — the only case
 // types that restrict "Country (of VAT registration)" to EU countries only.
 const CROSS_BORDER_EU_CASE_TYPES = ['EC Sales (ECSL)', 'Intrastat arrival', 'Intrastat dispatch']
@@ -70,12 +81,21 @@ export interface SingleCaseFormContentProps {
   open: boolean
   onClose: () => void
   entities: LegalEntity[]
+  organisations: Organization[]
+  groups: Group[]
   /** Called with the newly generated cases once the scheduler submits — Case Management owns
    * persisting/displaying them, this form just hands over what it produced. */
   onCasesGenerated?: (items: CaseListItem[]) => void
 }
 
-export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerated }: SingleCaseFormContentProps) {
+export function SingleCaseFormContent({
+  open,
+  onClose,
+  entities,
+  organisations,
+  groups,
+  onCasesGenerated,
+}: SingleCaseFormContentProps) {
   const [legalEntityId, setLegalEntityId] = useState<string | undefined>(undefined)
   const [serviceLineKey, setServiceLineKey] = useState<string | undefined>(undefined)
   const [caseType, setCaseType] = useState<string | undefined>(undefined)
@@ -90,6 +110,10 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
   const [partnerIds, setPartnerIds] = useState<string[]>([])
   const [clientIds, setClientIds] = useState<string[]>([])
   const [schedulerOpen, setSchedulerOpen] = useState(false)
+  // VAT Group Case only — which VAT group (of the ones the selected legal entity represents)
+  // this case is being created for. Mandatory: the rest of the form stays hidden until set.
+  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(undefined)
+  const [groupSchedulerOpen, setGroupSchedulerOpen] = useState(false)
   // VAT only — the country this filing's VAT registration is for (distinct from Jurisdiction,
   // which is the Legal Entity's own home country, locked below). Drives the auto-generated,
   // locked VAT Registration number.
@@ -121,12 +145,32 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
     setVatRegCountry(undefined)
     setVatRegistrationNumber('')
     setCustomCaseTypeName('')
+    setSelectedGroupId(undefined)
+    setGroupSchedulerOpen(false)
   }, [open])
 
   const isHrOrVat = serviceLineKey === 'HR Tax' || serviceLineKey === 'VAT'
   const isCit = serviceLineKey === 'CIT'
   const isVat = serviceLineKey === 'VAT'
   const isCustomVatFiling = isVat && caseType === CUSTOM_VAT_FILING_CASE_TYPE
+  const isVatGroupCase = isVat && caseType === VAT_GROUP_CASE_TYPE
+
+  // Segment 3 — VAT groups the selected legal entity is a REPRESENTATIVE of. Recomputed
+  // whenever the entity (or the groups data) changes; empty for an entity that represents no
+  // group, which is what disables the "Select group" dropdown below.
+  const representedGroups = useMemo(
+    () => (legalEntityId ? vatGroupsRepresentedBy(legalEntityId, groups) : []),
+    [legalEntityId, groups],
+  )
+  const selectedGroup = representedGroups.find((g) => g.id === selectedGroupId)
+
+  // Clears a stale group pick if the case type moves away from VAT Group Case, or if the
+  // selected entity changes and no longer represents the previously-picked group.
+  useEffect(() => {
+    if (!isVatGroupCase || !representedGroups.some((g) => g.id === selectedGroupId)) {
+      setSelectedGroupId(undefined)
+    }
+  }, [isVatGroupCase, representedGroups, selectedGroupId])
 
   const selectedServiceLine = useMemo(
     () => SERVICE_CATALOGUE.find((s) => s.key === serviceLineKey),
@@ -211,6 +255,7 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
     reviewerIds.length > 0 &&
     !reviewerOverlapsCreator &&
     clientIds.length > 0 &&
+    (!isVatGroupCase || !!selectedGroupId) &&
     (!isCit ||
       (!!frequency &&
         !!fiscalYear?.from &&
@@ -232,18 +277,41 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
     return `${serviceLineKey} | ${effectiveCaseType}`
   }, [serviceLineKey, effectiveCaseType, isCit, fiscalYear])
 
-  const legalEntityName = entities.find((e) => e.id === legalEntityId)?.legalName ?? ''
+  const legalEntity = entities.find((e) => e.id === legalEntityId)
+  const legalEntityName = legalEntity?.legalName ?? ''
   const creatorNames = creatorIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const reviewerNames = reviewerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const partnerNames = partnerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
   const clientNames = clientIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
 
+  // Segment 5 — data for the existing two-step group-case modal (VatSchedulerModal), computed
+  // the same way group-case-form.tsx computes it for the same group: the higher-level
+  // Organisation name (not the technical legal entity name), and every active member with the
+  // representative flagged for the modal's badge.
+  const organisationName = legalEntity
+    ? organisations.find((o) => o.id === legalEntity.orgId)?.name ?? legalEntityName
+    : ''
+  const groupMembers = useMemo(() => {
+    if (!selectedGroup) return []
+    const representativeId = representativeOf(selectedGroup)?.entityId
+    return activeMembers(selectedGroup).map((m) => ({
+      id: m.entityId,
+      name: entities.find((e) => e.id === m.entityId)?.legalName ?? m.entityId,
+      isRepresentative: m.entityId === representativeId,
+    }))
+  }, [selectedGroup, entities])
+  const clientName = clientNames.join(', ')
+
   // A single, non-group VAT case gets the same VAT Scheduler flow the Group Case form uses
   // (period-by-period case generation) — CIT/HR cases have no scheduler yet, so they just
-  // close the drawer directly, same as before this feature existed.
+  // close the drawer directly, same as before this feature existed. VAT Group Case instead
+  // opens the existing two-step group-case modal (Segment 5) — the same modal the old "Group
+  // case" toggle position used to open.
   const handleSubmit = () => {
     if (!canCreate) return
-    if (isVat) {
+    if (isVatGroupCase) {
+      setGroupSchedulerOpen(true)
+    } else if (isVat) {
       setSchedulerOpen(true)
     } else {
       onClose()
@@ -260,9 +328,19 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
               <SelectValue placeholder="Select legal entity" />
             </SelectTrigger>
             <SelectContent>
+              {/* Segment 6 — badges the entities that are a VAT group representative, so picking
+                  one and then Case type → VAT Group Case leads to an enabled, populated
+                  "Select group" dropdown below (the happy path). */}
               {entities.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
-                  {e.legalName}
+                  <span className="flex w-full items-center justify-between gap-2">
+                    <span>{e.legalName}</span>
+                    {vatGroupsRepresentedBy(e.id, groups).length > 0 && (
+                      <Badge variant="soft" tone="blue" size="sm">
+                        Representative
+                      </Badge>
+                    )}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -329,9 +407,42 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
           </div>
         </div>
 
+        {/* Segment 3 — VAT Group Case only: appears as soon as the case type is picked, ahead
+            of (and gating) the rest of the form. Disabled with the exact placeholder below when
+            the selected legal entity represents no VAT group. */}
+        {isVatGroupCase && (
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Select group</Label>
+            <Select
+              value={selectedGroupId}
+              onValueChange={setSelectedGroupId}
+              disabled={representedGroups.length === 0}
+            >
+              <SelectTrigger data-testid="create-single-case-vat-group">
+                <SelectValue
+                  placeholder={
+                    representedGroups.length === 0
+                      ? 'Selected legal entity is not a representative in any group...'
+                      : 'Select a group'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {representedGroups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Progressive reveal: the rest of the form only appears once Case Type has a valid
-            selection — keeps the initial form to just Legal Entity/Service Line/Case Type. */}
-        {!!caseType && (
+            selection — keeps the initial form to just Legal Entity/Service Line/Case Type.
+            Segment 4 — for VAT Group Case specifically, it stays hidden until a group is picked
+            above (mandatory; the dropdown may also be disabled with no groups to pick). */}
+        {!!caseType && (!isVatGroupCase || !!selectedGroupId) && (
           <>
           {/* Segment 5 — Custom VAT filing only: names the case type the rest of the form (and
               eventually the Case Management table) shows in its place. */}
@@ -460,9 +571,18 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
                   <SelectValue placeholder="Select a country" />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Feature 1 of the "VAT-registration alignment" ticket — `justify-between` on
+                      a plain child span doesn't actually spread it edge-to-edge: Radix's
+                      `SelectItem` wraps children in its own `ItemText`, which renders as a
+                      shrink-to-fit span (not stretched to the row's real width, and it doesn't
+                      forward a className to widen it), so `w-full` on a nested span just
+                      resolves back to that same shrink-wrapped width. Positioning the row
+                      `absolute` against `SelectItem`'s own `position: relative` root — spanning
+                      exactly its `pl-8`/`pr-2` content band — sidesteps ItemText's box entirely,
+                      so the code reliably lands flush right regardless of the name's length. */}
                   {vatRegCountryOptions.map((c) => (
                     <SelectItem key={c} value={c}>
-                      <span className="flex w-full items-center justify-between gap-4">
+                      <span className="absolute inset-y-0 left-8 right-2 flex items-center justify-between gap-4">
                         <span>{c}</span>
                         <span className="text-muted-foreground">{countryCodeFor(c)}</span>
                       </span>
@@ -606,6 +726,27 @@ export function SingleCaseFormContent({ open, onClose, entities, onCasesGenerate
         reviewerNames={reviewerNames}
         partnerNames={partnerNames}
         clientNames={clientNames}
+      />
+
+      {/* Segment 5 — VAT Group Case reuses this exact modal as-is (same component the old
+          "Group case" toggle position opened), fed the selected group's data instead of the
+          normal single-case scheduler above. */}
+      <VatSchedulerModal
+        open={groupSchedulerOpen}
+        onOpenChange={setGroupSchedulerOpen}
+        onCreated={onClose}
+        onCasesGenerated={onCasesGenerated}
+        organisationName={organisationName}
+        groupName={selectedGroup?.name ?? ''}
+        jurisdiction={jurisdiction ?? ''}
+        vatRegistration={vatRegistrationNumber}
+        projectCode={projectCode}
+        caseTypeLabel="Return"
+        creatorNames={creatorNames}
+        reviewerNames={reviewerNames}
+        partnerNames={partnerNames}
+        clientName={clientName}
+        groupMembers={groupMembers}
       />
     </>
   )

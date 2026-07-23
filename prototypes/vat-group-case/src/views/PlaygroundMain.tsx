@@ -3,9 +3,11 @@ import { useState } from 'react'
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { CaseManagementPage } from '@/components/case-management-page'
+import { OrganisationsEntryPage } from '@/components/organisations-entry'
 import { GROUPS, LEGAL_ENTITIES } from '@/components/org-details-data'
 import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
 import { ParentVatGroupCasePage } from '@/components/parent-vat-group-case-page'
+import { CHILD_CASE_DEMO_ASSIGNEES } from '@/components/vat-group-case-assignees'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
@@ -45,18 +47,29 @@ export function PlaygroundMain() {
     bucketMarkAsDoneChecked,
     selectedRequirementCategoryId,
     showCaseManagement,
+    showOrganisations,
     caseKind,
     groupCaseView,
     childCaseRequiresClientApproval,
+    openChildCaseId,
+    childCaseComments,
     setHeaderType,
     setBucketMarkAsDoneChecked,
     setSelectedRequirementCategoryId,
     setPhase,
   } = useDemoStore()
   const [closeCaseOpen, setCloseCaseOpen] = useState(false)
+  // Captured once, at close time, by CloseCaseDialog — no UI anywhere lets these be added,
+  // edited, or removed afterwards (see the "Split closing comment" ticket, Segment 5).
+  const [internalClosingComment, setInternalClosingComment] = useState('')
+  const [clientClosingComment, setClientClosingComment] = useState('')
 
   if (showCaseManagement) {
     return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
+  }
+
+  if (showOrganisations) {
+    return <OrganisationsEntryPage />
   }
 
   // Group + Child is just the normal case dispatch below (process is already locked to vat by
@@ -66,6 +79,13 @@ export function PlaygroundMain() {
   }
   const isChildCaseView = caseKind === 'group' && groupCaseView === 'child'
   const skipClientApproval = isChildCaseView && !childCaseRequiresClientApproval
+  // Feature 6 of the "button states & child-case comments" ticket — this specific Child Case's
+  // own reopen comment (see needs-changes-reopen-modal.tsx / parent-vat-group-case-page.tsx),
+  // looked up by whichever Child Case was last opened. Undefined outside the Child Case view so
+  // BodyPlaceholder's dummy-comment fallback stays untouched everywhere else.
+  const childCommentOverride = isChildCaseView
+    ? childCaseComments[openChildCaseId ?? ''] ?? null
+    : undefined
 
   const ctx = { process, platform, role, headerType, phase }
   const resolved = resolveHeader(ctx)
@@ -100,6 +120,17 @@ export function PlaygroundMain() {
     withNeedChanges && isChildCaseView
       ? { ...withNeedChanges, dueDateLabel: 'Group Case Deadline' }
       : withNeedChanges
+  // Group Case Child Case flow: a representative example of a non-representative-entity Child
+  // Case's real, org-sourced assignees (see vat-group-case-assignees.ts) instead of the generic
+  // cross-process demo people — plus this component's own Creator/Reviewer-can-edit rule.
+  const withChildAssignedPeople =
+    withDueDateLabel && isChildCaseView
+      ? {
+          ...withDueDateLabel,
+          assignedPeople: CHILD_CASE_DEMO_ASSIGNEES,
+          assignedPeopleEditable: role === 'creator' || role === 'reviewer',
+        }
+      : withDueDateLabel
   // Group Case Child Case flow: neither Consolidation nor a "Send to Consolidation"/"Submit to
   // tax authorities" step exists on a Child Case (those are Parent-Case-only) — so the
   // Creator's two case-progressing actions get child-specific labels instead. In Preparation's
@@ -107,15 +138,15 @@ export function PlaygroundMain() {
   // reached directly or via the needChanges reset, which also uses this exact label — see
   // NEED_CHANGES_CREATOR_HEADER_ACTIONS).
   const withChildCreatorSubmitLabel =
-    withDueDateLabel && isChildCaseView && withDueDateLabel.actions.primary?.label === 'Send for review'
+    withChildAssignedPeople && isChildCaseView && withChildAssignedPeople.actions.primary?.label === 'Send for review'
       ? {
-          ...withDueDateLabel,
+          ...withChildAssignedPeople,
           actions: {
-            ...withDueDateLabel.actions,
-            primary: { ...withDueDateLabel.actions.primary, label: 'Submit for review' },
+            ...withChildAssignedPeople.actions,
+            primary: { ...withChildAssignedPeople.actions.primary, label: 'Submit for review' },
           },
         }
-      : withDueDateLabel
+      : withChildAssignedPeople
   // In Review's default label ("Send for approval") depends on whether this Child Case's
   // workflow includes Client Approval at all: relabelled to "Send to approval" when it does
   // (same next step, Client Approval, just worded for the child-case context) or straight to
@@ -319,6 +350,8 @@ export function PlaygroundMain() {
         phase={phase}
         role={role}
         tasksDoneChecked={tasksGateActive ? tasksDoneChecked : false}
+        internalClosingComment={internalClosingComment}
+        clientClosingComment={clientClosingComment}
         approvedChecked={approvedChecked}
         tasksReconfirmedDone={tasksReconfirmedDone}
         protocolConfirmationChecked={protocolConfirmationChecked}
@@ -346,6 +379,7 @@ export function PlaygroundMain() {
               }
             : undefined
         }
+        childCommentOverride={childCommentOverride}
         selectedRequirementCategoryId={selectedRequirementCategoryId}
         onOpenRequirementList={() => setHeaderType('requirementList')}
         onOpenRequirementBucket={(categoryId) => {
@@ -363,7 +397,11 @@ export function PlaygroundMain() {
       <CloseCaseDialog
         open={closeCaseOpen}
         onClose={() => setCloseCaseOpen(false)}
-        onConfirm={() => setPhase('summary')}
+        onConfirm={(comments) => {
+          setInternalClosingComment(comments.internalComment)
+          setClientClosingComment(comments.clientComment)
+          setPhase('summary')
+        }}
       />
     </div>
   )

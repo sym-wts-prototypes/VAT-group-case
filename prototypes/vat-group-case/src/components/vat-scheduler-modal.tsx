@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label,
   Stepper,
   Switch,
 } from '@wts/ui'
@@ -25,7 +24,6 @@ import {
   StatutoryDeadlineFields,
   useDeadlineSchedule,
 } from './scheduler-shared'
-import { SelectableUser, UserSelect } from './user-select'
 
 // Prototype replica of the reference platform's VAT scheduler modal (see
 // reference/WTS20Platform/src/components/vat-scheduler/vat-scheduler-modal.tsx). Layout,
@@ -51,28 +49,7 @@ const SummaryRow = ({ label, value }: { label: string; value: string }) => (
   </div>
 )
 
-// Same placeholder directory used by the group-case form — a real user directory doesn't
-// exist in this prototype yet. Needed here (not just names) so non-representative entities
-// can be assigned a different Creator/Reviewer/Partner than the case-level defaults.
-const DUMMY_USERS: SelectableUser[] = [
-  { id: 'maria-fischer', name: 'Maria Fischer', email: 'maria.fischer@example.com' },
-  { id: 'jordan-miller', name: 'Jordan Miller', email: 'jordan.miller@example.com' },
-  { id: 'oscar-wilson', name: 'Oscar Wilson', email: 'oscar.wilson@example.com' },
-  { id: 'emma-johnson', name: 'Emma Johnson', email: 'emma.johnson@example.com' },
-  { id: 'lucas-brown', name: 'Lucas Brown', email: 'lucas.brown@example.com' },
-  { id: 'sophie-martin', name: 'Sophie Martin', email: 'sophie.martin@example.com' },
-  { id: 'noah-davis', name: 'Noah Davis', email: 'noah.davis@example.com' },
-  { id: 'olivia-taylor', name: 'Olivia Taylor', email: 'olivia.taylor@example.com' },
-]
-
 type SchedulerStep = 'schedule' | 'entities'
-
-interface EntityRoleAssignment {
-  creatorIds: string[]
-  reviewerIds: string[]
-  partnerIds: string[]
-  clientIds: string[]
-}
 
 export interface GroupMember {
   id: string
@@ -128,9 +105,6 @@ export function VatSchedulerModal({
   // Client Approval rule per legal entity — defaults to skipped (false/absent) for everyone.
   const [approvalByEntityId, setApprovalByEntityId] = useState<Record<string, boolean>>({})
   const [entitySearch, setEntitySearch] = useState('')
-  // Per-entity role overrides — the Representative entity has none (it always inherits the
-  // case-level Creator/Reviewer/Partner instead), every other entity gets its own.
-  const [entityRoles, setEntityRoles] = useState<Record<string, EntityRoleAssignment>>({})
 
   // Group cases are named after the group, not a per-entity case type — e.g.
   // "DE VAT Group — Q1 2026" — since a VAT group files one consolidated return per period.
@@ -145,30 +119,11 @@ export function VatSchedulerModal({
     setStep('schedule')
     setApprovalByEntityId({})
     setEntitySearch('')
-    setEntityRoles({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const toggleApproval = (entityId: string) =>
     setApprovalByEntityId((prev) => ({ ...prev, [entityId]: !prev[entityId] }))
-
-  const setEntityRole = (entityId: string, field: 'creatorIds' | 'reviewerIds', value: string[]) =>
-    setEntityRoles((prev) => {
-      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [], clientIds: [] }
-      return { ...prev, [entityId]: { ...existing, [field]: value } }
-    })
-
-  const setEntityPartners = (entityId: string, partnerIds: string[]) =>
-    setEntityRoles((prev) => {
-      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [], clientIds: [] }
-      return { ...prev, [entityId]: { ...existing, partnerIds } }
-    })
-
-  const setEntityClients = (entityId: string, clientIds: string[]) =>
-    setEntityRoles((prev) => {
-      const existing = prev[entityId] ?? { creatorIds: [], reviewerIds: [], partnerIds: [], clientIds: [] }
-      return { ...prev, [entityId]: { ...existing, clientIds } }
-    })
 
   const visibleGroupMembers = useMemo(() => {
     const q = entitySearch.trim().toLowerCase()
@@ -177,9 +132,7 @@ export function VatSchedulerModal({
   }, [groupMembers, entitySearch])
 
   const approvedCount = groupMembers.filter((m) => approvalByEntityId[m.id]).length
-
-  const userName = (id: string | undefined) => DUMMY_USERS.find((u) => u.id === id)?.name
-  const userNames = (ids: string[]) => ids.map(userName).filter((n): n is string => !!n)
+  const approvedNames = groupMembers.filter((m) => approvalByEntityId[m.id]).map((m) => m.name)
 
   const schedulePayload = useMemo(
     () => ({
@@ -187,19 +140,6 @@ export function VatSchedulerModal({
       entities: groupMembers.map((m) => ({
         name: m.name,
         requiresClientApproval: !!approvalByEntityId[m.id],
-        roles: m.isRepresentative
-          ? {
-              creator: creatorNames,
-              reviewer: reviewerNames,
-              partners: partnerNames,
-              clients: clientName ? [clientName] : [],
-            }
-          : {
-              creator: userNames(entityRoles[m.id]?.creatorIds ?? []),
-              reviewer: userNames(entityRoles[m.id]?.reviewerIds ?? []),
-              partners: userNames(entityRoles[m.id]?.partnerIds ?? []),
-              clients: userNames(entityRoles[m.id]?.clientIds ?? []),
-            },
       })),
       cases: schedule.cases.map((c) => ({
         name: c.name,
@@ -207,7 +147,7 @@ export function VatSchedulerModal({
       })),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groupName, groupMembers, approvalByEntityId, entityRoles, creatorNames, reviewerNames, partnerNames, clientName, schedule.cases],
+    [groupName, groupMembers, approvalByEntityId, schedule.cases],
   )
 
   const canSubmit = schedule.canSubmitSchedule
@@ -242,9 +182,7 @@ export function VatSchedulerModal({
         statutoryDeadline: deadline,
         nextDeadline: null,
         latestActivity: {
-          actor: m.isRepresentative
-            ? (creatorNames[0] ?? 'System')
-            : (userName(entityRoles[m.id]?.creatorIds?.[0]) ?? 'System'),
+          actor: creatorNames[0] ?? 'System',
           description: 'Case created',
         },
       }))
@@ -365,11 +303,13 @@ export function VatSchedulerModal({
                 </div>
               </>
             ) : (
-              /* Client Approval + per-entity role assignment. Group-specific: a single case has
-                 only one legal entity, so this step has no equivalent in SingleCaseSchedulerModal. */
+              /* Client Approval selection. Group-specific: a single case has only one legal
+                 entity, so this step has no equivalent in SingleCaseSchedulerModal. */
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-foreground text-sm">Configure case settings for this group's legal entities</p>
+                  <p className="font-medium text-foreground text-sm">
+                    Select legal entities that require Client Approval
+                  </p>
                   <div className="relative w-56 shrink-0">
                     <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -381,128 +321,66 @@ export function VatSchedulerModal({
                   </div>
                 </div>
 
-                {/* Large VAT Groups shouldn't keep growing the modal — past 3 entities the
-                    list scrolls internally instead, same threshold/pattern as the custom
-                    Statutory Deadline table in scheduler-shared.tsx. */}
+                {/* Large VAT Groups shouldn't keep growing the modal — past 5 entities the
+                    list scrolls internally instead. */}
                 <div
                   className={cn(
-                    'flex flex-col gap-3',
-                    visibleGroupMembers.length > 3 && 'max-h-[420px] overflow-y-auto pr-1',
+                    'flex flex-col gap-2',
+                    visibleGroupMembers.length > 5 && 'max-h-[300px] overflow-y-auto pr-1',
                   )}
                 >
                   {visibleGroupMembers.map((m) => {
-                    const roles = entityRoles[m.id]
-                    const creatorOptions = DUMMY_USERS.filter((u) => !(roles?.reviewerIds ?? []).includes(u.id))
-                    const reviewerOptions = DUMMY_USERS.filter((u) => !(roles?.creatorIds ?? []).includes(u.id))
                     const requiresApproval = !!approvalByEntityId[m.id]
                     return (
                       <div
                         key={m.id}
                         className={cn(
-                          'rounded-md border transition-colors',
+                          'flex items-center justify-between gap-4 rounded-md border px-3 py-2.5 transition-colors',
                           requiresApproval ? 'border-amber-300 bg-amber-50' : 'border-border',
                         )}
                       >
-                        <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                          <span
-                            className={cn(
-                              'flex items-center gap-2 text-sm',
-                              requiresApproval ? 'font-medium text-amber-950' : 'text-foreground',
-                            )}
-                          >
-                            {m.name}
-                            {m.isRepresentative && (
-                              <Badge variant="soft" tone="blue" size="sm">
-                                Representative
-                              </Badge>
-                            )}
-                          </span>
-                          {/* A plain checkbox left it unclear what selecting it actually did —
-                              the switch + on/off label + amber row highlight (same accent as a
-                              manually-set Statutory Deadline) makes "this enables Client
-                              Approval for this entity" obvious at a glance. */}
-                          <div className="flex items-center gap-2">
-                            <span className={cn('text-sm', requiresApproval ? 'text-amber-900' : 'text-muted-foreground')}>
-                              Client Approval is {requiresApproval ? 'on' : 'off'}
-                            </span>
-                            <Switch
-                              aria-label={`Requires Client Approval — ${m.name}`}
-                              checked={requiresApproval}
-                              onCheckedChange={() => toggleApproval(m.id)}
-                            />
-                          </div>
-                        </div>
-                        <div
+                        <span
                           className={cn(
-                            'grid grid-cols-4 gap-3 border-t px-3 py-3',
-                            requiresApproval ? 'border-amber-200' : 'border-border',
+                            'flex items-center gap-2 text-sm',
+                            requiresApproval ? 'font-medium text-amber-950' : 'text-foreground',
                           )}
                         >
-                          <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs text-muted-foreground">Creator</Label>
-                            {m.isRepresentative ? (
-                              <p className="text-foreground text-sm">{creatorLabel || '—'}</p>
-                            ) : (
-                              <UserSelect
-                                multiple
-                                users={creatorOptions}
-                                value={roles?.creatorIds ?? []}
-                                onChange={(ids) => setEntityRole(m.id, 'creatorIds', ids)}
-                                data-testid={`entity-creator-${m.id}`}
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs text-muted-foreground">Reviewer</Label>
-                            {m.isRepresentative ? (
-                              <p className="text-foreground text-sm">{reviewerLabel || '—'}</p>
-                            ) : (
-                              <UserSelect
-                                multiple
-                                users={reviewerOptions}
-                                value={roles?.reviewerIds ?? []}
-                                onChange={(ids) => setEntityRole(m.id, 'reviewerIds', ids)}
-                                data-testid={`entity-reviewer-${m.id}`}
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs text-muted-foreground">Partner</Label>
-                            {m.isRepresentative ? (
-                              <p className="text-foreground text-sm">{partnerLabel || '—'}</p>
-                            ) : (
-                              <UserSelect
-                                multiple
-                                users={DUMMY_USERS}
-                                value={roles?.partnerIds ?? []}
-                                onChange={(ids) => setEntityPartners(m.id, ids)}
-                                data-testid={`entity-partner-${m.id}`}
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs text-muted-foreground">Clients</Label>
-                            {m.isRepresentative ? (
-                              <p className="text-foreground text-sm">{clientLabel || '—'}</p>
-                            ) : (
-                              <UserSelect
-                                multiple
-                                users={DUMMY_USERS}
-                                value={roles?.clientIds ?? []}
-                                onChange={(ids) => setEntityClients(m.id, ids)}
-                                data-testid={`entity-client-${m.id}`}
-                              />
-                            )}
-                          </div>
+                          {m.name}
+                          {m.isRepresentative && (
+                            <Badge variant="soft" tone="blue" size="sm">
+                              Representative
+                            </Badge>
+                          )}
+                        </span>
+                        {/* A plain checkbox left it unclear what selecting it actually did —
+                            the switch + on/off label + amber row highlight (same accent as a
+                            manually-set Statutory Deadline) makes "this enables Client
+                            Approval for this entity" obvious at a glance. */}
+                        <div className="flex items-center gap-2">
+                          <span className={cn('text-sm', requiresApproval ? 'text-amber-900' : 'text-muted-foreground')}>
+                            Client Approval is {requiresApproval ? 'on' : 'off'}
+                          </span>
+                          <Switch
+                            aria-label={`Requires Client Approval — ${m.name}`}
+                            checked={requiresApproval}
+                            onCheckedChange={() => toggleApproval(m.id)}
+                          />
                         </div>
                       </div>
                     )
                   })}
                 </div>
 
-                <p className="text-right text-muted-foreground text-sm">
-                  {approvedCount} of {groupMembers.length} require the Client Approval step
-                </p>
+                <div className="flex flex-col gap-1 pt-1 text-right">
+                  <p className="text-muted-foreground text-sm">
+                    {approvedCount} of {groupMembers.length} require the Client Approval step
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {approvedNames.length > 0
+                      ? `Selected legal entities that will have a Client Approval step: ${approvedNames.join(', ')}.`
+                      : 'No legal entities from this group will have the Client Approval step.'}
+                  </p>
+                </div>
               </div>
             )}
           </form>

@@ -1,3 +1,4 @@
+import { DUMMY_GROUP_CASES } from '@/components/case-management-data'
 import { PARENT_CASE_PHASES, PHASE_LABELS, workflowPhasesForControls } from '@/config/phases'
 import { PROCESS_LABELS } from '@/config/sampleData'
 import {
@@ -60,6 +61,10 @@ const GROUP_CASE_VIEW_OPTIONS: { value: GroupCaseView; label: string }[] = [
   { value: 'parent', label: 'Parent Case' },
   { value: 'child', label: 'Child Case' },
 ]
+const CHILD_CASE_VARIANT_OPTIONS: { value: 'withApproval' | 'withoutApproval'; label: string }[] = [
+  { value: 'withoutApproval', label: 'No Client Approval (3 steps)' },
+  { value: 'withApproval', label: 'With Client Approval (4 steps)' },
+]
 
 export function ControlPanel() {
   const {
@@ -78,6 +83,7 @@ export function ControlPanel() {
     caseKind,
     groupCaseView,
     childCaseRequiresClientApproval,
+    reopenedChildCaseIds,
     setProcess,
     setRole,
     setHeaderType,
@@ -91,6 +97,7 @@ export function ControlPanel() {
     setShowCaseManagement,
     setCaseKind,
     setGroupCaseView,
+    setChildCaseRequiresClientApproval,
   } = useDemoStore()
 
   const isGroupCase = caseKind === 'group'
@@ -170,6 +177,21 @@ export function ControlPanel() {
         />
       )}
 
+      {/* Feature 2 of the "button states & child-case comments" ticket — most Child Cases on
+          the Parent page are the no-Client-Approval (3-step) kind; this lets the Playground
+          manually preview the other (4-step, with-Client-Approval) variant too, independent of
+          which specific row was clicked. Switching away from "With Client Approval" while
+          already on that step resets the Phase (see setChildCaseRequiresClientApproval) so the
+          Phase radios below never get stuck on a step the new variant doesn't have. */}
+      {isChildCaseView && (
+        <OptionPills
+          label="Child Case Variant"
+          value={childCaseRequiresClientApproval ? 'withApproval' : 'withoutApproval'}
+          onChange={(v) => setChildCaseRequiresClientApproval(v === 'withApproval')}
+          options={CHILD_CASE_VARIANT_OPTIONS}
+        />
+      )}
+
       <ProcessTabs
         label="Process"
         value={process}
@@ -191,16 +213,25 @@ export function ControlPanel() {
         }))}
       />
 
-      <OptionPills
-        label="Page"
-        value={headerType}
-        onChange={setHeaderType}
-        options={ALL_HEADER_TYPES.map((h) => ({
-          value: h,
-          label: HEADER_LABELS[h],
-          disabled: !isHeaderTypeAllowedInControls(h, process, role, phase),
-        }))}
-      />
+      {/* Feature 3 of the "review-flow update batch" ticket: the Parent Case page ignores
+          headerType entirely (PlaygroundMain dispatches to it before this control could matter),
+          so showing the selector there is pure noise — Case is the permanent, only page.
+          Feature 6 of the "reopen modal rules" ticket extends this to the Child Case view too:
+          Case Wrapper is HR-only (Group Case is always locked to VAT) and Requirement List/
+          Bucket are already disabled for every Group Case view just below — leaving "Case" as
+          the only ever-enabled option, so the whole selector is the same kind of noise here. */}
+      {!isGroupCase && (
+        <OptionPills
+          label="Page"
+          value={headerType}
+          onChange={setHeaderType}
+          options={ALL_HEADER_TYPES.map((h) => ({
+            value: h,
+            label: HEADER_LABELS[h],
+            disabled: !isHeaderTypeAllowedInControls(h, process, role, phase),
+          }))}
+        />
+      )}
 
       <PhaseRadios
         label="Phase"
@@ -234,10 +265,39 @@ export function ControlPanel() {
               ? 'Marks every Child Case ready and enables Send to Consolidation.'
               : 'Marks all tasks complete and enables Send for review.'
           }
-          checked={tasksDoneChecked}
+          // Feature 9 of the "review-flow update batch" ticket — a real state switcher: reflects
+          // TRUE aggregate readiness (unchecked whenever any Child Case was individually reopened
+          // via a Reviewer/Client Needs Changes decision, even if `tasksDoneChecked` itself was
+          // never un-set), not just the raw checkbox value. Checking it clears the reopened set
+          // (see setTasksDoneChecked) and brings every Child Case back to Ready for Consolidation.
+          checked={tasksDoneChecked && reopenedChildCaseIds.length === 0}
           onCheckedChange={setTasksDoneChecked}
         />
       )}
+
+      {isParentCaseView &&
+        packageReviewOutcome === 'needChanges' &&
+        reopenedChildCaseIds.length > 0 && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+            <span className="text-[13px] font-medium text-amber-950">
+              Reopened Child Cases
+            </span>
+            <p className="text-xs text-amber-900/80">
+              Sent back to In Preparation by the last Needs Changes decision; the
+              rest kept their prior state.
+            </p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {reopenedChildCaseIds.map((id) => {
+                const child = DUMMY_GROUP_CASES[0].children.find((c) => c.id === id)
+                return (
+                  <li key={id} className="text-xs text-amber-950">
+                    {child?.client ?? id}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
 
       {showProtocolConfirmationControl && (
         <CheckboxField

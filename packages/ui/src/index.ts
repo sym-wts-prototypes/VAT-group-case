@@ -47,6 +47,7 @@ export {
   CardContent,
 } from './card'
 export { Avatar, AvatarImage, AvatarFallback } from './avatar'
+export { AvatarGroup, AvatarGroupCount } from './avatar-group'
 export { AspectRatio } from './aspect-ratio'
 export { Calendar, CalendarDayButton } from './calendar'
 export { DataTable, type DataTableProps } from './data-table'
@@ -84,6 +85,7 @@ export {
   SheetDescription,
 } from './sheet'
 export { Popover, PopoverTrigger, PopoverContent } from './popover'
+export { Progress, type ProgressProps } from './progress'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip'
 export { DatePicker, type DatePickerProps } from './date-picker'
 export { DateRangePicker, type DateRangePickerProps } from './date-range-picker'

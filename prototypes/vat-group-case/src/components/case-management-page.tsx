@@ -362,6 +362,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
   const setCaseKind = useDemoStore((state) => state.setCaseKind)
   const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
+  const setOpenChildCaseId = useDemoStore((state) => state.setOpenChildCaseId)
   const generatedCases = useGeneratedCasesStore((state) => state.cases)
   const addGeneratedCases = useGeneratedCasesStore((state) => state.addCases)
 
@@ -381,12 +382,16 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   // A VAT Group Case child row — same launcher as an individual case, but into the dedicated
   // Group Case Child Case view (setCaseKind/setGroupCaseView switch the Playground to Case Type
   // → Group Case, Group Case View → Child Case).
-  const openChildCaseFromManagement = (_child: Case) => {
+  const openChildCaseFromManagement = (child: Case) => {
     setCaseKind('group')
     setGroupCaseView('child')
     setRole('creator')
     setPhase('inPreparation')
     setShowCaseManagement(false)
+    // Feature 6 of the "button states & child-case comments" ticket — records which Child Case
+    // this is, so if it has a reopen comment on file (see childCaseComments), its own Needs
+    // Changes banner shows it verbatim instead of the generic dummy copy.
+    setOpenChildCaseId(child.id)
   }
 
   // Opens the real Parent VAT Group Case page (see parent-vat-group-case-page.tsx), by

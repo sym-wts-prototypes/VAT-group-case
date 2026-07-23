@@ -52,6 +52,7 @@ export function identifierLabel(id: EntityIdentifier): string {
 // mandatory; address & taxAuthority & wageTaxNumber are optional. Jurisdiction is locked to
 // the head-office jurisdiction (branches share the entity's tax jurisdiction).
 export interface Establishment {
+  id?: string;            // stable client-side key for form rows (not persisted meaningfully)
   address?: string;
   city?: string;
   postalCode?: string;
@@ -82,7 +83,7 @@ export interface ServiceLine {
 }
 
 const VAT_CASE_TYPE_GROUPS: CaseTypeGroup[] = [
-  { label: "Standard VAT declarations", caseTypes: ["Preliminary VAT return", "VAT return", "Annual VAT return"] },
+  { label: "Standard VAT declarations", caseTypes: ["Preliminary VAT return", "VAT return", "VAT Group Case", "Annual VAT return"] },
   { label: "Cross-border EU", caseTypes: ["EC Sales (ECSL)", "Intrastat arrival", "Intrastat dispatch"] },
   { label: "Country-Specific Formats", caseTypes: ["Control lists / Statements"] },
   { label: "Custom / Other", caseTypes: ["Custom VAT filing"] },
@@ -409,7 +410,7 @@ export const ACTIVITY_LOG: ActivityLogEntry[] = [
   { id: "log-6", orgId: "ea", timestamp: "20.03.2026 09:00", userEmail: "anna.mueller@wts.com", legalEntity: "Electronic Arts GmbH", action: "Added user lukas.schmidt@ea.com" },
   { id: "log-7", orgId: "ea", timestamp: "22.03.2026 16:45", userEmail: "sarah.klein@wts.com", legalEntity: "—", action: "Created engagement 04314" },
   // Edit events carry a before → after delta; creations above intentionally leave them blank.
-  { id: "log-8", orgId: "ea", timestamp: "25.03.2026 08:30", userEmail: "sarah.klein@wts.com", legalEntity: "—", action: "Updated organization details", previous: "EA Games", current: "Electronic Arts" },
+  { id: "log-8", orgId: "ea", timestamp: "25.03.2026 08:30", userEmail: "sarah.klein@wts.com", legalEntity: "—", action: "Updated organisation details", previous: "EA Games", current: "Electronic Arts" },
   { id: "log-9", orgId: "europipe", timestamp: "10.02.2026 09:00", userEmail: "markus.weber@wts.com", legalEntity: "EUROPIPE GmbH", action: 'Created legal entity "EUROPIPE GmbH"' },
   { id: "log-10", orgId: "europipe", timestamp: "12.02.2026 11:30", userEmail: "markus.weber@wts.com", legalEntity: "—", action: "Created engagement 11204" },
   { id: "log-11", orgId: "europipe", timestamp: "15.02.2026 13:00", userEmail: "julia.hoffmann@wts.com", legalEntity: "Mülheim Pipecoatings GmbH (MPC)", action: 'Created legal entity "Mülheim Pipecoatings GmbH (MPC)"' },
@@ -420,6 +421,39 @@ export const ACTIVITY_LOG: ActivityLogEntry[] = [
 
 export const LEGAL_FORMS = ["GmbH", "AG", "KGaA", "GmbH & Co. KG", "SE", "UG (haftungsbeschränkt)", "OHG"];
 export const COUNTRIES = ["Germany", "Austria", "Belgium", "Switzerland", "Italy", "France", "Hungary", "Netherlands", "Spain", "Poland"];
+
+// Complete list of countries for the searchable Country / Jurisdiction selects on the
+// Create/Edit Legal Entity form (legal-entity-modal.tsx, country-select.tsx, copied verbatim
+// from the Organisations prototype for Feature 4 of the "upload modal & data-package visuals"
+// ticket). Country and Jurisdiction share this exact dataset. Sovereign states only — no
+// regions, federal states, provinces, cities or custom jurisdictions.
+export const ALL_COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina",
+  "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados",
+  "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana",
+  "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada",
+  "Cape Verde", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros",
+  "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Democratic Republic of the Congo",
+  "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador",
+  "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France",
+  "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea",
+  "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran",
+  "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+  "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho",
+  "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia",
+  "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia",
+  "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru",
+  "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia",
+  "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru",
+  "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis",
+  "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe",
+  "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia",
+  "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka",
+  "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand",
+  "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+  "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan",
+  "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe",
+];
 
 // Country → ISO-ish display code (matches the WTS mock; Poland shows "PO"). United Kingdom /
 // United States are additions for the Single Case drawer's "Country (of VAT registration)"
@@ -563,6 +597,11 @@ export interface Member {
   representative: boolean;
   validFrom: string;        // yyyy-mm-dd
   validTo: string | null;   // null = open-ended
+  // Feature 6 of the "upload modal & data-package visuals" ticket — org-user ids assigned to
+  // this member from the Add Members modal, carried onto this entity's Child Case when a VAT
+  // group case is created from this group (that case-creation wiring is a later task; this
+  // field is just where the Add Members modal's picks land).
+  assigneeIds?: { creators: string[]; reviewers: string[]; partners: string[]; clients: string[] };
 }
 
 export type ConsolidationStatus = "In preparation" | "In review" | "Client Approval" | "Submitted";
@@ -714,8 +753,8 @@ export const GROUPS: Group[] = [
   {
     id: "grp-eu-vat", orgId: "europipe", name: "DE VAT Group", type: "VAT", jurisdiction: "Germany",
     members: [
-      { entityId: "eu-1", vatRegistrationId: "vat-4", representative: true, validFrom: "2020-01-01", validTo: null },
-      { entityId: "eu-2", vatRegistrationId: "vat-5", representative: false, validFrom: "2020-01-01", validTo: null },
+      { entityId: "eu-1", vatRegistrationId: "vat-4", representative: true, validFrom: "2020-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: ["u14"], clients: ["u4"] } },
+      { entityId: "eu-2", vatRegistrationId: "vat-5", representative: false, validFrom: "2020-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u4", "u16"] } },
     ],
     // 2 active members incl. rep (eu-1, eu-2).
     consolidationCase: { name: "DE VAT Group — VAT Return", status: "In review", completedCount: 1, totalCount: 2 },
@@ -726,9 +765,9 @@ export const GROUPS: Group[] = [
   {
     id: "grp-eu-vat-fr", orgId: "europipe", name: "FR VAT Group", type: "VAT", jurisdiction: "France",
     members: [
-      { entityId: "eu-4", vatRegistrationId: "vat-eu4-fr", representative: true, validFrom: "2021-01-01", validTo: null },
-      { entityId: "eu-1", vatRegistrationId: "vat-eu1-fr", representative: false, validFrom: "2024-01-01", validTo: null },
-      { entityId: "eu-5", vatRegistrationId: "vat-eu5-pl", representative: false, validFrom: "2027-03-01", validTo: null }, // Pending
+      { entityId: "eu-4", vatRegistrationId: "vat-eu4-fr", representative: true, validFrom: "2021-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u4"], partners: ["u14"], clients: ["u16"] } },
+      { entityId: "eu-1", vatRegistrationId: "vat-eu1-fr", representative: false, validFrom: "2024-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u4"], partners: [], clients: ["u16"] } },
+      { entityId: "eu-5", vatRegistrationId: "vat-eu5-pl", representative: false, validFrom: "2027-03-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u16"] } }, // Pending
     ],
     // 2 active members incl. rep (eu-4, eu-1); eu-5 pending.
     consolidationCase: { name: "FR VAT Group — VAT Return", status: "In preparation", completedCount: 0, totalCount: 2 },
@@ -739,13 +778,13 @@ export const GROUPS: Group[] = [
   {
     id: "grp-eu-it", orgId: "europipe", name: "DE CIT Group", type: "CIT", jurisdiction: "Germany",
     members: [
-      { entityId: "eu-3", representative: true, validFrom: "2019-01-01", validTo: null },
-      { entityId: "eu-1", representative: false, validFrom: "2019-01-01", validTo: null },
+      { entityId: "eu-3", representative: true, validFrom: "2019-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: ["u14"], clients: ["u4"] } },
+      { entityId: "eu-1", representative: false, validFrom: "2019-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u4"] } },
       // V10-D — eu-2 has been in and out of the group across three stretches. The Inactive
       // Members section collapses these into a single expandable entity row.
-      { entityId: "eu-2", representative: false, validFrom: "2019-01-01", validTo: "2020-06-30" }, // Ended (oldest)
-      { entityId: "eu-2", representative: false, validFrom: "2021-04-01", validTo: "2022-12-31" }, // Ended (middle)
-      { entityId: "eu-2", representative: false, validFrom: "2024-01-01", validTo: "2025-12-31" }, // Ended (most recent)
+      { entityId: "eu-2", representative: false, validFrom: "2019-01-01", validTo: "2020-06-30", assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u16"] } }, // Ended (oldest)
+      { entityId: "eu-2", representative: false, validFrom: "2021-04-01", validTo: "2022-12-31", assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u16"] } }, // Ended (middle)
+      { entityId: "eu-2", representative: false, validFrom: "2024-01-01", validTo: "2025-12-31", assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u16"] } }, // Ended (most recent)
     ],
     // 2 active members incl. rep (eu-3, eu-1); eu-2 ended across three stretches.
     consolidationCase: { name: "DE CIT Group — CIT Return", status: "Client Approval", completedCount: 1, totalCount: 2 },
@@ -754,8 +793,11 @@ export const GROUPS: Group[] = [
   {
     id: "grp-me-it", orgId: "merck", name: "DE CIT Group", type: "CIT", jurisdiction: "Germany",
     members: [
-      { entityId: "me-1", representative: true, validFrom: "2023-06-01", validTo: null },
-      { entityId: "me-2", representative: false, validFrom: "2023-06-01", validTo: "2024-12-31" },
+      // Merck only has two org users seeded (u9, u10) — the WTS super admin (u-superadmin,
+      // present on every organization) fills the third mandatory role so this member still
+      // has assigned people across Creator/Reviewer/Client without inventing a new user.
+      { entityId: "me-1", representative: true, validFrom: "2023-06-01", validTo: null, assigneeIds: { creators: ["u-superadmin"], reviewers: ["u9"], partners: [], clients: ["u10"] } },
+      { entityId: "me-2", representative: false, validFrom: "2023-06-01", validTo: "2024-12-31", assigneeIds: { creators: ["u-superadmin"], reviewers: ["u10"], partners: [], clients: ["u9"] } },
     ],
     // 1 active member incl. rep (me-1; me-2 ended).
     consolidationCase: { name: "DE Income Tax Group — CIT Return", status: "Submitted", completedCount: 1, totalCount: 1 },
@@ -764,8 +806,8 @@ export const GROUPS: Group[] = [
   {
     id: "grp-po-vat", orgId: "porsche", name: "DE VAT Group", type: "VAT", jurisdiction: "Germany",
     members: [
-      { entityId: "po-1", representative: true, validFrom: "2024-01-01", validTo: null },
-      { entityId: "po-2", representative: false, validFrom: "2027-01-01", validTo: null },
+      { entityId: "po-1", representative: true, validFrom: "2024-01-01", validTo: null, assigneeIds: { creators: ["u6"], reviewers: ["u8"], partners: ["u15"], clients: ["u7"] } },
+      { entityId: "po-2", representative: false, validFrom: "2027-01-01", validTo: null, assigneeIds: { creators: ["u6"], reviewers: ["u8"], partners: [], clients: ["u7"] } },
     ],
     // 1 active member incl. rep (po-1; po-2 pending).
     consolidationCase: { name: "DE VAT Group — VAT Return", status: "In preparation", completedCount: 0, totalCount: 1 },
@@ -775,7 +817,7 @@ export const GROUPS: Group[] = [
   {
     id: "grp-po-vat-2", orgId: "porsche", name: "DE VAT Group (Consulting)", type: "VAT", jurisdiction: "Germany",
     members: [
-      { entityId: "po-2", representative: true, validFrom: "2024-03-01", validTo: null },
+      { entityId: "po-2", representative: true, validFrom: "2024-03-01", validTo: null, assigneeIds: { creators: ["u6"], reviewers: ["u7"], partners: ["u15"], clients: ["u8"] } },
     ],
     // 1 active member incl. rep (po-2).
     consolidationCase: { name: "DE VAT Group (Consulting) — VAT Return", status: "Client Approval", completedCount: 1, totalCount: 1 },

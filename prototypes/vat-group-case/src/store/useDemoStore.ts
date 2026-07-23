@@ -64,6 +64,11 @@ interface DemoState {
   // Deliberately not synced to the URL hash: the hash format above only carries
   // process/role/headerType/phase, and this is a demo toggle, not worth deep-linking yet.
   showCaseManagement: boolean
+  // Feature 4 of the "upload modal & data-package visuals" ticket — same pattern as
+  // showCaseManagement: swaps PlaygroundMain over to the in-prototype Organisations page
+  // instead of navigating out to the separate Organisations prototype. Mutually exclusive
+  // with showCaseManagement (the sidebar's onNavigate sets exactly one true at a time).
+  showOrganisations: boolean
   // Playground-only case-type hierarchy: Single vs Group Case, then (only for Group) Parent vs
   // Child Case. Group forces process to vat (see setters below); Group+Parent additionally
   // forces phase to inPreparation, since that's the only workflow state the Parent Case page
@@ -77,6 +82,26 @@ interface DemoState {
   // 4-phase workflow) whenever no specific child has been opened, or when Case Type/Group Case
   // View is changed manually via the controls.
   childCaseRequiresClientApproval: boolean
+  /** VAT Group Parent Case: Child Case ids most recently reopened via a Reviewer/Client "Need
+   * Changes" decision (see needs-changes-reopen-modal.tsx) — drives those Child Cases' status
+   * back to In Preparation (see parent-vat-group-case-page.tsx's statusForChild) and is what the
+   * Playground's "Reopened Child Cases" panel lists (ControlPanel.tsx). Cleared when "Ready for
+   * Consolidation" is (re)checked, matching that toggle's own "marks every Child Case ready"
+   * semantics — re-marking everyone ready supersedes any earlier reopen. */
+  reopenedChildCaseIds: string[]
+  /** VAT Group Case: which specific Child Case is currently open (by id) — set whenever a
+   * Child Case row is opened, whether from the Parent Case page's own list (see
+   * parent-vat-group-case-page.tsx's openChildCase) or the Case Management page's expanded
+   * group accordion (see case-management-page.tsx's openChildCaseFromManagement). Lets the
+   * Child Case view (PlaygroundMain.tsx) know whose per-entity reopen comment to surface —
+   * see childCaseComments below. Null until a specific Child Case has ever been opened. */
+  openChildCaseId: string | null
+  /** VAT Group Case: the exact per-entity comment written in the Reviewer/Client reopen modal
+   * (needs-changes-reopen-modal.tsx), keyed by Child Case id — surfaced verbatim on that
+   * specific Child Case's own Needs Changes banner (see PlaygroundMain.tsx) in place of the
+   * generic single-case dummy comment. Merged (not replaced) on each reopen, so an earlier
+   * round's comment for a Child Case not part of the current one still survives. */
+  childCaseComments: Record<string, string>
   setProcess: (p: Process) => void
   setRole: (r: Role) => void
   setHeaderType: (h: HeaderType) => void
@@ -90,9 +115,13 @@ interface DemoState {
   setBucketMarkAsDoneChecked: (checked: boolean) => void
   setSelectedRequirementCategoryId: (id: string) => void
   setShowCaseManagement: (show: boolean) => void
+  setShowOrganisations: (show: boolean) => void
   setCaseKind: (kind: CaseKind) => void
   setGroupCaseView: (view: GroupCaseView) => void
   setChildCaseRequiresClientApproval: (requires: boolean) => void
+  setReopenedChildCaseIds: (ids: string[]) => void
+  setOpenChildCaseId: (id: string | null) => void
+  addChildCaseComments: (comments: Record<string, string>) => void
 }
 
 const DEFAULTS = {
@@ -110,6 +139,7 @@ const DEFAULTS = {
   bucketMarkAsDoneChecked: false,
   selectedRequirementCategoryId: DEFAULT_REQUIREMENT_CATEGORY_ID,
   showCaseManagement: true,
+  showOrganisations: false,
   caseKind: 'single' as CaseKind,
   groupCaseView: 'parent' as GroupCaseView,
   // Defaults to the Child Case that skips Client Approval (3 steps) — see the "Child-Case
@@ -117,6 +147,9 @@ const DEFAULTS = {
   // toggling into it from the Playground controls, should land on the simpler workflow variant
   // rather than always assuming Client Approval applies.
   childCaseRequiresClientApproval: false,
+  reopenedChildCaseIds: [] as string[],
+  openChildCaseId: null as string | null,
+  childCaseComments: {} as Record<string, string>,
 }
 
 const WORKFLOW_PHASE_SET = new Set<Phase>(ALL_WORKFLOW_PHASES)
@@ -342,9 +375,13 @@ const initialState = reconcile(parseHash(), {
   setBucketMarkAsDoneChecked: () => {},
   setSelectedRequirementCategoryId: () => {},
   setShowCaseManagement: () => {},
+  setShowOrganisations: () => {},
   setCaseKind: () => {},
   setGroupCaseView: () => {},
   setChildCaseRequiresClientApproval: () => {},
+  setReopenedChildCaseIds: () => {},
+  setOpenChildCaseId: () => {},
+  addChildCaseComments: () => {},
 })
 
 export const useDemoStore = create<DemoState>((set) => ({
@@ -355,7 +392,13 @@ export const useDemoStore = create<DemoState>((set) => ({
     set((prev) => reconcile({ headerType }, prev)),
   setPhase: (phase) => set((prev) => reconcile({ phase }, prev)),
   setTasksDoneChecked: (tasksDoneChecked) =>
-    set((prev) => ({ ...prev, tasksDoneChecked })),
+    set((prev) => ({
+      ...prev,
+      tasksDoneChecked,
+      // Re-checking "Ready for Consolidation" marks every Child Case ready again (its own
+      // established label/description), superseding any earlier reopen.
+      reopenedChildCaseIds: tasksDoneChecked ? [] : prev.reopenedChildCaseIds,
+    })),
   setApprovedChecked: (approvedChecked) =>
     set((prev) =>
       reconcile(
@@ -383,7 +426,9 @@ export const useDemoStore = create<DemoState>((set) => ({
   setSelectedRequirementCategoryId: (selectedRequirementCategoryId) =>
     set((prev) => ({ ...prev, selectedRequirementCategoryId })),
   setShowCaseManagement: (showCaseManagement) =>
-    set((prev) => ({ ...prev, showCaseManagement })),
+    set((prev) => ({ ...prev, showCaseManagement, showOrganisations: false })),
+  setShowOrganisations: (showOrganisations) =>
+    set((prev) => ({ ...prev, showOrganisations, showCaseManagement: false })),
   setCaseKind: (caseKind) =>
     set((prev) =>
       reconcile(
@@ -391,6 +436,11 @@ export const useDemoStore = create<DemoState>((set) => ({
           ? {
               caseKind,
               process: 'vat',
+              // Features 3/4 of the "review-flow update batch" ticket: the Group Case flow only
+              // ever works with the plain Case page — Case Wrapper doesn't apply (non-HR),
+              // Requirement List/Bucket have no distinct content here. Forcing this on entry
+              // keeps that true even if a stale non-'case' value was selected before switching.
+              headerType: 'case',
               phase: prev.groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
               showCaseManagement: false,
               childCaseRequiresClientApproval: false,
@@ -410,8 +460,31 @@ export const useDemoStore = create<DemoState>((set) => ({
         prev,
       ),
     ),
+  // Feature 3 of the "button states & child-case comments" ticket — switching to the
+  // no-Client-Approval (3-step) variant while already sitting on the Client Approval phase
+  // would otherwise leave `phase` pointing at a step this variant doesn't have (the Phase
+  // radios below already disable that option — see ControlPanel.tsx — but disabling the radio
+  // doesn't move the case off a phase it's already on). Resets to In Preparation, the one phase
+  // valid for both variants that also makes the most sense to land back on.
   setChildCaseRequiresClientApproval: (childCaseRequiresClientApproval) =>
-    set((prev) => ({ ...prev, childCaseRequiresClientApproval })),
+    set((prev) =>
+      reconcile(
+        {
+          childCaseRequiresClientApproval,
+          phase: !childCaseRequiresClientApproval && prev.phase === 'clientApproval' ? 'inPreparation' : prev.phase,
+        },
+        prev,
+      ),
+    ),
+  setReopenedChildCaseIds: (reopenedChildCaseIds) =>
+    set((prev) => ({ ...prev, reopenedChildCaseIds })),
+  setOpenChildCaseId: (openChildCaseId) =>
+    set((prev) => ({ ...prev, openChildCaseId })),
+  addChildCaseComments: (comments) =>
+    set((prev) => ({
+      ...prev,
+      childCaseComments: { ...prev.childCaseComments, ...comments },
+    })),
 }))
 
 export function useHashSync() {

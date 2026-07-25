@@ -109,8 +109,16 @@ SelectLabel.displayName = SelectPrimitive.Label.displayName
 
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & {
+    /** Trailing content (e.g. a 2-letter country code) rendered flush-right, after the label.
+     * Renders as a sibling of `ItemText` with `ml-auto` — NOT nested inside a custom child span
+     * positioned `absolute`, which would escape ItemText's box and take it out of layout flow
+     * entirely (collapsing the row's real height, since an absolutely-positioned child
+     * contributes nothing to its parent's height calculation). `ml-auto` on a normal in-flow
+     * flex sibling pushes it to the row's right edge without any of that. */
+    rightSlot?: React.ReactNode
+  }
+>(({ className, children, rightSlot, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -125,6 +133,7 @@ const SelectItem = React.forwardRef<
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    {rightSlot && <span className="ml-auto pl-4 text-muted-foreground">{rightSlot}</span>}
   </SelectPrimitive.Item>
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName

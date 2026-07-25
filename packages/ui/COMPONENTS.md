@@ -44,7 +44,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | RadioGroup | shadcn (Radix) | — | Bare Radix radio group |
 | RadioPills | WTS custom | — | Vertical native-radio group with label |
 | SegmentedTabs | WTS custom | — | Segmented control with optional count badge |
-| Select | shadcn | `select.figma.tsx` | |
+| Select | shadcn | `select.figma.tsx` | `SelectItem` takes an optional `rightSlot` for flush-right trailing content (e.g. a country code) |
 | SelectField | WTS custom | — | Select with label/info/description/error |
 | Separator | shadcn | `separator.figma.tsx` | |
 | Sheet | shadcn (Radix dialog) | — | Side-anchored panel (drawer); `side` = top/bottom/left/right |

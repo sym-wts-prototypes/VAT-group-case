@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Download, History, Search } from 'lucide-react'
+import { Check, Download, Search } from 'lucide-react'
 
 import {
   Alert,
@@ -846,31 +846,6 @@ export function ParentVatGroupCasePage() {
           the very first upload or a re-upload after a Need Changes / Client return reset, see the
           "Creator In Progress Task Element on Needs Changes / Client Return" ticket), and
           confirms the next step once the document is uploaded ("Done"). */}
-      {/* Feature 2/3 of the "upload modal & data-package visuals" ticket — copied from the
-          reference folder's own DataPackageBanner (case-management/data-package-banner.tsx): a
-          single blue-bordered row, "Data Package" as the row's own heading (not a section label
-          wrapping it), ordered above the Consolidation task once every Child Case is ready. */}
-      {showConsolidationTask && allChildrenReady && (
-        <div className="border-b border-border bg-background px-6 py-6">
-          <div className="flex items-center justify-between gap-4 rounded-lg border-l-4 border-l-sky-600 bg-muted px-4 py-4 shadow-md">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <h3 className="text-sm font-medium text-foreground">Data Package</h3>
-              <span className="truncate text-sm text-muted-foreground">{packageFileName}</span>
-            </div>
-            <div className="flex shrink-0 items-center gap-6">
-              <Button variant="link" className="h-auto gap-1.5 p-0" onClick={() => setVersionHistoryOpen(true)}>
-                <History className="h-4 w-4" aria-hidden />
-                Version history
-              </Button>
-              <Button variant="outline" className="gap-1.5">
-                <Download className="h-4 w-4" aria-hidden />
-                Download package
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Segment 7 — one expandable card replaces both the old always-visible TaskRow and the
           separate purple "all children ready" banner (removed entirely; no purple state exists
           anywhere in this card). Collapsed shows just the status; expanding reveals every
@@ -945,17 +920,30 @@ export function ParentVatGroupCasePage() {
           Consolidation task above); it's specifically what that step is waiting on; later steps
           (In Review, Client Approval, Submission) have their own banners for that. */}
       {displayedParentPhase === 'inPreparation' && (
-      <div className="flex flex-col gap-2 border-b border-border bg-background px-6 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-foreground">Child cases ready for consolidation</span>
-          <span className="text-muted-foreground text-sm">
-            {readyChildrenCount} of {PARENT_CASE.children.length} ({childReadyPercent}%)
-          </span>
+      <div className="flex items-center gap-4 border-b border-border bg-background px-6 py-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-foreground">Child cases ready for consolidation</span>
+            <span className="text-muted-foreground text-sm">
+              {readyChildrenCount} of {PARENT_CASE.children.length} ({childReadyPercent}%)
+            </span>
+          </div>
+          <Progress
+            value={childReadyPercent}
+            indicatorClassName={childReadyPercent > 60 ? 'bg-green-600' : 'bg-amber-500'}
+          />
         </div>
-        <Progress
-          value={childReadyPercent}
-          indicatorClassName={childReadyPercent > 60 ? 'bg-green-600' : 'bg-amber-500'}
-        />
+        {/* Feature 1 of the "task element / needs-changes / sidebar / create-group" ticket — the
+            Data Package banner (with its own Download) was removed for Creator/Reviewer/Partner;
+            this is now the only Download affordance, appearing once every Child Case is ready,
+            in the same container as the loader instead of its own bordered block. Client never
+            sees WTS-team-only package actions, same gate `showConsolidationTask` already uses. */}
+        {!isClient && childReadyPercent === 100 && (
+          <Button variant="outline" className="shrink-0 gap-1.5">
+            <Download className="h-4 w-4" aria-hidden />
+            Download
+          </Button>
+        )}
       </div>
       )}
 

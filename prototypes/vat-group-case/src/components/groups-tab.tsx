@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, Crown, MoreHorizontal, Plus, Trash2, UserPlus, X } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -14,23 +14,21 @@ import {
 
 import { LegalEntity, OrgUser } from './org-details-data'
 import {
-  ConsolidationStatus,
   Group,
   Member,
   activeMembers,
-  consolidationTotal,
-  groupStart,
+  endedMembers,
   groupsForEntity,
-  inactiveMembers,
   membershipStatus,
   memberLabel,
-  representativeOf,
+  pendingMembers,
 } from './org-details-data'
 import { AssignedPeople, type AssignedPeopleData } from './assigned-people'
 
 /** Feature 3 of the "Organisations page scroll / add-member / member display" ticket — a
- * Member's `assigneeIds` (org-user id arrays from the Add Members modal) resolved against this
- * organisation's own users into the {name, email} shape AssignedPeople renders as initials. */
+ * Member's `assigneeIds` (org-user id arrays from the Add/Edit Group modal) resolved against
+ * this organisation's own users into the {name, email} shape AssignedPeople renders as
+ * initials. */
 function memberAssignedPeople(member: Member, orgUsers: OrgUser[]): AssignedPeopleData {
   const byId = new Map(orgUsers.map((u) => [u.id, u]))
   const resolve = (ids: string[] | undefined) =>
@@ -47,52 +45,33 @@ function memberAssignedPeople(member: Member, orgUsers: OrgUser[]): AssignedPeop
 
 const fmtDate = (d: string) => {
   const [y, m, day] = d.split('-')
-  return `${day}/${m}/${y}`
+  return `${day}.${m}.${y}.`
 }
 
 const memberRange = (m: Member) =>
-  m.validTo ? `${fmtDate(m.validFrom)} – ${fmtDate(m.validTo)}` : `Since ${fmtDate(m.validFrom)}`
+  m.validTo ? `Valid from ${fmtDate(m.validFrom)} Valid to ${fmtDate(m.validTo)}` : `Valid from ${fmtDate(m.validFrom)}`
 
 // req §4 — VAT and CIT perimeters must NEVER be blended in any overview. Groups are always
 // presented and counted per single type; keep any future summary strictly per-type.
 const groupTypeTone = (t: Group['type']) => (t === 'VAT' ? 'blue' : 'violet')
-
-const caseStatusTone = (s: ConsolidationStatus) =>
-  s === 'In preparation' ? 'gray' : s === 'In review' ? 'orange' : s === 'Client Approval' ? 'blue' : 'green'
-
-/* Small bordered card matching the entity detail column's DetailCard look. */
-function Card({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-[15px] font-semibold leading-5 text-primary">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </div>
-  )
-}
 
 /* ─── Groups tab (master-detail) ─────────────────────────────────────────── */
 
 export interface GroupsTabProps {
   groups: Group[]
   entities: LegalEntity[]
-  // Feature 3 — resolves each Member's assigneeIds into the AssignedPeople initials display.
+  // Resolves each Member's assigneeIds into the AssignedPeople initials display.
   orgUsers: OrgUser[]
   selectedId: string | null
   onSelect: (id: string) => void
   onAddGroup: () => void
-  onAddMembers: (group: Group) => void
-  onRemoveMember: (groupId: string, entityId: string) => void
-  onPromoteRep: (groupId: string, entityId: string) => void
-  onCancelPending: (groupId: string, entityId: string) => void
-  onOpenConsolidationCase: (group: Group) => void
-  // V11-E — delete an entire group. Only surfaced when canManage is true; wrapped in a
-  // ConfirmDialog confirmation inside GroupDetail before the callback fires.
+  // Feature 3/7 of the "Groups tab refactor" ticket — representative changes, member add/
+  // remove, and assignee edits all happen through this one Edit modal now; nothing on this
+  // page triggers them directly.
+  onEditGroup: (group: Group) => void
   onDeleteGroup?: (groupId: string) => void
-  // V7 — group.manage capability. When false the create/add-members/remove/promote/cancel
-  // affordances are hidden; the panel is view-only.
+  // V7 — group.manage capability. When false the create/edit/delete affordances are hidden,
+  // the panel is view-only.
   canManage?: boolean
 }
 
@@ -103,11 +82,7 @@ export function GroupsTab({
   selectedId,
   onSelect,
   onAddGroup,
-  onAddMembers,
-  onRemoveMember,
-  onPromoteRep,
-  onCancelPending,
-  onOpenConsolidationCase,
+  onEditGroup,
   onDeleteGroup,
   canManage = true,
 }: GroupsTabProps) {
@@ -136,8 +111,8 @@ export function GroupsTab({
 
   return (
     <div className="flex grow overflow-hidden" style={{ minHeight: 'calc(100vh - 200px)' }}>
-      {/* Left: group list */}
-      <div className="flex w-[288px] shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-white">
+      {/* Left: group list — minimal, name + type only (Feature 1). */}
+      <div className="flex w-[240px] shrink-0 flex-col overflow-hidden border-r border-neutral-200 bg-white">
         <div className="flex items-center justify-between gap-2 border-b border-neutral-100 px-3 py-2.5">
           <p className="pl-1 text-[11px] font-medium uppercase leading-4 tracking-wide text-neutral-400 shrink-0">
             Groups
@@ -148,40 +123,26 @@ export function GroupsTab({
             </Button>
           )}
         </div>
-        <div className="flex grow flex-col gap-2 overflow-auto p-3">
-          {groups.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-              <Building2 className="h-7 w-7 text-neutral-300" />
-              <p className="text-[13px] leading-[18px] text-neutral-500">No groups yet.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              {groups.map((g) => {
-                const isSel = g.id === selectedId
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => onSelect(g.id)}
-                    className={cn(
-                      'flex flex-col items-start gap-1 rounded-md px-2.5 py-2 text-left transition-colors',
-                      isSel ? 'bg-[rgba(200,16,46,0.1)] text-brand' : 'text-neutral-700 hover:bg-neutral-100',
-                    )}
-                  >
-                    <span className="text-[14px] font-medium leading-5">{g.name}</span>
-                    <span className="flex items-center gap-1.5">
-                      <Badge tone={groupTypeTone(g.type)} size="sm">
-                        {g.type}
-                      </Badge>
-                      <span className="text-[12px] leading-4 text-neutral-500">
-                        {g.jurisdiction} · {activeMembers(g).length} active
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+        <div className="flex grow flex-col gap-0.5 overflow-auto p-2">
+          {groups.map((g) => {
+            const isSel = g.id === selectedId
+            return (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => onSelect(g.id)}
+                className={cn(
+                  'flex flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left transition-colors',
+                  isSel ? 'bg-[rgba(200,16,46,0.1)] text-brand' : 'text-neutral-700 hover:bg-neutral-100',
+                )}
+              >
+                <span className="text-[14px] font-medium leading-5">{g.name}</span>
+                <span className={cn('text-[12px] leading-4', isSel ? 'text-brand/70' : 'text-neutral-400')}>
+                  {g.type}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -200,11 +161,7 @@ export function GroupsTab({
             group={selected}
             entities={entities}
             orgUsers={orgUsers}
-            onAddMembers={onAddMembers}
-            onRemoveMember={onRemoveMember}
-            onPromoteRep={onPromoteRep}
-            onCancelPending={onCancelPending}
-            onOpenConsolidationCase={onOpenConsolidationCase}
+            onEditGroup={onEditGroup}
             onDeleteGroup={onDeleteGroup}
             canManage={canManage}
           />
@@ -214,61 +171,65 @@ export function GroupsTab({
   )
 }
 
+/* One flat, minimal member row shared by Active/Pending/Inactive — no per-row actions (Feature
+ * 7: representative + membership changes only happen via the group's Edit button). */
+function MemberRow({
+  member,
+  entities,
+  orgUsers,
+  showEntityName = true,
+  isRep = false,
+}: {
+  member: Member
+  entities: LegalEntity[]
+  orgUsers: OrgUser[]
+  showEntityName?: boolean
+  isRep?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="flex flex-col gap-0.5">
+        {showEntityName && (
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] leading-5 text-neutral-900">{memberLabel(member, entities)}</span>
+            {isRep && (
+              <Badge tone="sky" size="sm" className="shrink-0 self-start">
+                Representative
+              </Badge>
+            )}
+          </div>
+        )}
+        <span className="text-[12px] leading-4 text-neutral-500">{memberRange(member)}</span>
+      </div>
+      <AssignedPeople people={memberAssignedPeople(member, orgUsers)} />
+    </div>
+  )
+}
+
 function GroupDetail({
   group,
   entities,
   orgUsers,
-  onAddMembers,
-  onRemoveMember,
-  onPromoteRep,
-  onCancelPending,
-  onOpenConsolidationCase,
+  onEditGroup,
   onDeleteGroup,
   canManage,
 }: {
   group: Group
   entities: LegalEntity[]
   orgUsers: OrgUser[]
-  onAddMembers: (group: Group) => void
-  onRemoveMember: (groupId: string, entityId: string) => void
-  onPromoteRep: (groupId: string, entityId: string) => void
-  onCancelPending: (groupId: string, entityId: string) => void
-  onOpenConsolidationCase: (group: Group) => void
+  onEditGroup: (group: Group) => void
   onDeleteGroup?: (groupId: string) => void
   canManage: boolean
 }) {
-  const rep = representativeOf(group)
   const actives = activeMembers(group)
-  const inactives = inactiveMembers(group)
-  const start = groupStart(group)
-  const isGermanVat = group.type === 'VAT' && group.jurisdiction === 'Germany'
-  // V11-E — confirmation dialog state. One pending action at a time.
-  const [confirm, setConfirm] = useState<
-    | { kind: 'promote'; entityId: string; entityName: string }
-    | { kind: 'remove'; entityId: string; entityName: string }
-    | { kind: 'cancel'; entityId: string; entityName: string }
-    | { kind: 'delete' }
-    | null
-  >(null)
-  const runConfirmed = () => {
-    if (!confirm) return
-    if (confirm.kind === 'promote') onPromoteRep(group.id, confirm.entityId)
-    else if (confirm.kind === 'remove') onRemoveMember(group.id, confirm.entityId)
-    else if (confirm.kind === 'cancel') onCancelPending(group.id, confirm.entityId)
-    else if (confirm.kind === 'delete') onDeleteGroup?.(group.id)
-    setConfirm(null)
-  }
-  // Route "Cancel pending membership" through the shared confirmation dialog.
-  const requestCancelPending = (_groupId: string, entityId: string) =>
-    setConfirm({
-      kind: 'cancel',
-      entityId,
-      entityName: entities.find((e) => e.id === entityId)?.legalName ?? entityId,
-    })
+  const pendings = pendingMembers(group)
+  const endeds = endedMembers(group)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   return (
-    <div className="flex flex-col gap-8 px-8 py-6">
-      {/* Header */}
+    <div className="flex flex-col gap-6 px-8 py-6">
+      {/* Header — decluttered (Feature 1): just identity, a dynamic active-member count, and
+          the Edit entry point every membership/representative change now goes through. */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-3">
@@ -276,264 +237,106 @@ function GroupDetail({
             <Badge tone={groupTypeTone(group.type)} size="sm">
               {group.type}
             </Badge>
-            <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[12px] leading-4 text-neutral-600">
-              {group.jurisdiction}
-            </span>
           </div>
-        {start && (
-          <p className="text-[14px] leading-5 text-neutral-500">Active since {fmtDate(start)}</p>
-        )}
-        {isGermanVat && (
-          <p className="text-[12px] leading-4 text-neutral-400">
-            Known in Germany as an <span className="italic">Organschaft</span> — representative (Organträger),
-            members (Organgesellschaften).
+          <p className="text-[14px] leading-5 text-neutral-500">
+            {actives.length} Active {actives.length === 1 ? 'member' : 'members'}
           </p>
-        )}
         </div>
-        <div className="flex items-center gap-2">
-          {/* V11-E — group-level 3-dot menu with Delete group action. */}
-          {/* modal={false} — the Delete item opens a ConfirmDialog; avoids Radix leaving
-              `pointer-events: none` stuck on <body> when menu-close races dialog-open. */}
-          {canManage && onDeleteGroup && (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger
-                aria-label={`Actions for group ${group.name}`}
-                className="items-center flex justify-center w-8 h-8 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[160px]">
-                <DropdownMenuItem
-                  onSelect={() => setConfirm({ kind: 'delete' })}
-                  className="text-brand focus:text-brand focus:bg-red-50"
+        {canManage && (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => onEditGroup(group)}>
+              <Pencil className="size-4" /> Edit
+            </Button>
+            {onDeleteGroup && (
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger
+                  aria-label={`Actions for group ${group.name}`}
+                  className="items-center flex justify-center w-9 h-9 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete group
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+                  <MoreHorizontal className="w-4 h-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[160px]">
+                  <DropdownMenuItem
+                    onSelect={() => setDeleteConfirmOpen(true)}
+                    className="text-brand focus:text-brand focus:bg-red-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete group
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Representative callout */}
-      {rep && (
-        <div className="flex items-center gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
-          <Crown className="h-4 w-4 shrink-0 text-sky-700" />
-          <span className="text-[14px] leading-5 text-sky-900">
-            <span className="font-medium">Representative:</span> {memberLabel(rep, entities)}
-          </span>
-        </div>
-      )}
-
-      {/* Consolidation case — read-only link out to Case Management (omitted when absent) */}
-      {group.consolidationCase && (
-        <button
-          type="button"
-          onClick={() => onOpenConsolidationCase(group)}
-          className="flex w-full items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-6 text-left transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2.5">
-              <span className="text-[14px] font-medium leading-5 text-neutral-900">
-                {group.consolidationCase.name}
-              </span>
-              <Badge tone={caseStatusTone(group.consolidationCase.status)} size="sm">
-                {group.consolidationCase.status}
-              </Badge>
+      {/* Members — regrouped into Active / Pending / Inactive inside one container
+          (Feature 1/4), each a flat, action-free row (Feature 7). */}
+      <div className="flex flex-col divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white px-6">
+        <section className="flex flex-col py-2">
+          <h3 className="pt-3 font-display text-[15px] font-semibold leading-5 text-primary">Active members</h3>
+          {actives.length === 0 ? (
+            <p className="py-3 text-[14px] leading-5 text-neutral-500">No active members.</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-neutral-100">
+              {actives.map((m) => (
+                <MemberRow key={m.entityId} member={m} entities={entities} orgUsers={orgUsers} isRep={m.representative} />
+              ))}
             </div>
-            <span className="text-[13px] leading-[18px] text-neutral-500">
-              {group.consolidationCase.completedCount} of {consolidationTotal(group)} member cases complete
-            </span>
-          </div>
-          <ChevronRight className="h-4 w-4 shrink-0 text-neutral-400" />
-        </button>
-      )}
+          )}
+        </section>
 
-      {/* Members (active) */}
-      <Card
-        title="Members"
-        action={
-          canManage ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => onAddMembers(group)}>
-              <UserPlus className="size-4" /> Add members
-            </Button>
-          ) : null
-        }
-      >
-        {actives.length === 0 ? (
-          <p className="py-2 text-[14px] leading-5 text-neutral-500">No active members.</p>
-        ) : (
-          <div className="flex flex-col">
-            {actives.map((m, i) => {
-              const isRep = m.representative
-              return (
-                <div
-                  key={m.entityId}
-                  className={cn(
-                    'flex items-start justify-between gap-4 py-3',
-                    i < actives.length - 1 && 'border-b border-neutral-100',
-                  )}
-                >
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-[14px] leading-5 text-neutral-900">
-                        {memberLabel(m, entities)}
-                      </span>
-                      <span className="text-[12px] leading-4 text-neutral-500">{memberRange(m)}</span>
-                    </div>
-                    {/* Feature 3 — assigned people as initials circles, under the entity's
-                        labels rather than beside the representative/remove controls. Collapsed
-                        by default; the trigger's chevron expands the full per-role list. Edit is
-                        a placeholder (no save-back flow yet), always present so the affordance
-                        is visible even before Radix repositions the popover up/down. */}
-                    <AssignedPeople
-                      people={memberAssignedPeople(m, orgUsers)}
-                      editable
-                      editTooltip="Editing member assignees isn't wired up yet in this prototype."
-                      onEdit={() => {}}
-                    />
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    {isRep ? (
-                      <Badge tone="sky" size="sm">
-                        Representative
-                      </Badge>
-                    ) : (
-                      canManage && (
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="h-auto p-0"
-                          onClick={() =>
-                            setConfirm({ kind: 'promote', entityId: m.entityId, entityName: memberLabel(m, entities) })
-                          }
-                        >
-                          Make representative
-                        </Button>
-                      )
-                    )}
-                    {canManage && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={isRep}
-                        title={
-                          isRep
-                            ? 'Promote another member to representative before removing this one.'
-                            : 'Remove member'
-                        }
-                        aria-label="Remove member"
-                        onClick={() =>
-                          setConfirm({ kind: 'remove', entityId: m.entityId, entityName: memberLabel(m, entities) })
-                        }
-                      >
-                        <X className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        {pendings.length > 0 && (
+          <section className="flex flex-col py-2">
+            <h3 className="pt-3 font-display text-[15px] font-semibold leading-5 text-primary">Pending members</h3>
+            <div className="flex flex-col divide-y divide-neutral-100">
+              {pendings.map((m) => (
+                <MemberRow key={`${m.entityId}-${m.validFrom}`} member={m} entities={entities} orgUsers={orgUsers} />
+              ))}
+            </div>
+          </section>
         )}
-      </Card>
 
-      {/* V10-D — Inactive members grouped by entity; the collapsed row shows the most
-          recent period, and expanding reveals earlier periods (Pending or Ended) when an
-          entity has been part of the group in multiple occasions. */}
-      {inactives.length > 0 && (
-        <Card title="Inactive members">
-          <InactiveMembersList
-            inactives={inactives}
-            entities={entities}
-            orgUsers={orgUsers}
-            groupId={group.id}
-            canManage={canManage}
-            onCancelPending={requestCancelPending}
-          />
-        </Card>
+        {endeds.length > 0 && (
+          <section className="flex flex-col py-2">
+            <h3 className="pt-3 font-display text-[15px] font-semibold leading-5 text-primary">Inactive members</h3>
+            <InactiveMembersList inactives={endeds} entities={entities} orgUsers={orgUsers} />
+          </section>
+        )}
+      </div>
+
+      {onDeleteGroup && (
+        <ConfirmDialog
+          overlayClassName="bg-background/40 backdrop-blur-sm"
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          onConfirm={() => {
+            onDeleteGroup(group.id)
+            setDeleteConfirmOpen(false)
+          }}
+          destructive
+          title="Delete group?"
+          confirmLabel="Delete group"
+          description={
+            <>{group.name} will be permanently removed, including its member history. This cannot be undone.</>
+          }
+        />
       )}
-
-      {/* V11-E / V12 — shared confirmation dialog for representative promotion,
-          member removal, pending-membership cancellation, and group deletion. */}
-      <ConfirmDialog
-        overlayClassName="bg-background/40 backdrop-blur-sm"
-        open={!!confirm}
-        onOpenChange={(o) => !o && setConfirm(null)}
-        onConfirm={runConfirmed}
-        destructive={confirm?.kind !== 'promote'}
-        title={
-          confirm?.kind === 'promote'
-            ? 'Change representative?'
-            : confirm?.kind === 'remove'
-              ? 'Remove member?'
-              : confirm?.kind === 'cancel'
-                ? 'Cancel pending membership?'
-                : 'Delete group?'
-        }
-        confirmLabel={
-          confirm?.kind === 'promote'
-            ? 'Change representative'
-            : confirm?.kind === 'remove'
-              ? 'Remove member'
-              : confirm?.kind === 'cancel'
-                ? 'Cancel membership'
-                : 'Delete group'
-        }
-        description={
-          <>
-            {confirm?.kind === 'promote' && (
-              <>
-                {confirm.entityName} will become the representative of {group.name}.{' '}
-                The current representative ({rep ? memberLabel(rep, entities) : '—'}) will be demoted.
-              </>
-            )}
-            {confirm?.kind === 'remove' && (
-              <>
-                {confirm.entityName}'s membership in {group.name} will end today. They will move to
-                the Inactive members list as a past member.
-              </>
-            )}
-            {confirm?.kind === 'cancel' && (
-              <>
-                The pending membership for {confirm.entityName} in {group.name} will be cancelled.
-                This scheduled membership will not take effect.
-              </>
-            )}
-            {confirm?.kind === 'delete' && (
-              <>
-                {group.name} will be permanently removed, including its member history. This cannot
-                be undone.
-              </>
-            )}
-          </>
-        }
-      />
     </div>
   )
 }
 
-/* V10-D — inactive-members list grouped by entity. The collapsed row shows the most
-   recent period (Pending or Ended); expanding reveals prior periods for the same entity
-   when it has been part of the group in multiple stretches. */
+/* Inactive (ended) members grouped by entity; the collapsed row shows the most recent period,
+ * and expanding reveals earlier periods when an entity has been part of the group more than
+ * once. No per-row actions (Feature 7). */
 function InactiveMembersList({
   inactives,
   entities,
   orgUsers,
-  groupId,
-  canManage,
-  onCancelPending,
 }: {
   inactives: Member[]
   entities: LegalEntity[]
   orgUsers: OrgUser[]
-  groupId: string
-  canManage: boolean
-  onCancelPending: (groupId: string, entityId: string) => void
 }) {
-  // Group by entity, then sort periods newest-first.
   const byEntity = new Map<string, Member[]>()
   for (const m of inactives) {
     if (!byEntity.has(m.entityId)) byEntity.set(m.entityId, [])
@@ -545,19 +348,9 @@ function InactiveMembersList({
   const entityRows = [...byEntity.entries()]
 
   return (
-    <div className="flex flex-col">
-      {entityRows.map(([entityId, periods], rowIdx) => (
-        <EntityInactiveRow
-          key={entityId}
-          entityId={entityId}
-          periods={periods}
-          entities={entities}
-          orgUsers={orgUsers}
-          groupId={groupId}
-          canManage={canManage}
-          onCancelPending={onCancelPending}
-          isLast={rowIdx === entityRows.length - 1}
-        />
+    <div className="flex flex-col divide-y divide-neutral-100">
+      {entityRows.map(([entityId, periods]) => (
+        <EntityInactiveRow key={entityId} entityId={entityId} periods={periods} entities={entities} orgUsers={orgUsers} />
       ))}
     </div>
   )
@@ -568,90 +361,44 @@ function EntityInactiveRow({
   periods,
   entities,
   orgUsers,
-  groupId,
-  canManage,
-  onCancelPending,
-  isLast,
 }: {
   entityId: string
   periods: Member[]
   entities: LegalEntity[]
   orgUsers: OrgUser[]
-  groupId: string
-  canManage: boolean
-  onCancelPending: (groupId: string, entityId: string) => void
-  isLast: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const [most, ...rest] = periods
   const hasHistory = rest.length > 0
   const entityName = entities.find((e) => e.id === entityId)?.legalName ?? entityId
 
-  const renderPeriod = (m: Member, showEntityName: boolean) => {
-    const status = membershipStatus(m)
-    const ended = status === 'Ended'
-    return (
-      <div className={cn('flex items-start justify-between gap-4 py-2', ended && 'opacity-60')}>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col">
-            {showEntityName && (
-              <span className="text-[14px] leading-5 text-neutral-900">{memberLabel(m, entities)}</span>
-            )}
-            <span className="text-[12px] leading-4 text-neutral-500">{memberRange(m)}</span>
-          </div>
-          <AssignedPeople
-            people={memberAssignedPeople(m, orgUsers)}
-            editable
-            editTooltip="Editing member assignees isn't wired up yet in this prototype."
-            onEdit={() => {}}
-          />
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <Badge tone={status === 'Pending' ? 'orange' : 'gray'} size="sm">
-            {status}
-          </Badge>
-          {status === 'Pending' && canManage && (
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-neutral-500"
-              onClick={() => onCancelPending(groupId, m.entityId)}
-            >
-              Cancel
-            </Button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className={cn(!isLast && 'border-b border-neutral-100', 'py-2')}>
-      {/* Collapsed / summary row */}
-      <div className="flex items-center gap-3">
+    <div className="py-1">
+      <div className="flex items-center gap-2">
         {hasHistory ? (
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             aria-label={expanded ? 'Collapse history' : 'Expand history'}
-            className="items-center flex justify-center w-6 h-6 -ml-1 text-neutral-500 hover:bg-neutral-100 rounded-md"
+            className="items-center flex justify-center w-6 h-6 -ml-1 shrink-0 text-neutral-500 hover:bg-neutral-100 rounded-md"
           >
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
         ) : (
-          <span className="w-5" aria-hidden />
+          <span className="w-5 shrink-0" aria-hidden />
         )}
-        <div className="grow">{renderPeriod(most, true)}</div>
+        <div className="grow">
+          <MemberRow member={most} entities={entities} orgUsers={orgUsers} />
+        </div>
       </div>
-      {/* Expanded prior periods for the same entity */}
       {expanded && hasHistory && (
-        <div className="pl-6 mt-1 border-l-2 border-neutral-100 ml-2">
-          <p className="text-[11px] leading-4 text-neutral-400 uppercase tracking-wide mb-1">
+        <div className="ml-8 border-l-2 border-neutral-100 pl-4">
+          <p className="pt-2 text-[11px] uppercase leading-4 tracking-wide text-neutral-400">
             Earlier periods for {entityName}
           </p>
           {rest.map((m, i) => (
-            <div key={`${m.entityId}-${m.validFrom}-${i}`}>{renderPeriod(m, false)}</div>
+            <MemberRow key={`${m.entityId}-${m.validFrom}-${i}`} member={m} entities={entities} orgUsers={orgUsers} showEntityName={false} />
           ))}
         </div>
       )}

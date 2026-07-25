@@ -28,6 +28,7 @@ export function PlaygroundView() {
   const [controlsHidden, setControlsHidden] = useState(false)
   const [panelCollapsed, setPanelCollapsed] = useState(false)
   const role = useDemoStore((state) => state.role)
+  const showOrganisations = useDemoStore((state) => state.showOrganisations)
   const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
   const setShowOrganisations = useDemoStore((state) => state.setShowOrganisations)
 
@@ -58,7 +59,13 @@ export function PlaygroundView() {
   // cross-prototype behaviour.
   const sidebar = {
     role,
-    activeItemId: SIDEBAR_CASE_MANAGEMENT_ID,
+    // Feature 3 of the "task element / needs-changes / sidebar / create-group" ticket — this was
+    // hardcoded to Case Management, so its red "active" highlight (WtsSidebar's own
+    // `variant="brand"`/`bg-brand` styling, unchanged) never actually followed the page the user
+    // was on. Organisations and Case Management are the only two sidebar items this prototype
+    // routes internally (see onNavigate below) instead of leaving the shell's cross-prototype
+    // default, so those are the only two this needs to pick between.
+    activeItemId: showOrganisations ? SIDEBAR_ORGANISATIONS_ID : SIDEBAR_CASE_MANAGEMENT_ID,
     onNavigate: (id: SidebarItemId) => {
       if (id === SIDEBAR_CASE_MANAGEMENT_ID) {
         setShowCaseManagement(true)

@@ -14,6 +14,10 @@ export interface OptionPillsProps<T extends string = string> {
   className?: string
   /** Overrides the default uppercase/muted caption style — e.g. to match a standard form Label. */
   labelClassName?: string
+  /** 'stacked' (default) keeps the label above the pills, as everywhere this is already used
+   * (Role/Process, etc.). 'inline' puts the label and pills on one row, vertically centered —
+   * for a short yes/no-style question where stacking reads as two disconnected lines. */
+  layout?: 'stacked' | 'inline'
 }
 
 export function OptionPills<T extends string>({
@@ -23,13 +27,14 @@ export function OptionPills<T extends string>({
   onChange,
   className,
   labelClassName,
+  layout = 'stacked',
 }: OptionPillsProps<T>) {
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
+    <div className={cn(layout === 'inline' ? 'flex items-center justify-between gap-3' : 'flex flex-col gap-2', className)}>
       <span className={cn('text-xs font-medium uppercase tracking-wide text-muted-foreground', labelClassName)}>
         {label}
       </span>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label}>
         {options.map((option) => {
           const selected = value === option.value
           return (

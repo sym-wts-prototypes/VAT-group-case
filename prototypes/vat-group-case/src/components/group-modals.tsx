@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Check, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Check, Search } from 'lucide-react'
 import {
   Badge,
   Button,
-  Checkbox,
   Dialog,
   DialogClose,
   DialogContent,
@@ -23,307 +22,20 @@ import {
 
 import { LegalEntity, OrgUser } from './org-details-data'
 import {
-  COUNTRIES,
   GROUP_TYPES,
   DISABLED_GROUP_TYPES,
   Group,
   GroupType,
-  membershipStatus,
   today,
 } from './org-details-data'
 import { UserSelect } from './user-select'
 
-// V10-G — only VAT + CIT remain; CIT reuses the violet tone that used to be Income tax.
-const groupTypeTone = (t: GroupType) => (t === 'VAT' ? 'blue' : 'violet')
-
-export interface CreateGroupMemberDraft {
-  entityId: string
-  validFrom: string
-  validTo: string | null
-}
-
-export interface CreateGroupDraft {
-  name: string
-  type: GroupType
-  jurisdiction: string
-  members: CreateGroupMemberDraft[]
-  representativeId: string
-}
-
-/* ─── Create Group ───────────────────────────────────────────────────────── */
-
-export function CreateGroupModal({
-  orgId,
-  entities,
-  groups,
-  prefill,
-  onClose,
-  onCreate,
-  onViewGroup,
-}: {
-  orgId: string
-  entities: LegalEntity[]
-  groups: Group[]
-  prefill?: { type?: GroupType; jurisdiction?: string; memberEntityId?: string }
-  onClose: () => void
-  onCreate: (draft: CreateGroupDraft) => void
-  onViewGroup: (groupId: string) => void
-}) {
-  // V10-G — CIT is a disabled chip in the picker; the initial default falls back to the
-  // first enabled type when CIT would have been chosen by prefill.
-  const enabledTypes = GROUP_TYPES.filter((t) => !DISABLED_GROUP_TYPES.includes(t))
-  const initialType: GroupType = (prefill?.type && !DISABLED_GROUP_TYPES.includes(prefill.type)) ? prefill.type : (enabledTypes[0] ?? 'VAT')
-  const [type, setType] = useState<GroupType>(initialType)
-  const [jurisdiction, setJurisdiction] = useState(prefill?.jurisdiction ?? 'Germany')
-  const [members, setMembers] = useState<CreateGroupMemberDraft[]>(
-    prefill?.memberEntityId ? [{ entityId: prefill.memberEntityId, validFrom: today(), validTo: null }] : [],
-  )
-  const selected = members.map((m) => m.entityId)
-  const [repId, setRepId] = useState<string>(prefill?.memberEntityId ?? '')
-  // V10-E — group name is pre-filled from the representative's legal name and stays in
-  // lockstep until the user hand-edits it. Once edited, we stop overwriting on rep change.
-  const [name, setName] = useState('')
-  const [nameEdited, setNameEdited] = useState(false)
-
-  const orgEntities = useMemo(() => entities.filter((e) => e.orgId === orgId), [entities, orgId])
-
-  // Auto-fill name from the representative until the user takes over.
-  useEffect(() => {
-    if (nameEdited) return
-    const rep = orgEntities.find((e) => e.id === repId)
-    setName(rep ? rep.legalName : '')
-  }, [repId, nameEdited, orgEntities])
-
-  // Parallel same-type + jurisdiction groups (rule 3) — informational only.
-  const duplicates = groups.filter((g) => g.orgId === orgId && g.type === type && g.jurisdiction === jurisdiction)
-
-  const toggleMember = (id: string) => {
-    setMembers((prev) => {
-      const exists = prev.some((m) => m.entityId === id)
-      const next = exists
-        ? prev.filter((m) => m.entityId !== id)
-        : [...prev, { entityId: id, validFrom: today(), validTo: null }]
-      if (next.length === 1) setRepId(next[0].entityId)
-      else if (!next.some((m) => m.entityId === repId)) setRepId('')
-      return next
-    })
-  }
-
-  const updateMember = (id: string, patch: Partial<CreateGroupMemberDraft>) =>
-    setMembers((prev) => prev.map((m) => (m.entityId === id ? { ...m, ...patch } : m)))
-
-  const canCreate =
-    !!name.trim() &&
-    members.length >= 1 &&
-    members.every((m) => !!m.validFrom) &&
-    !!repId &&
-    selected.includes(repId)
-
-  const submit = () => {
-    if (!canCreate) return
-    onCreate({
-      name: name.trim(),
-      type,
-      jurisdiction,
-      members,
-      representativeId: repId,
-    })
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent overlayClassName="bg-background/40 backdrop-blur-sm" className="max-h-[90vh] max-w-[560px] overflow-auto">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl font-bold tracking-tight">Create Group</DialogTitle>
-          <DialogDescription>
-            Set each member's active-from date and an optional active-to date.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-5">
-          {/* V10-F/G — type as chip picker; CIT chip disabled per DISABLED_GROUP_TYPES. */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Type</Label>
-            <div className="flex flex-wrap gap-2">
-              {GROUP_TYPES.map((t) => {
-                const disabled = DISABLED_GROUP_TYPES.includes(t)
-                const on = type === t
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => !disabled && setType(t)}
-                    aria-pressed={on}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] leading-[18px] transition-colors',
-                      on
-                        ? 'bg-primary text-white border-primary'
-                        : disabled
-                          ? 'bg-neutral-50 text-neutral-400 border-neutral-200 cursor-not-allowed'
-                          : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50',
-                    )}
-                    title={disabled ? 'Coming soon' : undefined}
-                  >
-                    {t}
-                    {disabled && <span className="text-[11px] text-neutral-400">· soon</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Jurisdiction</Label>
-            <Select value={jurisdiction} onValueChange={setJurisdiction}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {COUNTRIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Group name</Label>
-            <Input
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setNameEdited(true)
-              }}
-              placeholder="Pick a representative to auto-fill…"
-            />
-            {!nameEdited && repId && (
-              <p className="text-[12px] leading-4 text-neutral-400">
-                Pre-filled from the representative — edit to override.
-              </p>
-            )}
-          </div>
-
-          {duplicates.length > 0 && (
-            <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-[13px] leading-[18px] text-sky-900">
-              A {type} group already exists for {jurisdiction}:{' '}
-              {duplicates.map((g, i) => (
-                <span key={g.id}>
-                  <button
-                    type="button"
-                    className="font-medium underline hover:text-sky-700"
-                    onClick={() => {
-                      onViewGroup(g.id)
-                      onClose()
-                    }}
-                  >
-                    {g.name}
-                  </button>
-                  {i < duplicates.length - 1 ? ', ' : ''}
-                </span>
-              ))}
-              . Parallel groups are allowed, but an entity can be an active member of only one {type} group at a time.
-            </div>
-          )}
-
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Members</Label>
-            <div className="flex max-h-[300px] flex-col divide-y divide-neutral-100 overflow-auto rounded-lg border border-neutral-200">
-              {orgEntities.length === 0 ? (
-                <p className="px-3 py-4 text-[13px] text-neutral-500">No legal entities available.</p>
-              ) : (
-                orgEntities.map((e) => {
-                  const member = members.find((m) => m.entityId === e.id)
-                  const checked = !!member
-                  return (
-                    <div key={e.id} className="flex flex-col gap-2 px-3 py-2.5 hover:bg-neutral-50">
-                      <label className="flex cursor-pointer items-center gap-3">
-                        <Checkbox checked={checked} onCheckedChange={() => toggleMember(e.id)} />
-                        <span className="text-[14px] leading-5 text-neutral-900">{e.legalName}</span>
-                      </label>
-                      {checked && member && (
-                        <div className="grid grid-cols-2 gap-3 pl-7">
-                          <div className="flex flex-col gap-1">
-                            <Label className="text-[12px] text-neutral-500">Active from</Label>
-                            <Input
-                              type="date"
-                              value={member.validFrom}
-                              onChange={(ev) => updateMember(e.id, { validFrom: ev.target.value })}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <Label className="text-[12px] text-neutral-500">Active to (optional)</Label>
-                            <Input
-                              type="date"
-                              value={member.validTo ?? ''}
-                              onChange={(ev) => updateMember(e.id, { validTo: ev.target.value || null })}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-
-          {/* V10-F — representative chip picker, same visual pattern as Create Engagement's
-              service-line chips. Single-select; picking a rep also seeds the group name. */}
-          {selected.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-sm">Representative</Label>
-              <div className="flex flex-wrap gap-2">
-                {selected.map((id) => {
-                  const on = repId === id
-                  const label = entities.find((e) => e.id === id)?.legalName ?? id
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setRepId(id)}
-                      aria-pressed={on}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] leading-[18px] transition-colors',
-                        on
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-              {!repId && (
-                <p className="text-[12px] leading-4 text-neutral-400">
-                  Pick a representative to enable Create.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button onClick={submit} disabled={!canCreate}>
-            Create Group
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/* ─── Add Members ────────────────────────────────────────────────────────── */
-
-/** Feature 6 of the "upload modal & data-package visuals" ticket — who a selected legal
- * entity's Child Case will assign once a VAT group case is created from this group (the actual
- * case-creation wiring is a later task; this modal only collects the assignment). */
+/* ─── Shared: member assignee shape, validation, and the entity row ─────────
+ * Feature 6 of the "upload modal & data-package visuals" ticket — who a selected legal entity's
+ * Child Case will assign once a VAT group case is created from this group (the actual
+ * case-creation wiring is a later task; this only collects the assignment). The "task element /
+ * needs-changes / sidebar / create-group" and "Groups tab refactor" tickets reuse this exact
+ * shape and row UI in both the Create and Edit Group modals instead of rebuilding it. */
 export interface MemberAssigneeIds {
   creators: string[]
   reviewers: string[]
@@ -331,63 +43,278 @@ export interface MemberAssigneeIds {
   clients: string[]
 }
 
-export interface AddMembersDraft {
-  entityId: string
+const EMPTY_ASSIGNEES: MemberAssigneeIds = { creators: [], reviewers: [], partners: [], clients: [] }
+
+// Partner is the only optional role — Creator, Reviewer and Client each need at least one
+// person on every entity being added before a batch can be saved / a group can be created.
+function hasMandatoryRoles(assignees: MemberAssigneeIds): boolean {
+  return assignees.creators.length >= 1 && assignees.reviewers.length >= 1 && assignees.clients.length >= 1
+}
+
+interface EntityDraft {
   validFrom: string
-  validTo: string | null
+  validTo: string
   assignees: MemberAssigneeIds
 }
 
-const EMPTY_ASSIGNEES: MemberAssigneeIds = { creators: [], reviewers: [], partners: [], clients: [] }
-
-// Entities beyond this many get a bounded, scrolling list instead of growing the modal
-// indefinitely — a group can have up to ~60 members.
-const ENTITY_LIST_SCROLL_THRESHOLD = 5
-const ENTITY_LIST_MAX_HEIGHT = 'max-h-[320px]'
-
-export function AddMembersModal({
-  group,
-  entities,
+/** One selectable legal-entity row: collapsed shows just the name and a select toggle;
+ * selecting it expands into Valid-from/to dates and the Creator/Reviewer/Partner/Client
+ * assignment fields. Shared by the Create and Edit Group modals so the two don't drift into
+ * two different pickers for the same job. */
+function EntityAssignmentRow({
+  entity,
+  isSelected,
+  draft,
   orgUsers,
-  onClose,
-  onAdd,
+  onToggle,
+  onUpdateDraft,
+  onUpdateAssignees,
+  badge,
+  hideMandatoryHint,
+  rowRef,
 }: {
-  group: Group
+  entity: LegalEntity
+  isSelected: boolean
+  draft?: EntityDraft
+  orgUsers: OrgUser[]
+  onToggle: () => void
+  onUpdateDraft: (patch: Partial<{ validFrom: string; validTo: string }>) => void
+  onUpdateAssignees: (patch: Partial<MemberAssigneeIds>) => void
+  /** e.g. a "Representative" badge next to the name once chosen via the dedicated dropdown. */
+  badge?: React.ReactNode
+  /** Create/Edit Group modals drop the inline validation copy (the restriction itself still
+   * blocks submit) — Add Members-style callers keep it as an inline hint. */
+  hideMandatoryHint?: boolean
+  /** Lets the parent scroll a just-selected/just-expanded row into view. */
+  rowRef?: (el: HTMLDivElement | null) => void
+}) {
+  return (
+    <div
+      ref={rowRef}
+      className={cn(
+        'flex flex-col gap-3 rounded-lg border px-3 py-2.5',
+        isSelected ? 'border-green-300 bg-green-50/30' : 'border-neutral-200',
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={isSelected}
+          aria-label={isSelected ? `Deselect ${entity.legalName}` : `Select ${entity.legalName}`}
+          className={cn(
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+            isSelected ? 'border-green-600 bg-green-600 text-white' : 'border-neutral-300',
+          )}
+        >
+          {isSelected && <Check className="h-3 w-3" />}
+        </button>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate text-[14px] font-medium leading-5 text-neutral-900">
+            {entity.legalName}
+          </span>
+          {/* self-start — a flex-col ancestor stretches children to its own width by default;
+              without this the badge would fill the whole row instead of hugging its text. */}
+          {badge && <span className="shrink-0 self-start">{badge}</span>}
+        </div>
+        {isSelected && draft && (
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[11px] text-neutral-500">Valid from</Label>
+              <Input
+                type="date"
+                className="h-8"
+                value={draft.validFrom}
+                onChange={(ev) => onUpdateDraft({ validFrom: ev.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[11px] text-neutral-500">Valid to (optional)</Label>
+              <Input
+                type="date"
+                className="h-8"
+                value={draft.validTo}
+                onChange={(ev) => onUpdateDraft({ validTo: ev.target.value })}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isSelected && draft && (
+        <div className="grid grid-cols-1 gap-3 pl-8 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[12px] text-neutral-600">Creator</Label>
+            <UserSelect
+              multiple
+              users={orgUsers}
+              value={draft.assignees.creators}
+              onChange={(ids) => onUpdateAssignees({ creators: ids })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[12px] text-neutral-600">Reviewer</Label>
+            <UserSelect
+              multiple
+              users={orgUsers}
+              value={draft.assignees.reviewers}
+              onChange={(ids) => onUpdateAssignees({ reviewers: ids })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[12px] text-neutral-600">
+              Partner <span className="font-normal text-neutral-400">(optional)</span>
+            </Label>
+            <UserSelect
+              multiple
+              users={orgUsers}
+              value={draft.assignees.partners}
+              onChange={(ids) => onUpdateAssignees({ partners: ids })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[12px] text-neutral-600">Client</Label>
+            <UserSelect
+              multiple
+              users={orgUsers}
+              value={draft.assignees.clients}
+              onChange={(ids) => onUpdateAssignees({ clients: ids })}
+            />
+          </div>
+          {!hideMandatoryHint && !hasMandatoryRoles(draft.assignees) && (
+            <p className="col-span-full text-[12px] text-amber-600">
+              Creator, Reviewer and Client each need at least one person before this entity can be added.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Create / Edit Group (shared form) ──────────────────────────────────── */
+
+export interface GroupMemberDraft {
+  entityId: string
+  validFrom: string
+  validTo: string | null
+  assigneeIds: MemberAssigneeIds
+}
+
+export interface GroupFormDraft {
+  name: string
+  type: GroupType
+  jurisdiction: string
+  members: GroupMemberDraft[]
+  representativeId: string
+}
+
+interface GroupFormModalProps {
+  orgId: string
   entities: LegalEntity[]
-  /** Feature 6 — the choosable Creator/Reviewer/Partner/Client people are limited to this
-   * organisation's own users, not every user on the platform. */
+  /** Creator/Reviewer/Partner/Client choices are limited to this organisation's own users. */
   orgUsers: OrgUser[]
   onClose: () => void
-  onAdd: (drafts: AddMembersDraft[]) => void
+}
+
+interface CreateGroupModalProps extends GroupFormModalProps {
+  prefill?: { type?: GroupType; jurisdiction?: string; memberEntityId?: string }
+  onCreate: (draft: GroupFormDraft) => void
+}
+
+interface EditGroupModalProps extends GroupFormModalProps {
+  group: Group
+  onSave: (groupId: string, draft: GroupFormDraft) => void
+}
+
+function GroupFormModal({
+  mode,
+  orgId,
+  entities,
+  orgUsers,
+  group,
+  prefill,
+  onClose,
+  onCreate,
+  onSave,
+}: {
+  mode: 'create' | 'edit'
+  orgId: string
+  entities: LegalEntity[]
+  orgUsers: OrgUser[]
+  group?: Group
+  prefill?: { type?: GroupType; jurisdiction?: string; memberEntityId?: string }
+  onClose: () => void
+  onCreate?: (draft: GroupFormDraft) => void
+  onSave?: (groupId: string, draft: GroupFormDraft) => void
 }) {
-  // Eligible = same-org entities not already active or pending in this group
-  // (ended members can be re-added).
-  const blocked = new Set(
-    group.members.filter((m) => membershipStatus(m) !== 'Ended').map((m) => m.entityId),
-  )
-  const eligible = entities.filter((e) => e.orgId === group.orgId && !blocked.has(e.id))
-  // Feature 6 — `orgUsers` is already scoped to this organisation by the caller (OrgWorkspace's
-  // own `users` state only ever contains users belonging to the open org), so every one of them
-  // is a valid Creator/Reviewer/Partner/Client pick regardless of which specific entity they're
-  // otherwise connected to.
-  const orgMembers = orgUsers
-
+  // V10-G — CIT is a disabled option in the picker; the initial default falls back to the
+  // first enabled type when CIT would have been chosen by prefill.
+  const enabledTypes = GROUP_TYPES.filter((t) => !DISABLED_GROUP_TYPES.includes(t))
+  const initialType: GroupType = group
+    ? group.type
+    : (prefill?.type && !DISABLED_GROUP_TYPES.includes(prefill.type)) ? prefill.type : (enabledTypes[0] ?? 'VAT')
+  const [type, setType] = useState<GroupType>(initialType)
+  // V10-E — group name is pre-filled from the representative's legal name and stays in
+  // lockstep until the user hand-edits it (Create only — Edit starts from the real name).
+  const [name, setName] = useState(group?.name ?? '')
+  const [nameEdited, setNameEdited] = useState(mode === 'edit')
+  const [repId, setRepId] = useState(group?.members.find((m) => m.representative)?.entityId ?? '')
   const [entitySearch, setEntitySearch] = useState('')
-  const visibleEligible = useMemo(() => {
-    const q = entitySearch.trim().toLowerCase()
-    if (!q) return eligible
-    return eligible.filter((e) => e.legalName.toLowerCase().includes(q))
-  }, [eligible, entitySearch])
-
-  const [drafts, setDrafts] = useState<Record<string, { validFrom: string; validTo: string; assignees: MemberAssigneeIds }>>({})
+  const [drafts, setDrafts] = useState<Record<string, EntityDraft>>(() => {
+    if (!group) return {}
+    const initial: Record<string, EntityDraft> = {}
+    for (const m of group.members) {
+      initial[m.entityId] = {
+        validFrom: m.validFrom,
+        validTo: m.validTo ?? '',
+        assignees: {
+          creators: m.assigneeIds?.creators ?? [],
+          reviewers: m.assigneeIds?.reviewers ?? [],
+          partners: m.assigneeIds?.partners ?? [],
+          clients: m.assigneeIds?.clients ?? [],
+        },
+      }
+    }
+    return initial
+  })
   const selected = Object.keys(drafts)
+
+  const orgEntities = useMemo(() => entities.filter((e) => e.orgId === orgId), [entities, orgId])
+  const visibleEntities = useMemo(() => {
+    const q = entitySearch.trim().toLowerCase()
+    if (!q) return orgEntities
+    return orgEntities.filter((e) => e.legalName.toLowerCase().includes(q))
+  }, [orgEntities, entitySearch])
+
+  // Seed from prefill (e.g. "create a group starting from this entity") once, on open. Edit
+  // mode already seeded its drafts/repId above from the real group.
+  useEffect(() => {
+    if (mode !== 'create' || !prefill?.memberEntityId) return
+    const id = prefill.memberEntityId
+    setDrafts({ [id]: { validFrom: today(), validTo: '', assignees: { ...EMPTY_ASSIGNEES } } })
+    setRepId(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Scrolls a just-selected/just-expanded entity's row into view — the list is the only
+  // scrollable region in this modal (Feature 6), so a row expanding below the fold would
+  // otherwise go unnoticed.
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [justExpandedId, setJustExpandedId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!justExpandedId) return
+    rowRefs.current[justExpandedId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [justExpandedId])
 
   const toggle = (id: string) =>
     setDrafts((prev) => {
       if (prev[id]) {
         const { [id]: _removed, ...rest } = prev
+        if (repId === id) setRepId('')
         return rest
       }
+      setJustExpandedId(id)
       return { ...prev, [id]: { validFrom: today(), validTo: '', assignees: { ...EMPTY_ASSIGNEES } } }
     })
 
@@ -397,180 +324,242 @@ export function AddMembersModal({
   const updateAssignees = (id: string, patch: Partial<MemberAssigneeIds>) =>
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], assignees: { ...prev[id].assignees, ...patch } } }))
 
-  // Partner is the only optional role — Creator, Reviewer and Client each need at least one
-  // person on every entity being added before the batch can be saved.
-  const hasMandatoryRoles = (assignees: MemberAssigneeIds) =>
-    assignees.creators.length >= 1 && assignees.reviewers.length >= 1 && assignees.clients.length >= 1
+  // Feature 5/7 — choosing a representative instantly selects it too (seeding a draft if it
+  // isn't already one), forcing the user to assign its responsible people before saving. This
+  // is also the ONLY place a representative changes — never by clicking a card on the main page.
+  const chooseRepresentative = (id: string) => {
+    setRepId(id)
+    setJustExpandedId(id)
+    setDrafts((prev) =>
+      prev[id] ? prev : { ...prev, [id]: { validFrom: today(), validTo: '', assignees: { ...EMPTY_ASSIGNEES } } },
+    )
+  }
 
-  const canAdd =
-    selected.length >= 1 &&
-    selected.every((id) => !!drafts[id].validFrom && hasMandatoryRoles(drafts[id].assignees))
+  // Auto-fill name from the representative until the user takes over (Create only).
+  useEffect(() => {
+    if (mode !== 'create' || nameEdited) return
+    const rep = orgEntities.find((e) => e.id === repId)
+    setName(rep ? rep.legalName : '')
+  }, [mode, repId, nameEdited, orgEntities])
+
+  // Jurisdiction is entity-locked (Change 9 elsewhere in this prototype), not user-picked —
+  // derived from the representative's own Head Office jurisdiction/country once one is chosen.
+  const repEntity = orgEntities.find((e) => e.id === repId)
+  const jurisdiction = repEntity?.jurisdiction ?? repEntity?.country ?? group?.jurisdiction ?? ''
+
+  // Every entity that was already a member when this Edit session opened — used below to spot
+  // ones being newly added in THIS session, as opposed to pre-existing members just being
+  // reviewed/re-assigned.
+  const initialMemberIds = useMemo(() => new Set(group?.members.map((m) => m.entityId) ?? []), [group])
+
+  // Group creation/editing requires the REPRESENTATIVE to have its mandatory roles assigned.
+  // In Edit mode, any entity newly added this session (not already a member of the group) must
+  // also have Creator/Reviewer/Client filled before it can be saved in — Partner stays optional.
+  const repDraft = repId ? drafts[repId] : undefined
+  const newlyAddedIncomplete =
+    mode === 'edit' &&
+    selected.some((id) => !initialMemberIds.has(id) && !hasMandatoryRoles(drafts[id].assignees))
+  const canSubmit =
+    !!name.trim() && !!repId && !!repDraft && hasMandatoryRoles(repDraft.assignees) && !newlyAddedIncomplete
+
+  const buildDraft = (): GroupFormDraft => ({
+    name: name.trim(),
+    type,
+    jurisdiction,
+    members: selected.map((entityId) => ({
+      entityId,
+      validFrom: drafts[entityId].validFrom,
+      validTo: drafts[entityId].validTo || null,
+      assigneeIds: drafts[entityId].assignees,
+    })),
+    representativeId: repId,
+  })
 
   const submit = () => {
-    onAdd(
-      selected.map((entityId) => ({
-        entityId,
-        validFrom: drafts[entityId].validFrom,
-        validTo: drafts[entityId].validTo || null,
-        assignees: drafts[entityId].assignees,
-      })),
-    )
+    if (!canSubmit) return
+    if (mode === 'create') onCreate?.(buildDraft())
+    else if (group) onSave?.(group.id, buildDraft())
   }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent overlayClassName="bg-background/40 backdrop-blur-sm" className="flex max-h-[92vh] max-w-[820px] flex-col gap-5 overflow-auto">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl font-bold tracking-tight">Add members</DialogTitle>
+      {/* Feature 6 — ~80% of the viewport height, locked header/footer with only the middle
+          content scrolling: the outer DialogContent is a fixed-height flex column, the header
+          and footer are `shrink-0`, and only the entity list inside the row below scrolls — so
+          adding/expanding entities never grows the modal itself. Wider than a single column: a
+          left column for group-level fields, a right column for member selection. */}
+      <DialogContent
+        overlayClassName="bg-background/40 backdrop-blur-sm"
+        className="flex h-[80vh] max-h-[80vh] max-w-[1180px] flex-col gap-0 overflow-hidden p-0"
+      >
+        <DialogHeader className="shrink-0 gap-1 border-b border-border px-6 py-5">
+          <DialogTitle className="font-display text-xl font-bold tracking-tight">
+            {mode === 'create' ? 'Create Group' : 'Edit group'}
+          </DialogTitle>
           <DialogDescription>
-            <span className="inline-flex items-center gap-1.5">
-              Adding to
-              <Badge tone={groupTypeTone(group.type)} size="sm">
-                {group.type}
-              </Badge>
-              {group.name}. Dates apply to everyone added in this batch.
-            </span>
+            Set each member's active-from date and an optional active-to date.
           </DialogDescription>
         </DialogHeader>
 
-        {eligible.length > 0 && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
-            <Input
-              value={entitySearch}
-              onChange={(ev) => setEntitySearch(ev.target.value)}
-              placeholder="Search by legal entity name"
-              className="pl-9"
-            />
+        {/* This row itself no longer scrolls (`min-h-0 flex-1` only) — it's a bounded box that
+            fills whatever space is left between the locked header/footer. The entity list below
+            is the ONLY thing that scrolls internally, so expanding several entities' assignment
+            fields can never grow the modal itself. The divider between columns is its own flex
+            item (not a border tied to one column's content height) so it stretches to the row's
+            full height regardless of which column has more content. */}
+        <div className="flex min-h-0 flex-1">
+          {/* Left — group-level fields. Order: Type -> Representative -> Group name. */}
+          <div className="flex w-[360px] shrink-0 flex-col gap-5 overflow-y-auto p-6">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Type</Label>
+              <Select value={type} onValueChange={(v) => setType(v as GroupType)}>
+                <SelectTrigger data-testid="group-form-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GROUP_TYPES.map((t) => {
+                    const disabled = DISABLED_GROUP_TYPES.includes(t)
+                    return (
+                      <SelectItem key={t} value={t} disabled={disabled}>
+                        {t}
+                        {disabled && <span className="text-neutral-400"> · soon</span>}
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Feature 4/5 — replaces the removed Jurisdiction field: picking a representative
+                here instantly selects it in the member list on the right and derives the
+                group's jurisdiction from it. */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Select the representative</Label>
+              <Select value={repId || undefined} onValueChange={chooseRepresentative}>
+                <SelectTrigger data-testid="group-form-representative">
+                  <SelectValue placeholder="Select a legal entity" />
+                </SelectTrigger>
+                <SelectContent>
+                  {orgEntities.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.legalName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!repId ? (
+                <p className="text-[12px] leading-4 text-neutral-400">
+                  Required — assigns Creator, Reviewer and Client for this entity on the right.
+                </p>
+              ) : (
+                jurisdiction && (
+                  <p className="text-[12px] leading-4 text-neutral-400">Jurisdiction: {jurisdiction}</p>
+                )
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Group name</Label>
+              <Input
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setNameEdited(true)
+                }}
+                placeholder="Pick a representative to auto-fill…"
+              />
+              {mode === 'create' && !nameEdited && repId && (
+                <p className="text-[12px] leading-4 text-neutral-400">
+                  Pre-filled from the representative — edit to override.
+                </p>
+              )}
+            </div>
+
+            {/* Edit Group's own bottom-of-form warning lives in the footer area below, matching
+                Create's structure (Feature 5) rather than a separate design. */}
           </div>
-        )}
 
-        <div
-          className={cn(
-            'flex flex-col gap-2',
-            eligible.length > ENTITY_LIST_SCROLL_THRESHOLD && cn(ENTITY_LIST_MAX_HEIGHT, 'overflow-y-auto pr-1'),
-          )}
-        >
-          {eligible.length === 0 ? (
-            <p className="px-3 py-4 text-[13px] text-neutral-500">
-              All eligible entities are already members.
-            </p>
-          ) : visibleEligible.length === 0 ? (
-            <p className="px-3 py-4 text-[13px] text-neutral-500">
-              No legal entity matches "{entitySearch}".
-            </p>
-          ) : (
-            visibleEligible.map((e) => {
-              const isSelected = !!drafts[e.id]
-              const draft = drafts[e.id]
-              return (
-                <div
-                  key={e.id}
-                  className={cn(
-                    'flex flex-col gap-3 rounded-lg border px-3 py-2.5',
-                    isSelected ? 'border-green-300 bg-green-50/30' : 'border-neutral-200',
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggle(e.id)}
-                      aria-pressed={isSelected}
-                      aria-label={isSelected ? `Deselect ${e.legalName}` : `Select ${e.legalName}`}
-                      className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
-                        isSelected ? 'border-green-600 bg-green-600 text-white' : 'border-neutral-300',
-                      )}
-                    >
-                      {isSelected && <Check className="h-3 w-3" />}
-                    </button>
-                    <span className="flex-1 text-[14px] font-medium leading-5 text-neutral-900">{e.legalName}</span>
-                    {isSelected && (
-                      <div className="flex shrink-0 items-center gap-2">
-                        <div className="flex flex-col gap-0.5">
-                          <Label className="text-[11px] text-neutral-500">Valid from</Label>
-                          <Input
-                            type="date"
-                            className="h-8"
-                            value={draft.validFrom}
-                            onChange={(ev) => updateDraft(e.id, { validFrom: ev.target.value })}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <Label className="text-[11px] text-neutral-500">Valid to (optional)</Label>
-                          <Input
-                            type="date"
-                            className="h-8"
-                            value={draft.validTo}
-                            onChange={(ev) => updateDraft(e.id, { validTo: ev.target.value })}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          {/* Explicit stretch divider — a plain flex item (not a border on either column)
+              always spans the row's full height, regardless of which column's content is
+              taller. */}
+          <div className="w-px shrink-0 self-stretch bg-neutral-200" />
 
-                  {isSelected && (
-                    <div className="grid grid-cols-1 gap-3 pl-8 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12px] text-neutral-600">Creator</Label>
-                        <UserSelect
-                          multiple
-                          users={orgMembers}
-                          value={draft.assignees.creators}
-                          onChange={(ids) => updateAssignees(e.id, { creators: ids })}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12px] text-neutral-600">Reviewer</Label>
-                        <UserSelect
-                          multiple
-                          users={orgMembers}
-                          value={draft.assignees.reviewers}
-                          onChange={(ids) => updateAssignees(e.id, { reviewers: ids })}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12px] text-neutral-600">
-                          Partner <span className="font-normal text-neutral-400">(optional)</span>
-                        </Label>
-                        <UserSelect
-                          multiple
-                          users={orgMembers}
-                          value={draft.assignees.partners}
-                          onChange={(ids) => updateAssignees(e.id, { partners: ids })}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12px] text-neutral-600">Client</Label>
-                        <UserSelect
-                          multiple
-                          users={orgMembers}
-                          value={draft.assignees.clients}
-                          onChange={(ids) => updateAssignees(e.id, { clients: ids })}
-                        />
-                      </div>
-                      {!hasMandatoryRoles(draft.assignees) && (
-                        <p className="col-span-full text-[12px] text-amber-600">
-                          Creator, Reviewer and Client each need at least one person before this entity can be added.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          )}
+          {/* Right — member selection + assignment. Only the list itself (`flex-1 min-h-0
+              overflow-y-auto` below) scrolls — Label/search stay put. */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-6">
+            <Label className="text-sm">Members</Label>
+            {orgEntities.length > 0 && (
+              <div className="relative shrink-0">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  value={entitySearch}
+                  onChange={(ev) => setEntitySearch(ev.target.value)}
+                  placeholder="Search by legal entity name"
+                  className="pl-9"
+                />
+              </div>
+            )}
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+              {orgEntities.length === 0 ? (
+                <p className="px-3 py-4 text-[13px] text-neutral-500">No legal entities available.</p>
+              ) : visibleEntities.length === 0 ? (
+                <p className="px-3 py-4 text-[13px] text-neutral-500">
+                  No legal entity matches "{entitySearch}".
+                </p>
+              ) : (
+                visibleEntities.map((e) => (
+                  <EntityAssignmentRow
+                    key={e.id}
+                    entity={e}
+                    isSelected={!!drafts[e.id]}
+                    draft={drafts[e.id]}
+                    orgUsers={orgUsers}
+                    onToggle={() => toggle(e.id)}
+                    onUpdateDraft={(patch) => updateDraft(e.id, patch)}
+                    onUpdateAssignees={(patch) => updateAssignees(e.id, patch)}
+                    badge={repId === e.id ? <Badge tone="sky" size="sm">Representative</Badge> : undefined}
+                    hideMandatoryHint
+                    rowRef={(el) => { rowRefs.current[e.id] = el }}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </div>
 
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button disabled={!canAdd} onClick={submit}>
-            Save changes
-          </Button>
+        <DialogFooter className="shrink-0 flex-col items-stretch gap-3 border-t border-border px-6 py-4 sm:flex-col">
+          {/* Feature 5 — Edit Group's formal warning that changing membership here reaches
+              beyond this dialog: past-created cases are unaffected mid-flight, but anything not
+              yet generated will pick up whatever membership is in effect when it is. */}
+          {mode === 'edit' && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3 text-[13px] leading-[18px] text-amber-900">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
+              <p>
+                <span className="font-semibold">This change affects future cases.</span> Any case not yet
+                created will use the group membership in effect at the time it is generated. Cases already
+                created and in progress are not altered by this change and must still be finalised under
+                their original assignment. Confirm this is intentional before saving.
+              </p>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={submit} disabled={!canSubmit}>
+              {mode === 'create' ? 'Create Group' : 'Save Changes'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
+}
+
+export function CreateGroupModal(props: CreateGroupModalProps) {
+  return <GroupFormModal mode="create" {...props} />
+}
+
+export function EditGroupModal(props: EditGroupModalProps) {
+  return <GroupFormModal mode="edit" {...props} />
 }

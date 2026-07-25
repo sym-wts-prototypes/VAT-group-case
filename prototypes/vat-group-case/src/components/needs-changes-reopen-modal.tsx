@@ -14,6 +14,7 @@ import {
   FileDropzone,
   Input,
   Label,
+  OptionPills,
   Textarea,
   cn,
 } from '@wts/ui'
@@ -244,37 +245,20 @@ export function NeedsChangesReopenModal({
             </div>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-foreground">Reopen child cases?</span>
-                <div
-                  role="radiogroup"
-                  aria-label="Reopen child cases?"
-                  className="flex shrink-0 overflow-hidden rounded-lg"
-                >
-                  <Button
-                    type="button"
-                    role="radio"
-                    aria-checked={!isReopening}
-                    size="sm"
-                    variant={isReopening ? 'outline' : 'default'}
-                    className="rounded-r-none"
-                    onClick={() => setReopenChoice('no')}
-                  >
-                    No
-                  </Button>
-                  <Button
-                    type="button"
-                    role="radio"
-                    aria-checked={isReopening}
-                    size="sm"
-                    variant={isReopening ? 'default' : 'outline'}
-                    className="rounded-l-none border-l-0"
-                    onClick={() => setReopenChoice('yes')}
-                  >
-                    Yes
-                  </Button>
-                </div>
-              </div>
+              {/* Two separate rounded pills (not a joined segmented control) — selected black,
+                  unselected white — same OptionPills used for Role/Process elsewhere in this
+                  prototype, instead of a bespoke Button-pair radiogroup. */}
+              <OptionPills
+                label="Reopen child cases?"
+                labelClassName="text-sm font-medium normal-case tracking-normal text-foreground"
+                layout="inline"
+                value={reopenChoice}
+                onChange={setReopenChoice}
+                options={[
+                  { value: 'no', label: 'No' },
+                  { value: 'yes', label: 'Yes' },
+                ]}
+              />
               {/* Own full-width row (not squeezed alongside the No/Yes buttons) so this fits on
                   one line instead of wrapping mid-sentence. */}
               <span className="text-xs text-muted-foreground">

@@ -571,21 +571,16 @@ export function SingleCaseFormContent({
                   <SelectValue placeholder="Select a country" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Feature 1 of the "VAT-registration alignment" ticket — `justify-between` on
-                      a plain child span doesn't actually spread it edge-to-edge: Radix's
-                      `SelectItem` wraps children in its own `ItemText`, which renders as a
-                      shrink-to-fit span (not stretched to the row's real width, and it doesn't
-                      forward a className to widen it), so `w-full` on a nested span just
-                      resolves back to that same shrink-wrapped width. Positioning the row
-                      `absolute` against `SelectItem`'s own `position: relative` root — spanning
-                      exactly its `pl-8`/`pr-2` content band — sidesteps ItemText's box entirely,
-                      so the code reliably lands flush right regardless of the name's length. */}
+                  {/* Name flush-left, 2-letter code flush-right — via SelectItem's `rightSlot`
+                      (see packages/ui/src/select.tsx), same solution the reference project uses
+                      for this exact row. A previous version positioned a child span `absolute`
+                      to escape Radix SelectItem's `ItemText` wrapper, but an absolutely-positioned
+                      child is removed from layout flow and contributes no height to its parent —
+                      that collapsed every row to ~12px tall and spilled the actual (much taller)
+                      text over neighbouring rows and the field below the list. */}
                   {vatRegCountryOptions.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      <span className="absolute inset-y-0 left-8 right-2 flex items-center justify-between gap-4">
-                        <span>{c}</span>
-                        <span className="text-muted-foreground">{countryCodeFor(c)}</span>
-                      </span>
+                    <SelectItem key={c} value={c} rightSlot={countryCodeFor(c)}>
+                      {c}
                     </SelectItem>
                   ))}
                 </SelectContent>

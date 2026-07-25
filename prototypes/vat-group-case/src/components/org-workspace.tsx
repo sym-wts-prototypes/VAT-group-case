@@ -20,7 +20,7 @@ import { useOrgStore } from "@/store/useOrgStore";
 import { useDataStore } from "@/store/useDataStore";
 import { can } from "./permissions";
 import { GroupsTab, EntityGroupMembershipsSection } from "./groups-tab";
-import { CreateGroupModal, AddMembersModal, CreateGroupDraft, AddMembersDraft } from "./group-modals";
+import { CreateGroupModal, EditGroupModal, GroupFormDraft } from "./group-modals";
 import { LegalEntityModal, LegalEntityDraft, VatRow } from "./legal-entity-modal";
 import { AccessUserModal, AccessUserDraft } from "./access-user-modal";
 import { EngagementDetailPage } from "./engagement-detail-page";
@@ -140,7 +140,10 @@ export function OrgWorkspace({
   const [groupModal, setGroupModal] = useState<
     { mode: "create"; prefill?: { type?: GroupType; jurisdiction?: string; memberEntityId?: string } } | null
   >(null);
-  const [addMembersTarget, setAddMembersTarget] = useState<Group | null>(null);
+  // Feature 3/7 of the "Groups tab refactor" ticket — representative changes, member
+  // add/remove, and assignee edits all happen through this one Edit modal now, opened only via
+  // the group detail's top-right Edit button, never by clicking a card.
+  const [editGroupTarget, setEditGroupTarget] = useState<Group | null>(null);
 
   // Activity log
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(() =>
@@ -203,7 +206,7 @@ export function OrgWorkspace({
       case "edit-engagement": if (firstEngagement) setEditEngTarget(firstEngagement); break;
       case "disable-engagement": if (firstEngagement) setDisableEngTarget(firstEngagement); break;
       case "create-group": setGroupModal({ mode: "create" }); break;
-      case "add-members": if (firstGroup) setAddMembersTarget(firstGroup); break;
+      case "edit-group": if (firstGroup) setEditGroupTarget(firstGroup); break;
       default: break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -231,7 +234,7 @@ export function OrgWorkspace({
     : editEngTarget ? "edit-engagement"
     : disableEngTarget ? "disable-engagement"
     : groupModal ? "create-group"
-    : addMembersTarget ? "add-members"
+    : editGroupTarget ? "edit-group"
     : editOrgOpen ? "edit-org"
     : disableOrgOpen ? "disable-org"
     : null;
@@ -355,13 +358,14 @@ export function OrgWorkspace({
     });
   }
 
-  function createGroup(draft: CreateGroupDraft) {
+  function createGroup(draft: GroupFormDraft) {
     const id = `grp-${Date.now()}`;
     const newGroup: Group = {
       id, orgId: org.id, name: draft.name, type: draft.type, jurisdiction: draft.jurisdiction,
       members: draft.members.map((m) => ({
         entityId: m.entityId, vatRegistrationId: vatRegForMember(draft.type, draft.jurisdiction, m.entityId),
         representative: m.entityId === draft.representativeId, validFrom: m.validFrom, validTo: m.validTo,
+        assigneeIds: m.assigneeIds,
       })),
     };
     setGroups((prev) => {
@@ -374,65 +378,39 @@ export function OrgWorkspace({
     setGroupModal(null);
   }
 
-  function addMembers(groupId: string, drafts: AddMembersDraft[]) {
-    const group = groups.find((g) => g.id === groupId);
-    if (!group) return;
-    const now = todayIso();
+  // Feature 3/7 of the "Groups tab refactor" ticket — the Edit modal is now the ONLY place
+  // membership, representative, and assignee changes happen (no more per-card promote/remove/
+  // cancel controls). Saving replaces the group's member list wholesale with whatever the modal
+  // submits, preserving each existing member's own `vatRegistrationId` where it's still a member.
+  function updateGroup(groupId: string, draft: GroupFormDraft) {
+    const existing = groups.find((g) => g.id === groupId);
+    if (!existing) return;
     setGroups((prev) => {
-      let next = prev.map((g) =>
-        g.id === groupId
-          ? {
-              ...g,
-              members: [
-                ...g.members,
-                ...drafts.map((d) => ({
-                  entityId: d.entityId,
-                  vatRegistrationId: vatRegForMember(group.type, group.jurisdiction, d.entityId),
-                  representative: false,
-                  validFrom: d.validFrom,
-                  validTo: d.validTo,
-                  assigneeIds: d.assignees,
-                })),
-              ],
-            }
-          : g,
-      );
-      for (const d of drafts) {
-        if (d.validFrom <= now && (d.validTo === null || d.validTo >= now)) {
-          next = supersede(next, d.entityId, group.type, groupId);
-        }
-      }
+      let next = prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          name: draft.name,
+          type: draft.type,
+          jurisdiction: draft.jurisdiction,
+          members: draft.members.map((m) => {
+            const prevMember = g.members.find((em) => em.entityId === m.entityId);
+            return {
+              entityId: m.entityId,
+              vatRegistrationId: prevMember?.vatRegistrationId ?? vatRegForMember(draft.type, draft.jurisdiction, m.entityId),
+              representative: m.entityId === draft.representativeId,
+              validFrom: m.validFrom,
+              validTo: m.validTo,
+              assigneeIds: m.assigneeIds,
+            };
+          }),
+        };
+      });
+      for (const m of draft.members) next = supersede(next, m.entityId, draft.type, groupId);
       return next;
     });
-    addLogEntry(`Added ${drafts.length} member(s) to "${group.name}"`);
-    setAddMembersTarget(null);
-  }
-
-  // V11-F — "remove member" now ENDS the active membership (validTo = today) instead of
-  // deleting the row, so the member moves to the Inactive list as a past member. The rep
-  // guard (rule 1) still holds: the current representative can't be removed until promoted.
-  function removeMember(groupId: string, entityId: string) {
-    // End the membership effective yesterday. `periodStatus` only treats a membership as
-    // "Ended" when validTo < today (strict), so end-dating to today would leave it Active;
-    // using yesterday makes the member immediately Ended → it moves to Inactive Members.
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const end = yesterday.toISOString().slice(0, 10);
-    const group = groups.find((g) => g.id === groupId);
-    const memberName = entities.find((e) => e.id === entityId)?.legalName ?? entityId;
-    setGroups((prev) => prev.map((g) => {
-      if (g.id !== groupId) return g;
-      return {
-        ...g,
-        members: g.members.map((m) => {
-          if (m.entityId !== entityId) return m;
-          if (m.representative) return m; // guarded — must promote another first
-          if (m.validTo != null) return m; // already ended
-          return { ...m, validTo: end };
-        }),
-      };
-    }));
-    if (group) addLogEntry(`Removed "${memberName}" from group "${group.name}"`);
+    addLogEntry(`Updated group "${draft.name}"`);
+    setEditGroupTarget(null);
   }
 
   // V11-E — delete an entire group.
@@ -441,35 +419,6 @@ export function OrgWorkspace({
     setGroups((prev) => prev.filter((x) => x.id !== groupId));
     if (selectedGroupId === groupId) setSelectedGroupId(null);
     if (g) addLogEntry(`Deleted group "${g.name}"`);
-  }
-
-  // Rule 1: promote sets exactly one representative (target true, all others false).
-  function promoteRep(groupId: string, entityId: string) {
-    const g = groups.find((x) => x.id === groupId);
-    const prevRep = g?.members.find((m) => m.representative);
-    const newRep = g?.members.find((m) => m.entityId === entityId);
-    const nameOf = (eid?: string) => (eid ? (entities.find((e) => e.id === eid)?.legalName ?? eid) : "—");
-    setGroups((prev) => prev.map((x) =>
-      x.id === groupId
-        ? { ...x, members: x.members.map((m) => ({ ...m, representative: m.entityId === entityId })) }
-        : x,
-    ));
-    if (g && newRep) {
-      addLogEntry(
-        `Changed representative of "${g.name}"`,
-        "—",
-        { previous: nameOf(prevRep?.entityId), current: nameOf(entityId) },
-      );
-    }
-  }
-
-  function cancelPending(groupId: string, entityId: string) {
-    const now = todayIso();
-    setGroups((prev) => prev.map((g) =>
-      g.id === groupId
-        ? { ...g, members: g.members.filter((m) => !(m.entityId === entityId && m.validFrom > now)) }
-        : g,
-    ));
   }
 
   // Applied after entity creation (Surface 2 hand-off): add the new entity to each
@@ -882,17 +831,9 @@ export function OrgWorkspace({
             selectedId={selectedGroupId}
             onSelect={setSelectedGroupId}
             onAddGroup={() => setGroupModal({ mode: "create" })}
-            onAddMembers={(g) => setAddMembersTarget(g)}
-            onRemoveMember={removeMember}
-            onPromoteRep={promoteRep}
-            onCancelPending={cancelPending}
+            onEditGroup={(g) => setEditGroupTarget(g)}
             onDeleteGroup={deleteGroup}
             canManage={caps.groupManage}
-            onOpenConsolidationCase={(g) => {
-              // TODO: navigate to Case Management focused on this group's consolidation case.
-              // Case Management is out of scope for this build — stub the affordance only.
-              console.info(`[stub] Open consolidation case for group "${g.name}" (${g.consolidationCase?.name ?? "—"}) in Case Management`);
-            }}
           />
         )}
 
@@ -1090,20 +1031,20 @@ export function OrgWorkspace({
         <CreateGroupModal
           orgId={org.id}
           entities={entities}
-          groups={groups}
+          orgUsers={users}
           prefill={groupModal.prefill}
           onClose={() => setGroupModal(null)}
           onCreate={createGroup}
-          onViewGroup={(id) => { setActiveTab("groups"); setSelectedGroupId(id); }}
         />
       )}
-      {addMembersTarget && (
-        <AddMembersModal
-          group={groups.find((g) => g.id === addMembersTarget.id) ?? addMembersTarget}
+      {editGroupTarget && (
+        <EditGroupModal
+          orgId={org.id}
           entities={entities}
           orgUsers={users}
-          onClose={() => setAddMembersTarget(null)}
-          onAdd={(drafts) => addMembers(addMembersTarget.id, drafts)}
+          group={groups.find((g) => g.id === editGroupTarget.id) ?? editGroupTarget}
+          onClose={() => setEditGroupTarget(null)}
+          onSave={updateGroup}
         />
       )}
     </div>

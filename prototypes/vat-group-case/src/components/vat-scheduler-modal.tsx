@@ -262,7 +262,7 @@ export function VatSchedulerModal({
             <Stepper
               steps={[
                 { label: 'Schedule details', state: step === 'schedule' ? 'inProgress' : 'finished' },
-                { label: 'Entities and roles', state: step === 'entities' ? 'inProgress' : 'notStarted' },
+                { label: 'Client Approval enablement', state: step === 'entities' ? 'inProgress' : 'notStarted' },
               ]}
             />
           </div>

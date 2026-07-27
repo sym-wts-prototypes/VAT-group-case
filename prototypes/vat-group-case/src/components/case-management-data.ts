@@ -39,6 +39,9 @@ export interface Case {
   caseType: string
   frequency: 'Monthly' | 'Quarterly' | 'Yearly'
   jurisdiction: string
+  // The "Country (of VAT registration)" picked in the Single Case drawer — VAT-only there, so
+  // a CIT/HR Tax case never has one (renders as "—" in the Case Management table).
+  country?: string
   myRole: 'Creator' | 'Reviewer' | 'Partner' | 'Client'
   status: CaseStatus
   statutoryDeadline: string // ISO date
@@ -88,6 +91,7 @@ export const DUMMY_CASES: Case[] = [
     caseType: 'VAT return',
     frequency: 'Quarterly',
     jurisdiction: 'Germany',
+    country: 'Germany',
     myRole: 'Creator',
     status: 'Draft',
     statutoryDeadline: '2026-10-12',
@@ -116,6 +120,7 @@ export const DUMMY_CASES: Case[] = [
     caseType: 'Preliminary VAT return',
     frequency: 'Quarterly',
     jurisdiction: 'Germany',
+    country: 'Germany',
     myRole: 'Reviewer',
     status: 'InReview',
     statutoryDeadline: '2026-09-01',
@@ -144,6 +149,7 @@ export const DUMMY_CASES: Case[] = [
     caseType: 'EC Sales (ECSL)',
     frequency: 'Quarterly',
     jurisdiction: 'Germany',
+    country: 'Netherlands',
     myRole: 'Reviewer',
     status: 'Submission',
     statutoryDeadline: '2026-07-20',
@@ -172,6 +178,7 @@ export const DUMMY_CASES: Case[] = [
     caseType: 'Annual VAT return',
     frequency: 'Yearly',
     jurisdiction: 'Germany',
+    country: 'Germany',
     myRole: 'Client',
     status: 'ClientApproval',
     statutoryDeadline: '2026-10-12',

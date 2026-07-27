@@ -680,12 +680,28 @@ export function consolidationTotal(g: Group, now: string = today()): number {
 export function pendingMembers(g: Group, now: string = today()): Member[] {
   return g.members.filter((m) => membershipStatus(m, now) === "Pending");
 }
-export function endedMembers(g: Group, now: string = today()): Member[] {
-  return g.members.filter((m) => membershipStatus(m, now) === "Ended");
+// An entity's past (Ended) stints, most recent first — shown as the expandable history under
+// whichever row currently represents it (Active, Pending, or — if it has no current stint at
+// all — its own Inactive row). Never filtered by current status: history is immutable once
+// created, independent of what happens to the entity afterwards.
+export function entityHistory(g: Group, entityId: string, now: string = today()): Member[] {
+  return g.members
+    .filter((m) => m.entityId === entityId && membershipStatus(m, now) === "Ended")
+    .sort((a, b) => (b.validFrom ?? "").localeCompare(a.validFrom ?? ""));
 }
-// Combined inactive list (Pending + Ended) — spec rule 4: one list, styled differently within.
+// Only entities with NO current (Active/Pending) stint — once a formerly-Inactive entity is
+// re-added, its current stint carries its history along as an expandable row (see
+// entityHistory) and it drops out of this list entirely, never appearing in both places at once.
+export function endedMembers(g: Group, now: string = today()): Member[] {
+  const currentEntityIds = new Set(
+    g.members.filter((m) => membershipStatus(m, now) !== "Ended").map((m) => m.entityId),
+  );
+  return g.members.filter((m) => membershipStatus(m, now) === "Ended" && !currentEntityIds.has(m.entityId));
+}
+// Combined inactive list (Pending + fully-Ended) — spec rule 4: one list, styled differently
+// within. Mirrors endedMembers' entityHistory carve-out for the Ended half.
 export function inactiveMembers(g: Group, now: string = today()): Member[] {
-  return g.members.filter((m) => membershipStatus(m, now) !== "Active");
+  return [...pendingMembers(g, now), ...endedMembers(g, now)];
 }
 
 // The representative — looked up among ACTIVE members only (rule 1 invariant).
@@ -768,8 +784,12 @@ export const GROUPS: Group[] = [
       { entityId: "eu-4", vatRegistrationId: "vat-eu4-fr", representative: true, validFrom: "2021-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u4"], partners: ["u14"], clients: ["u16"] } },
       { entityId: "eu-1", vatRegistrationId: "vat-eu1-fr", representative: false, validFrom: "2024-01-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u4"], partners: [], clients: ["u16"] } },
       { entityId: "eu-5", vatRegistrationId: "vat-eu5-pl", representative: false, validFrom: "2027-03-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: [], clients: ["u16"] } }, // Pending
+      // Feature 9 of the "case-table labels / pending logic / edit filtering" ticket — more
+      // Pending demo data: two further entities already assigned but not yet active.
+      { entityId: "eu-2", vatRegistrationId: "vat-eu2-fr", representative: false, validFrom: "2027-06-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u4"], partners: [], clients: ["u16"] } }, // Pending
+      { entityId: "eu-3", vatRegistrationId: "vat-eu3-fr", representative: false, validFrom: "2027-09-01", validTo: null, assigneeIds: { creators: ["u3"], reviewers: ["u5"], partners: ["u14"], clients: ["u16"] } }, // Pending
     ],
-    // 2 active members incl. rep (eu-4, eu-1); eu-5 pending.
+    // 2 active members incl. rep (eu-4, eu-1); eu-5/eu-2/eu-3 pending.
     consolidationCase: { name: "FR VAT Group — VAT Return", status: "In preparation", completedCount: 0, totalCount: 2 },
   },
   // EUROPIPE — Income-tax (CIT) group keyed on the ENTITY (no registration). Its membership

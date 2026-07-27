@@ -12,14 +12,14 @@ import {
   EntityStatus, EngagementStatus,
   LEGAL_ENTITIES, ENGAGEMENTS, USERS, VAT_REGISTRATIONS, ACTIVITY_LOG, GROUPS,
   computeEngagementStatus, userEngagementCombos, engagementLabel,
-  Group, GroupType, today as todayIso, countryCodeFor, registrationById, registrationsForEntity, UserRole,
+  Group, GroupType, Member, today as todayIso, periodStatus, countryCodeFor, registrationById, registrationsForEntity, UserRole,
   EntityIdentifier, entityIdentifiers, identifierLabel,
 } from "./org-details-data";
 import { OrgWorkspaceData } from "./demo-data";
 import { useOrgStore } from "@/store/useOrgStore";
 import { useDataStore } from "@/store/useDataStore";
 import { can } from "./permissions";
-import { GroupsTab, EntityGroupMembershipsSection } from "./groups-tab";
+import { GroupsTab, EntityGroupMembershipsSection, GroupChangeNotice } from "./groups-tab";
 import { CreateGroupModal, EditGroupModal, GroupFormDraft } from "./group-modals";
 import { LegalEntityModal, LegalEntityDraft, VatRow } from "./legal-entity-modal";
 import { AccessUserModal, AccessUserDraft } from "./access-user-modal";
@@ -144,6 +144,9 @@ export function OrgWorkspace({
   // add/remove, and assignee edits all happen through this one Edit modal now, opened only via
   // the group detail's top-right Edit button, never by clicking a card.
   const [editGroupTarget, setEditGroupTarget] = useState<Group | null>(null);
+  // Feature 7 of the "case-table labels / pending logic / edit filtering" ticket — what the
+  // last Edit-modal save added/removed, shown as a dismissible banner on the Groups tab.
+  const [groupChangeNotice, setGroupChangeNotice] = useState<GroupChangeNotice | null>(null);
 
   // Activity log
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(() =>
@@ -380,45 +383,77 @@ export function OrgWorkspace({
 
   // Feature 3/7 of the "Groups tab refactor" ticket — the Edit modal is now the ONLY place
   // membership, representative, and assignee changes happen (no more per-card promote/remove/
-  // cancel controls). Saving replaces the group's member list wholesale with whatever the modal
-  // submits, preserving each existing member's own `vatRegistrationId` where it's still a member.
+  // cancel controls).
+  //
+  // Feature 4 of the "case-table labels / pending logic / edit filtering" ticket — saving must
+  // NEVER wipe a legal entity's history (its own past Ended stints — see groups-tab.tsx's
+  // Inactive Members expand). The Edit modal only ever shows/edits each entity's CURRENT
+  // (Active/Pending) stint, so history here means every member record this group already has
+  // that's already Ended — those pass through completely untouched, regardless of what the
+  // modal submits. Only the CURRENT stints are replaced by the modal's draft:
+  //  - still selected  -> its current stint is updated (dates/roles/rep) or created fresh
+  //  - was Active, now unchecked -> ends as of yesterday (becomes new history, not deleted)
+  //  - was Pending, now unchecked -> a not-yet-started membership has nothing to "end", so it's
+  //    simply dropped (matches the old cancel-pending behaviour)
   function updateGroup(groupId: string, draft: GroupFormDraft) {
     const existing = groups.find((g) => g.id === groupId);
     if (!existing) return;
+    const now = todayIso();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayIso = yesterday.toISOString().slice(0, 10);
+    const draftIds = new Set(draft.members.map((m) => m.entityId));
+
     setGroups((prev) => {
       let next = prev.map((g) => {
         if (g.id !== groupId) return g;
+
+        const historyMembers = g.members.filter((m) => periodStatus(m.validFrom, m.validTo, now) === "Ended");
+        const currentByEntity = new Map(
+          g.members.filter((m) => periodStatus(m.validFrom, m.validTo, now) !== "Ended").map((m) => [m.entityId, m]),
+        );
+
+        const updatedCurrent: Member[] = draft.members.map((m) => {
+          const prevCurrent = currentByEntity.get(m.entityId);
+          return {
+            entityId: m.entityId,
+            vatRegistrationId: prevCurrent?.vatRegistrationId ?? vatRegForMember(draft.type, draft.jurisdiction, m.entityId),
+            representative: m.entityId === draft.representativeId,
+            validFrom: m.validFrom,
+            validTo: m.validTo,
+            assigneeIds: m.assigneeIds,
+          };
+        });
+
+        const droppedToHistory: Member[] = [...currentByEntity.values()]
+          .filter((m) => !draftIds.has(m.entityId) && periodStatus(m.validFrom, m.validTo, now) === "Active")
+          .map((m) => ({ ...m, validTo: yesterdayIso }));
+
         return {
           ...g,
           name: draft.name,
           type: draft.type,
           jurisdiction: draft.jurisdiction,
-          members: draft.members.map((m) => {
-            const prevMember = g.members.find((em) => em.entityId === m.entityId);
-            return {
-              entityId: m.entityId,
-              vatRegistrationId: prevMember?.vatRegistrationId ?? vatRegForMember(draft.type, draft.jurisdiction, m.entityId),
-              representative: m.entityId === draft.representativeId,
-              validFrom: m.validFrom,
-              validTo: m.validTo,
-              assigneeIds: m.assigneeIds,
-            };
-          }),
+          members: [...historyMembers, ...droppedToHistory, ...updatedCurrent],
         };
       });
       for (const m of draft.members) next = supersede(next, m.entityId, draft.type, groupId);
       return next;
     });
+
+    // Feature 7 — surface exactly what changed, by legal entity name, as a banner on the
+    // Groups tab. Compared against the group's CURRENT (non-Ended) roster at open time, same
+    // "what's actually new/gone" rule the modal's own live preview uses.
+    const previousCurrentIds = new Set(
+      existing.members.filter((m) => periodStatus(m.validFrom, m.validTo, now) !== "Ended").map((m) => m.entityId),
+    );
+    const nameOf = (id: string) => entities.find((e) => e.id === id)?.legalName ?? id;
+    const added = draft.members.filter((m) => !previousCurrentIds.has(m.entityId)).map((m) => nameOf(m.entityId));
+    const removed = [...previousCurrentIds].filter((id) => !draftIds.has(id)).map(nameOf);
+    setGroupChangeNotice(added.length > 0 || removed.length > 0 ? { groupId, added, removed } : null);
+
     addLogEntry(`Updated group "${draft.name}"`);
     setEditGroupTarget(null);
-  }
-
-  // V11-E — delete an entire group.
-  function deleteGroup(groupId: string) {
-    const g = groups.find((x) => x.id === groupId);
-    setGroups((prev) => prev.filter((x) => x.id !== groupId));
-    if (selectedGroupId === groupId) setSelectedGroupId(null);
-    if (g) addLogEntry(`Deleted group "${g.name}"`);
   }
 
   // Applied after entity creation (Surface 2 hand-off): add the new entity to each
@@ -832,7 +867,8 @@ export function OrgWorkspace({
             onSelect={setSelectedGroupId}
             onAddGroup={() => setGroupModal({ mode: "create" })}
             onEditGroup={(g) => setEditGroupTarget(g)}
-            onDeleteGroup={deleteGroup}
+            changeNotice={groupChangeNotice}
+            onDismissChangeNotice={() => setGroupChangeNotice(null)}
             canManage={caps.groupManage}
           />
         )}

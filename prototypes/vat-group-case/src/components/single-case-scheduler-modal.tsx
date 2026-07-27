@@ -49,6 +49,9 @@ export interface SingleCaseSchedulerModalProps {
   /** Drawer-collected values — shown read-only in the left summary panel. */
   legalEntityName: string
   jurisdiction: string
+  /** VAT only — the "Country (of VAT registration)" picked in the drawer; carried onto every
+   * generated case for the Case Management table's Country column. */
+  vatRegCountry?: string
   vatRegistration: string
   projectCode: string
   caseTypeLabel: string
@@ -65,6 +68,7 @@ export function SingleCaseSchedulerModal({
   onCasesGenerated,
   legalEntityName,
   jurisdiction,
+  vatRegCountry,
   vatRegistration,
   projectCode,
   caseTypeLabel,
@@ -111,6 +115,7 @@ export function SingleCaseSchedulerModal({
       caseType: caseTypeLabel,
       frequency: schedule.frequency,
       jurisdiction,
+      country: vatRegCountry,
       myRole: 'Creator',
       status: 'Draft',
       statutoryDeadline: toIsoDate(c.customDeadline ?? c.defaultDeadline),

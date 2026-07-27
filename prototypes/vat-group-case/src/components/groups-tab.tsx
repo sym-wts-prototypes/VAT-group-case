@@ -1,13 +1,8 @@
 import { useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Info, Pencil, Plus, X } from 'lucide-react'
 import {
   Badge,
   Button,
-  ConfirmDialog,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
   cn,
 } from '@wts/ui'
@@ -18,6 +13,7 @@ import {
   Member,
   activeMembers,
   endedMembers,
+  entityHistory,
   groupsForEntity,
   membershipStatus,
   memberLabel,
@@ -55,6 +51,20 @@ const memberRange = (m: Member) =>
 // presented and counted per single type; keep any future summary strictly per-type.
 const groupTypeTone = (t: Group['type']) => (t === 'VAT' ? 'blue' : 'violet')
 
+// "A", "A and B", "A, B and C" — for composing the Feature 7 add/remove banner's sentence.
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/** Feature 7 of the "case-table labels / pending logic / edit filtering" ticket — what just
+ * changed on a group via the Edit modal, shown as a dismissible banner on this page. */
+export interface GroupChangeNotice {
+  groupId: string
+  added: string[]
+  removed: string[]
+}
+
 /* ─── Groups tab (master-detail) ─────────────────────────────────────────── */
 
 export interface GroupsTabProps {
@@ -69,9 +79,12 @@ export interface GroupsTabProps {
   // remove, and assignee edits all happen through this one Edit modal now; nothing on this
   // page triggers them directly.
   onEditGroup: (group: Group) => void
-  onDeleteGroup?: (groupId: string) => void
-  // V7 — group.manage capability. When false the create/edit/delete affordances are hidden,
-  // the panel is view-only.
+  // Feature 7 — set right after a successful Edit-modal save; shown as a banner on whichever
+  // group it applies to, dismissible.
+  changeNotice?: GroupChangeNotice | null
+  onDismissChangeNotice?: () => void
+  // V7 — group.manage capability. When false the create/edit affordances are hidden, the
+  // panel is view-only.
   canManage?: boolean
 }
 
@@ -83,7 +96,8 @@ export function GroupsTab({
   onSelect,
   onAddGroup,
   onEditGroup,
-  onDeleteGroup,
+  changeNotice,
+  onDismissChangeNotice,
   canManage = true,
 }: GroupsTabProps) {
   const selected = groups.find((g) => g.id === selectedId) ?? null
@@ -162,7 +176,8 @@ export function GroupsTab({
             entities={entities}
             orgUsers={orgUsers}
             onEditGroup={onEditGroup}
-            onDeleteGroup={onDeleteGroup}
+            changeNotice={changeNotice?.groupId === selected.id ? changeNotice : null}
+            onDismissChangeNotice={onDismissChangeNotice}
             canManage={canManage}
           />
         )}
@@ -186,6 +201,12 @@ function MemberRow({
   showEntityName?: boolean
   isRep?: boolean
 }) {
+  // A stint that's over has no bearing on who's currently staffed — only Active/Pending rows
+  // (and the entity's own still-open stint) show who's assigned; every Ended row, whether it's
+  // an Inactive entity's own row or an "earlier periods" history entry nested under any
+  // section, hides it.
+  const isEnded = membershipStatus(member) === 'Ended'
+
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="flex flex-col gap-0.5">
@@ -201,7 +222,7 @@ function MemberRow({
         )}
         <span className="text-[12px] leading-4 text-neutral-500">{memberRange(member)}</span>
       </div>
-      <AssignedPeople people={memberAssignedPeople(member, orgUsers)} />
+      {!isEnded && <AssignedPeople people={memberAssignedPeople(member, orgUsers)} />}
     </div>
   )
 }
@@ -211,25 +232,27 @@ function GroupDetail({
   entities,
   orgUsers,
   onEditGroup,
-  onDeleteGroup,
+  changeNotice,
+  onDismissChangeNotice,
   canManage,
 }: {
   group: Group
   entities: LegalEntity[]
   orgUsers: OrgUser[]
   onEditGroup: (group: Group) => void
-  onDeleteGroup?: (groupId: string) => void
+  changeNotice?: GroupChangeNotice | null
+  onDismissChangeNotice?: () => void
   canManage: boolean
 }) {
   const actives = activeMembers(group)
   const pendings = pendingMembers(group)
   const endeds = endedMembers(group)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-6 px-8 py-6">
       {/* Header — decluttered (Feature 1): just identity, a dynamic active-member count, and
-          the Edit entry point every membership/representative change now goes through. */}
+          the Edit entry point every membership/representative change now goes through
+          (Feature 8 — the three-dot / Delete group menu that used to sit here is gone). */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-3">
@@ -243,31 +266,45 @@ function GroupDetail({
           </p>
         </div>
         {canManage && (
-          <div className="flex shrink-0 items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => onEditGroup(group)}>
-              <Pencil className="size-4" /> Edit
-            </Button>
-            {onDeleteGroup && (
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger
-                  aria-label={`Actions for group ${group.name}`}
-                  className="items-center flex justify-center w-9 h-9 text-neutral-500 hover:bg-neutral-100 rounded-md focus:outline-none focus:ring-2 focus:ring-neutral-200"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[160px]">
-                  <DropdownMenuItem
-                    onSelect={() => setDeleteConfirmOpen(true)}
-                    className="text-brand focus:text-brand focus:bg-red-50"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete group
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => onEditGroup(group)}>
+            <Pencil className="size-4" /> Edit
+          </Button>
         )}
       </div>
+
+      {/* Feature 7 — dismissible banner after an Edit-modal save that added/removed members,
+          noting added entities take effect from the next VAT Scheduler period rather than
+          immediately. */}
+      {changeNotice && (changeNotice.added.length > 0 || changeNotice.removed.length > 0) && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-3 text-[13px] leading-[18px] text-sky-900">
+          <Info className="mt-0.5 size-4 shrink-0 text-sky-600" aria-hidden />
+          <p className="flex-1">
+            {changeNotice.removed.length > 0 && (
+              <>
+                <span className="font-semibold">{joinNames(changeNotice.removed)}</span>{' '}
+                {changeNotice.removed.length === 1 ? 'has' : 'have'} been removed from this group.{' '}
+              </>
+            )}
+            {changeNotice.added.length > 0 && (
+              <>
+                <span className="font-semibold">{joinNames(changeNotice.added)}</span>{' '}
+                {changeNotice.added.length === 1 ? 'has' : 'have'} been added and will be active from the next
+                scheduling period defined in the VAT Scheduler.{' '}
+              </>
+            )}
+          </p>
+          {onDismissChangeNotice && (
+            <button
+              type="button"
+              onClick={onDismissChangeNotice}
+              aria-label="Dismiss"
+              className="shrink-0 text-sky-600 hover:text-sky-800"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Members — regrouped into Active / Pending / Inactive inside one container
           (Feature 1/4), each a flat, action-free row (Feature 7). */}
@@ -279,7 +316,14 @@ function GroupDetail({
           ) : (
             <div className="flex flex-col divide-y divide-neutral-100">
               {actives.map((m) => (
-                <MemberRow key={m.entityId} member={m} entities={entities} orgUsers={orgUsers} isRep={m.representative} />
+                <MemberHistoryRow
+                  key={m.entityId}
+                  member={m}
+                  history={entityHistory(group, m.entityId)}
+                  entities={entities}
+                  orgUsers={orgUsers}
+                  isRep={m.representative}
+                />
               ))}
             </div>
           )}
@@ -290,7 +334,13 @@ function GroupDetail({
             <h3 className="pt-3 font-display text-[15px] font-semibold leading-5 text-primary">Pending members</h3>
             <div className="flex flex-col divide-y divide-neutral-100">
               {pendings.map((m) => (
-                <MemberRow key={`${m.entityId}-${m.validFrom}`} member={m} entities={entities} orgUsers={orgUsers} />
+                <MemberHistoryRow
+                  key={`${m.entityId}-${m.validFrom}`}
+                  member={m}
+                  history={entityHistory(group, m.entityId)}
+                  entities={entities}
+                  orgUsers={orgUsers}
+                />
               ))}
             </div>
           </section>
@@ -303,31 +353,68 @@ function GroupDetail({
           </section>
         )}
       </div>
+    </div>
+  )
+}
 
-      {onDeleteGroup && (
-        <ConfirmDialog
-          overlayClassName="bg-background/40 backdrop-blur-sm"
-          open={deleteConfirmOpen}
-          onOpenChange={setDeleteConfirmOpen}
-          onConfirm={() => {
-            onDeleteGroup(group.id)
-            setDeleteConfirmOpen(false)
-          }}
-          destructive
-          title="Delete group?"
-          confirmLabel="Delete group"
-          description={
-            <>{group.name} will be permanently removed, including its member history. This cannot be undone.</>
-          }
-        />
+/* Shared by Active/Pending/Inactive: the entity's CURRENT row (whatever status it's in) plus,
+ * if it has any, an expand toggle revealing its past (Ended) periods underneath — Feature 1 of
+ * the "inactive→active history migration" ticket: history always travels with the entity to
+ * wherever its current row lives, never staying behind under a stale Inactive section. */
+function MemberHistoryRow({
+  member,
+  history,
+  entities,
+  orgUsers,
+  isRep = false,
+}: {
+  member: Member
+  history: Member[]
+  entities: LegalEntity[]
+  orgUsers: OrgUser[]
+  isRep?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const hasHistory = history.length > 0
+  const entityName = entities.find((e) => e.id === member.entityId)?.legalName ?? member.entityId
+
+  return (
+    <div className="py-1">
+      <div className="flex items-center gap-2">
+        {hasHistory ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse history' : 'Expand history'}
+            className="items-center flex justify-center w-6 h-6 -ml-1 shrink-0 text-neutral-500 hover:bg-neutral-100 rounded-md"
+          >
+            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          </button>
+        ) : (
+          <span className="w-5 shrink-0" aria-hidden />
+        )}
+        <div className="grow">
+          <MemberRow member={member} entities={entities} orgUsers={orgUsers} isRep={isRep} />
+        </div>
+      </div>
+      {expanded && hasHistory && (
+        <div className="ml-8 border-l-2 border-neutral-100 pl-4">
+          <p className="pt-2 text-[11px] uppercase leading-4 tracking-wide text-neutral-400">
+            Earlier periods for {entityName}
+          </p>
+          {history.map((m, i) => (
+            <MemberRow key={`${m.entityId}-${m.validFrom}-${i}`} member={m} entities={entities} orgUsers={orgUsers} showEntityName={false} />
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
-/* Inactive (ended) members grouped by entity; the collapsed row shows the most recent period,
- * and expanding reveals earlier periods when an entity has been part of the group more than
- * once. No per-row actions (Feature 7). */
+/* Fully-inactive members (no current stint at all) grouped by entity; the collapsed row shows
+ * the most recent period, and expanding reveals earlier periods when an entity has been part of
+ * the group more than once. No per-row actions (Feature 7). */
 function InactiveMembersList({
   inactives,
   entities,
@@ -349,59 +436,10 @@ function InactiveMembersList({
 
   return (
     <div className="flex flex-col divide-y divide-neutral-100">
-      {entityRows.map(([entityId, periods]) => (
-        <EntityInactiveRow key={entityId} entityId={entityId} periods={periods} entities={entities} orgUsers={orgUsers} />
-      ))}
-    </div>
-  )
-}
-
-function EntityInactiveRow({
-  entityId,
-  periods,
-  entities,
-  orgUsers,
-}: {
-  entityId: string
-  periods: Member[]
-  entities: LegalEntity[]
-  orgUsers: OrgUser[]
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const [most, ...rest] = periods
-  const hasHistory = rest.length > 0
-  const entityName = entities.find((e) => e.id === entityId)?.legalName ?? entityId
-
-  return (
-    <div className="py-1">
-      <div className="flex items-center gap-2">
-        {hasHistory ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse history' : 'Expand history'}
-            className="items-center flex justify-center w-6 h-6 -ml-1 shrink-0 text-neutral-500 hover:bg-neutral-100 rounded-md"
-          >
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-        ) : (
-          <span className="w-5 shrink-0" aria-hidden />
-        )}
-        <div className="grow">
-          <MemberRow member={most} entities={entities} orgUsers={orgUsers} />
-        </div>
-      </div>
-      {expanded && hasHistory && (
-        <div className="ml-8 border-l-2 border-neutral-100 pl-4">
-          <p className="pt-2 text-[11px] uppercase leading-4 tracking-wide text-neutral-400">
-            Earlier periods for {entityName}
-          </p>
-          {rest.map((m, i) => (
-            <MemberRow key={`${m.entityId}-${m.validFrom}-${i}`} member={m} entities={entities} orgUsers={orgUsers} showEntityName={false} />
-          ))}
-        </div>
-      )}
+      {entityRows.map(([entityId, periods]) => {
+        const [most, ...rest] = periods
+        return <MemberHistoryRow key={entityId} member={most} history={rest} entities={entities} orgUsers={orgUsers} />
+      })}
     </div>
   )
 }

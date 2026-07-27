@@ -714,6 +714,7 @@ export function SingleCaseFormContent({
         onCasesGenerated={onCasesGenerated}
         legalEntityName={legalEntityName}
         jurisdiction={jurisdiction ?? ''}
+        vatRegCountry={vatRegCountry}
         vatRegistration={vatRegistrationNumber}
         projectCode={projectCode}
         caseTypeLabel={effectiveCaseType ?? ''}

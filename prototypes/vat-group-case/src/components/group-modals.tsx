@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, Search } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 import {
+  Alert,
   Badge,
   Button,
   Dialog,
@@ -26,6 +27,7 @@ import {
   DISABLED_GROUP_TYPES,
   Group,
   GroupType,
+  periodStatus,
   today,
 } from './org-details-data'
 import { UserSelect } from './user-select'
@@ -51,6 +53,17 @@ function hasMandatoryRoles(assignees: MemberAssigneeIds): boolean {
   return assignees.creators.length >= 1 && assignees.reviewers.length >= 1 && assignees.clients.length >= 1
 }
 
+// "A", "A and B", "A, B and C" — for composing the Feature 6 add/remove banner's sentences.
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? ''
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}.${m}.${y}.`
+}
+
 interface EntityDraft {
   validFrom: string
   validTo: string
@@ -64,6 +77,7 @@ interface EntityDraft {
 function EntityAssignmentRow({
   entity,
   isSelected,
+  isActive,
   draft,
   orgUsers,
   onToggle,
@@ -75,6 +89,10 @@ function EntityAssignmentRow({
 }: {
   entity: LegalEntity
   isSelected: boolean
+  /** Feature 3 — only a currently-Active member is "ticked/green"; a Pending one (future Valid
+   * from) is still selected (its fields are editable below) but reads as neutral here, with its
+   * own "Pending" pill + activation date instead. Meaningless when `isSelected` is false. */
+  isActive?: boolean
   draft?: EntityDraft
   orgUsers: OrgUser[]
   onToggle: () => void
@@ -88,12 +106,17 @@ function EntityAssignmentRow({
   /** Lets the parent scroll a just-selected/just-expanded row into view. */
   rowRef?: (el: HTMLDivElement | null) => void
 }) {
+  const isPending = isSelected && !isActive
   return (
     <div
       ref={rowRef}
       className={cn(
         'flex flex-col gap-3 rounded-lg border px-3 py-2.5',
-        isSelected ? 'border-green-300 bg-green-50/30' : 'border-neutral-200',
+        isSelected && isActive
+          ? 'border-green-300 bg-green-50/30'
+          : isPending
+            ? 'border-amber-200 bg-amber-50/20'
+            : 'border-neutral-200',
       )}
     >
       <div className="flex items-center gap-3">
@@ -104,7 +127,11 @@ function EntityAssignmentRow({
           aria-label={isSelected ? `Deselect ${entity.legalName}` : `Select ${entity.legalName}`}
           className={cn(
             'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
-            isSelected ? 'border-green-600 bg-green-600 text-white' : 'border-neutral-300',
+            isSelected && isActive
+              ? 'border-green-600 bg-green-600 text-white'
+              : isPending
+                ? 'border-amber-500 bg-amber-500 text-white'
+                : 'border-neutral-300',
           )}
         >
           {isSelected && <Check className="h-3 w-3" />}
@@ -116,6 +143,16 @@ function EntityAssignmentRow({
           {/* self-start — a flex-col ancestor stretches children to its own width by default;
               without this the badge would fill the whole row instead of hugging its text. */}
           {badge && <span className="shrink-0 self-start">{badge}</span>}
+          {/* Feature 3 — visible in the collapsed row too, not just once expanded: a "Pending"
+              pill plus exactly when it activates. */}
+          {isPending && draft && (
+            <span className="flex shrink-0 items-center gap-1.5 self-start">
+              <Badge tone="orange" size="sm">Pending</Badge>
+              <span className="whitespace-nowrap text-[12px] text-neutral-500">
+                Active from {fmtDate(draft.validFrom)}
+              </span>
+            </span>
+          )}
         </div>
         {isSelected && draft && (
           <div className="flex shrink-0 items-center gap-2">
@@ -265,6 +302,10 @@ function GroupFormModal({
     if (!group) return {}
     const initial: Record<string, EntityDraft> = {}
     for (const m of group.members) {
+      // Feature 4 — only ever seed the entity's CURRENT (Active/Pending) stint here. Ended
+      // stints are its history, not "selected" — they're preserved on save (see updateGroup)
+      // without ever surfacing in this checklist, so re-editing a group can't clobber them.
+      if (periodStatus(m.validFrom, m.validTo) === 'Ended') continue
       initial[m.entityId] = {
         validFrom: m.validFrom,
         validTo: m.validTo ?? '',
@@ -347,10 +388,15 @@ function GroupFormModal({
   const repEntity = orgEntities.find((e) => e.id === repId)
   const jurisdiction = repEntity?.jurisdiction ?? repEntity?.country ?? group?.jurisdiction ?? ''
 
-  // Every entity that was already a member when this Edit session opened — used below to spot
-  // ones being newly added in THIS session, as opposed to pre-existing members just being
-  // reviewed/re-assigned.
-  const initialMemberIds = useMemo(() => new Set(group?.members.map((m) => m.entityId) ?? []), [group])
+  // Every entity that was a CURRENT (Active/Pending) member when this Edit session opened —
+  // used below to spot ones being newly added in THIS session (including an entity whose only
+  // prior record is Ended history — re-adding it is "new" for validation/banner purposes, even
+  // though its history sticks around either way), as opposed to pre-existing members just
+  // being reviewed/re-assigned.
+  const initialMemberIds = useMemo(
+    () => new Set(group?.members.filter((m) => periodStatus(m.validFrom, m.validTo) !== 'Ended').map((m) => m.entityId) ?? []),
+    [group],
+  )
 
   // Group creation/editing requires the REPRESENTATIVE to have its mandatory roles assigned.
   // In Edit mode, any entity newly added this session (not already a member of the group) must
@@ -359,8 +405,32 @@ function GroupFormModal({
   const newlyAddedIncomplete =
     mode === 'edit' &&
     selected.some((id) => !initialMemberIds.has(id) && !hasMandatoryRoles(drafts[id].assignees))
+  // Feature 3 (representative date restriction ticket) — a representative must be a
+  // present-active member, never one whose stint hasn't started yet.
+  const repIsFutureDated = !!repDraft && repDraft.validFrom > today()
   const canSubmit =
-    !!name.trim() && !!repId && !!repDraft && hasMandatoryRoles(repDraft.assignees) && !newlyAddedIncomplete
+    !!name.trim() &&
+    !!repId &&
+    !!repDraft &&
+    hasMandatoryRoles(repDraft.assignees) &&
+    !newlyAddedIncomplete &&
+    !repIsFutureDated
+
+  // Feature 6 — live preview of what this session is about to add/remove, named by legal
+  // entity, so the user sees exactly what they're confirming before saving.
+  const addedNames = mode === 'edit'
+    ? selected.filter((id) => !initialMemberIds.has(id)).map((id) => orgEntities.find((e) => e.id === id)?.legalName ?? id)
+    : []
+  const removedNames = mode === 'edit'
+    ? [...initialMemberIds].filter((id) => !selected.includes(id)).map((id) => orgEntities.find((e) => e.id === id)?.legalName ?? id)
+    : []
+
+  // Feature 3 (banner ticket) — dismissing the banner should only hide it for the add/remove
+  // set that earned it; the next toggle that changes that set brings it right back.
+  const changeSignature = `${addedNames.join('|')}::${removedNames.join('|')}`
+  const [dismissedChangeSignature, setDismissedChangeSignature] = useState<string | null>(null)
+  const showChangeBanner =
+    mode === 'edit' && (addedNames.length > 0 || removedNames.length > 0) && dismissedChangeSignature !== changeSignature
 
   const buildDraft = (): GroupFormDraft => ({
     name: name.trim(),
@@ -383,14 +453,17 @@ function GroupFormModal({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      {/* Feature 6 — ~80% of the viewport height, locked header/footer with only the middle
-          content scrolling: the outer DialogContent is a fixed-height flex column, the header
-          and footer are `shrink-0`, and only the entity list inside the row below scrolls — so
-          adding/expanding entities never grows the modal itself. Wider than a single column: a
-          left column for group-level fields, a right column for member selection. */}
+      {/* ~90% of the viewport in both directions (Feature 2 of the "inactive→active history
+          migration" ticket — the entity-selection/assignment segment needs the room, and a
+          legal entity's full name must never get cut off) — locked header/footer with only the
+          middle content scrolling: the outer DialogContent is a fixed-height flex column, the
+          header and footer are `shrink-0`, and only the entity list inside the row below
+          scrolls — so adding/expanding entities never grows the modal itself. Wider than a
+          single column: a left column for group-level fields, a right column for member
+          selection. */}
       <DialogContent
         overlayClassName="bg-background/40 backdrop-blur-sm"
-        className="flex h-[80vh] max-h-[80vh] max-w-[1180px] flex-col gap-0 overflow-hidden p-0"
+        className="flex h-[90vh] max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0"
       >
         <DialogHeader className="shrink-0 gap-1 border-b border-border px-6 py-5">
           <DialogTitle className="font-display text-xl font-bold tracking-tight">
@@ -440,16 +513,30 @@ function GroupFormModal({
                   <SelectValue placeholder="Select a legal entity" />
                 </SelectTrigger>
                 <SelectContent>
-                  {orgEntities.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.legalName}
-                    </SelectItem>
-                  ))}
+                  {orgEntities.map((e) => {
+                    // Feature 3 — an entity already drafted with a future Valid from (Pending)
+                    // can't be the representative: it isn't active in the present time frame
+                    // yet. An entity not drafted at all is fine — picking it here seeds it with
+                    // today's date (see chooseRepresentative), so it starts out Active.
+                    const draftFrom = drafts[e.id]?.validFrom
+                    const futureDated = !!draftFrom && draftFrom > today()
+                    return (
+                      <SelectItem key={e.id} value={e.id} disabled={futureDated}>
+                        {e.legalName}
+                        {futureDated && <span className="text-neutral-400"> · Pending until {fmtDate(draftFrom!)}</span>}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
               {!repId ? (
                 <p className="text-[12px] leading-4 text-neutral-400">
                   Required — assigns Creator, Reviewer and Client for this entity on the right.
+                </p>
+              ) : repIsFutureDated ? (
+                <p className="text-[12px] leading-4 text-red-500">
+                  This entity's Valid from date is in the future — a representative must be
+                  active now. Change its date or pick another entity.
                 </p>
               ) : (
                 jurisdiction && (
@@ -499,6 +586,28 @@ function GroupFormModal({
                 />
               </div>
             )}
+            {/* Feature 6 (banner ticket)/Feature 3 (this ticket) — a live, dismissible summary of
+                what this session is about to add/remove, named by legal entity: only the lines
+                that actually apply render (both, either, or neither), always closing with the
+                future-cases impact note. Sits right under the search box, not in the footer, so
+                it's visible while still picking members. */}
+            {showChangeBanner && (
+              <Alert variant="info" onClose={() => setDismissedChangeSignature(changeSignature)} className="shrink-0">
+                {removedNames.length > 0 && (
+                  <>
+                    <span className="font-semibold">{joinNames(removedNames)}</span>{' '}
+                    {removedNames.length === 1 ? 'has' : 'have'} been removed.{' '}
+                  </>
+                )}
+                {addedNames.length > 0 && (
+                  <>
+                    <span className="font-semibold">{joinNames(addedNames)}</span>{' '}
+                    {addedNames.length === 1 ? 'has' : 'have'} been added.{' '}
+                  </>
+                )}
+                Future cases will be impacted.
+              </Alert>
+            )}
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
               {orgEntities.length === 0 ? (
                 <p className="px-3 py-4 text-[13px] text-neutral-500">No legal entities available.</p>
@@ -512,6 +621,7 @@ function GroupFormModal({
                     key={e.id}
                     entity={e}
                     isSelected={!!drafts[e.id]}
+                    isActive={!!drafts[e.id] && drafts[e.id].validFrom <= today()}
                     draft={drafts[e.id]}
                     orgUsers={orgUsers}
                     onToggle={() => toggle(e.id)}
@@ -532,15 +642,12 @@ function GroupFormModal({
               beyond this dialog: past-created cases are unaffected mid-flight, but anything not
               yet generated will pick up whatever membership is in effect when it is. */}
           {mode === 'edit' && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3 text-[13px] leading-[18px] text-amber-900">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
-              <p>
-                <span className="font-semibold">This change affects future cases.</span> Any case not yet
-                created will use the group membership in effect at the time it is generated. Cases already
-                created and in progress are not altered by this change and must still be finalised under
-                their original assignment. Confirm this is intentional before saving.
-              </p>
-            </div>
+            <Alert variant="warning" title="This change affects future cases.">
+              Any case not yet created will use the group membership in effect at the time it is
+              generated. Cases already created and in progress are not altered by this change and must
+              still be finalised under their original assignment. Confirm this is intentional before
+              saving.
+            </Alert>
           )}
           <div className="flex justify-end gap-2">
             <DialogClose asChild>

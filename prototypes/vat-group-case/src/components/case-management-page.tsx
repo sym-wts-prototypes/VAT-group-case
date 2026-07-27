@@ -64,7 +64,7 @@ const formatDate = (iso: string) => dateFormatter.format(new Date(iso))
 // Case ID/Client/Case name/Jurisdiction/Service line/My role are widened so medium-length values
 // stay fully visible; only genuinely long values still truncate (see TruncatedText below).
 const GRID_COLS =
-  'grid-cols-[200px_220px_220px_110px_90px_100px_110px_100px_130px_120px_110px_minmax(160px,1fr)_44px]'
+  'grid-cols-[200px_220px_220px_110px_90px_100px_110px_110px_100px_130px_120px_110px_minmax(160px,1fr)_44px]'
 // Uniform row height so Client/Organisation text lands at the same baseline whether the row is
 // an individual case, a VAT Group Case parent, or a group child — otherwise a row with a taller
 // cell (e.g. a two-line "Latest activity") stretches and visually shifts its siblings' centering.
@@ -85,6 +85,7 @@ const HEADER_LABELS = [
   'Case Type',
   'Frequency',
   'Jurisdiction',
+  'Country',
   'My role',
   'Status',
   'Statutory Deadline',
@@ -217,6 +218,9 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
         <JurisdictionFlag code={countryCodeFor(item.jurisdiction)} />
       </div>
       <div role="cell" className="p-2 text-sm">
+        {item.country ? <JurisdictionFlag code={countryCodeFor(item.country)} /> : <span className="text-muted-foreground">—</span>}
+      </div>
+      <div role="cell" className="p-2 text-sm">
         {item.myRole}
       </div>
       <div role="cell" className="p-2 text-sm">
@@ -252,9 +256,9 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
 // the chevron button (AccordionTrigger, scoped to just that one cell) expands/collapses the
 // row; clicking anywhere else on the row opens the group like an individual case would
 // (`onOpenGroup`, stopPropagation'd off the trigger so the two actions never both fire). Case
-// name and every other cell render exactly like a normal CaseRow — the only visual markers of
-// a group row are the chevron+icon in the Case ID cell and the grey "VAT Group" badge in the
-// Service line column.
+// name and every other cell render exactly like a normal CaseRow — the only visual marker of
+// a group row is the chevron+icon in the Case ID cell; Service line still reads "VAT" and Case
+// type reads "VAT Group Case" like any other row's own labels would.
 function GroupCaseRow({
   group,
   onOpenChild,
@@ -302,17 +306,22 @@ function GroupCaseRow({
           </div>
           <div role="cell" className="p-2 text-sm">
             <Badge variant="soft" tone="gray" size="sm">
-              VAT Group
+              {group.serviceLine}
             </Badge>
           </div>
           <div role="cell" className="p-2 text-sm">
-            {group.caseType}
+            VAT Group Case
           </div>
           <div role="cell" className="p-2 text-sm">
             {group.frequency}
           </div>
           <div role="cell" className="p-2 text-sm">
             <JurisdictionFlag code={countryCodeFor(group.jurisdiction)} />
+          </div>
+          {/* A VAT Group Case has no single "Country (of VAT registration)" of its own — that's
+              a per-legal-entity, Single Case drawer concept — so it reads "—" like My role. */}
+          <div role="cell" className="p-2 text-sm text-muted-foreground">
+            —
           </div>
           <div role="cell" className="p-2 text-sm text-muted-foreground">
             —

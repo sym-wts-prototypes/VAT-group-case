@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { ArrowUpLeft } from 'lucide-react'
 
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { CaseManagementPage } from '@/components/case-management-page'
+import { CORRECTION_PARENT_CASE, DUMMY_GROUP_CASES } from '@/components/case-management-data'
 import { OrganisationsEntryPage } from '@/components/organisations-entry'
 import { GROUPS, LEGAL_ENTITIES } from '@/components/org-details-data'
 import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
@@ -50,6 +52,9 @@ export function PlaygroundMain() {
     showOrganisations,
     caseKind,
     groupCaseView,
+    groupCaseVariant,
+    setGroupCaseVariant,
+    setGroupCaseView,
     childCaseRequiresClientApproval,
     openChildCaseId,
     childCaseComments,
@@ -79,6 +84,18 @@ export function PlaygroundMain() {
   }
   const isChildCaseView = caseKind === 'group' && groupCaseView === 'child'
   const skipClientApproval = isChildCaseView && !childCaseRequiresClientApproval
+  // "Correction toggle & wiring" ticket, Segment 1 — every correction Child Case carries a link
+  // back to the original (non-correction) Child Case it was made from, same element the
+  // correction Parent Case shows (see parent-vat-group-case-page.tsx) — not just the reopened
+  // ones (this used to only resolve for those; every correction child has `correctionOfCaseId`
+  // set regardless of whether it was reopened, so the lookup no longer needs that restriction).
+  const isChildCorrectionView = isChildCaseView && groupCaseVariant === 'correction'
+  const openCorrectionChild = isChildCorrectionView
+    ? CORRECTION_PARENT_CASE.children.find((c) => c.id === openChildCaseId)
+    : undefined
+  const originalChildForCorrection = openCorrectionChild
+    ? DUMMY_GROUP_CASES[0].children.find((c) => c.id === openCorrectionChild.correctionOfCaseId)
+    : undefined
   // Feature 6 of the "button states & child-case comments" ticket — this specific Child Case's
   // own reopen comment (see needs-changes-reopen-modal.tsx / parent-vat-group-case-page.tsx),
   // looked up by whichever Child Case was last opened. Undefined outside the Child Case view so
@@ -342,6 +359,51 @@ export function PlaygroundMain() {
             : () => undefined
         }
       />
+
+      {openCorrectionChild && (
+        <div className="flex flex-col gap-2 border-b border-border bg-background px-6 py-3">
+          {/* "Correction banner placement" ticket, Features 4/5 — the generic Child Case header
+              above is a static Playground demo title (see resolveHeader.ts), never bound to any
+              specific child's real data, so this is the only place a correction Child Case's own
+              name shows at all — already carrying " / Correction 1" straight from
+              case-management-data.ts's buildCorrectionCase, no extra formatting needed here. */}
+          <span className="text-sm font-medium text-foreground">{openCorrectionChild.caseName}</span>
+          <div className="flex flex-wrap items-center gap-4">
+            {originalChildForCorrection && (
+              <button
+                type="button"
+                onClick={() => {
+                  setGroupCaseVariant('regular')
+                  // Same simplification the Parent Case's own back-link uses (Segment 1): the
+                  // original stayed in Submission the whole time this correction existed.
+                  setPhase('submitted')
+                }}
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ArrowUpLeft className="size-4" />
+                Original case: <span className="font-medium text-foreground underline">{originalChildForCorrection.caseName}</span>
+              </button>
+            )}
+            {/* Feature 5/6 — the same "Parent correction case" pointer the Parent Case page shows
+                (see parent-vat-group-case-page.tsx), reused here so a correction Child Case can
+                jump straight back to the original Parent Case too. No phase gate, so it's present
+                across every step of the correction Child Case view. */}
+            <button
+              type="button"
+              onClick={() => {
+                setGroupCaseView('parent')
+                setGroupCaseVariant('regular')
+                setPhase('submitted')
+              }}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowUpLeft className="size-4" />
+              Parent correction case:{' '}
+              <span className="font-medium text-foreground underline">{DUMMY_GROUP_CASES[0].caseName}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <BodyPlaceholder
         process={process}

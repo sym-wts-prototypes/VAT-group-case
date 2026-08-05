@@ -421,6 +421,7 @@ export function GroupCaseFormContent({
         partnerNames={partnerNames}
         clientName={clientName}
         groupMembers={groupMembers}
+        groupOrgId={activeGroup?.orgId ?? ''}
       />
     </>
   )

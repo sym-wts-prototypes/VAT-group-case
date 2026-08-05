@@ -499,6 +499,10 @@ export function engagementsForOrg(orgId: string) {
 export function usersForEntity(entityId: string) {
   return USERS.filter((u) => u.allEntities || u.entityIds.includes(entityId));
 }
+export function usersForOrg(orgId: string) {
+  const orgEntityIds = new Set(entitiesForOrg(orgId).map((e) => e.id));
+  return USERS.filter((u) => u.allEntities || u.entityIds.some((id) => orgEntityIds.has(id)));
+}
 
 // Engagements connected to a given legal entity.
 export function engagementsForEntity(entityId: string, engagements: Engagement[] = ENGAGEMENTS) {

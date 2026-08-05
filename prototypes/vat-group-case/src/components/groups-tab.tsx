@@ -7,7 +7,7 @@ import {
   cn,
 } from '@wts/ui'
 
-import { LegalEntity, OrgUser } from './org-details-data'
+import { LegalEntity } from './org-details-data'
 import {
   Group,
   Member,
@@ -19,23 +19,6 @@ import {
   memberLabel,
   pendingMembers,
 } from './org-details-data'
-import { AssignedPeople, type AssignedPeopleData } from './assigned-people'
-
-/** Feature 3 of the "Organisations page scroll / add-member / member display" ticket — a
- * Member's `assigneeIds` (org-user id arrays from the Add/Edit Group modal) resolved against
- * this organisation's own users into the {name, email} shape AssignedPeople renders as
- * initials. */
-function memberAssignedPeople(member: Member, orgUsers: OrgUser[]): AssignedPeopleData {
-  const byId = new Map(orgUsers.map((u) => [u.id, u]))
-  const resolve = (ids: string[] | undefined) =>
-    (ids ?? []).map((id) => byId.get(id)).filter((u): u is OrgUser => !!u).map((u) => ({ name: u.name, email: u.email }))
-  return {
-    creator: resolve(member.assigneeIds?.creators),
-    reviewer: resolve(member.assigneeIds?.reviewers),
-    partner: resolve(member.assigneeIds?.partners),
-    client: resolve(member.assigneeIds?.clients),
-  }
-}
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -70,8 +53,6 @@ export interface GroupChangeNotice {
 export interface GroupsTabProps {
   groups: Group[]
   entities: LegalEntity[]
-  // Resolves each Member's assigneeIds into the AssignedPeople initials display.
-  orgUsers: OrgUser[]
   selectedId: string | null
   onSelect: (id: string) => void
   onAddGroup: () => void
@@ -91,7 +72,6 @@ export interface GroupsTabProps {
 export function GroupsTab({
   groups,
   entities,
-  orgUsers,
   selectedId,
   onSelect,
   onAddGroup,
@@ -174,7 +154,6 @@ export function GroupsTab({
           <GroupDetail
             group={selected}
             entities={entities}
-            orgUsers={orgUsers}
             onEditGroup={onEditGroup}
             changeNotice={changeNotice?.groupId === selected.id ? changeNotice : null}
             onDismissChangeNotice={onDismissChangeNotice}
@@ -191,22 +170,14 @@ export function GroupsTab({
 function MemberRow({
   member,
   entities,
-  orgUsers,
   showEntityName = true,
   isRep = false,
 }: {
   member: Member
   entities: LegalEntity[]
-  orgUsers: OrgUser[]
   showEntityName?: boolean
   isRep?: boolean
 }) {
-  // A stint that's over has no bearing on who's currently staffed — only Active/Pending rows
-  // (and the entity's own still-open stint) show who's assigned; every Ended row, whether it's
-  // an Inactive entity's own row or an "earlier periods" history entry nested under any
-  // section, hides it.
-  const isEnded = membershipStatus(member) === 'Ended'
-
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="flex flex-col gap-0.5">
@@ -222,7 +193,6 @@ function MemberRow({
         )}
         <span className="text-[12px] leading-4 text-neutral-500">{memberRange(member)}</span>
       </div>
-      {!isEnded && <AssignedPeople people={memberAssignedPeople(member, orgUsers)} />}
     </div>
   )
 }
@@ -230,7 +200,6 @@ function MemberRow({
 function GroupDetail({
   group,
   entities,
-  orgUsers,
   onEditGroup,
   changeNotice,
   onDismissChangeNotice,
@@ -238,7 +207,6 @@ function GroupDetail({
 }: {
   group: Group
   entities: LegalEntity[]
-  orgUsers: OrgUser[]
   onEditGroup: (group: Group) => void
   changeNotice?: GroupChangeNotice | null
   onDismissChangeNotice?: () => void
@@ -321,7 +289,6 @@ function GroupDetail({
                   member={m}
                   history={entityHistory(group, m.entityId)}
                   entities={entities}
-                  orgUsers={orgUsers}
                   isRep={m.representative}
                 />
               ))}
@@ -339,7 +306,6 @@ function GroupDetail({
                   member={m}
                   history={entityHistory(group, m.entityId)}
                   entities={entities}
-                  orgUsers={orgUsers}
                 />
               ))}
             </div>
@@ -349,7 +315,7 @@ function GroupDetail({
         {endeds.length > 0 && (
           <section className="flex flex-col py-2">
             <h3 className="pt-3 font-display text-[15px] font-semibold leading-5 text-primary">Inactive members</h3>
-            <InactiveMembersList inactives={endeds} entities={entities} orgUsers={orgUsers} />
+            <InactiveMembersList inactives={endeds} entities={entities} />
           </section>
         )}
       </div>
@@ -365,13 +331,11 @@ function MemberHistoryRow({
   member,
   history,
   entities,
-  orgUsers,
   isRep = false,
 }: {
   member: Member
   history: Member[]
   entities: LegalEntity[]
-  orgUsers: OrgUser[]
   isRep?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -395,7 +359,7 @@ function MemberHistoryRow({
           <span className="w-5 shrink-0" aria-hidden />
         )}
         <div className="grow">
-          <MemberRow member={member} entities={entities} orgUsers={orgUsers} isRep={isRep} />
+          <MemberRow member={member} entities={entities} isRep={isRep} />
         </div>
       </div>
       {expanded && hasHistory && (
@@ -404,7 +368,7 @@ function MemberHistoryRow({
             Earlier periods for {entityName}
           </p>
           {history.map((m, i) => (
-            <MemberRow key={`${m.entityId}-${m.validFrom}-${i}`} member={m} entities={entities} orgUsers={orgUsers} showEntityName={false} />
+            <MemberRow key={`${m.entityId}-${m.validFrom}-${i}`} member={m} entities={entities} showEntityName={false} />
           ))}
         </div>
       )}
@@ -418,11 +382,9 @@ function MemberHistoryRow({
 function InactiveMembersList({
   inactives,
   entities,
-  orgUsers,
 }: {
   inactives: Member[]
   entities: LegalEntity[]
-  orgUsers: OrgUser[]
 }) {
   const byEntity = new Map<string, Member[]>()
   for (const m of inactives) {
@@ -438,7 +400,7 @@ function InactiveMembersList({
     <div className="flex flex-col divide-y divide-neutral-100">
       {entityRows.map(([entityId, periods]) => {
         const [most, ...rest] = periods
-        return <MemberHistoryRow key={entityId} member={most} history={rest} entities={entities} orgUsers={orgUsers} />
+        return <MemberHistoryRow key={entityId} member={most} history={rest} entities={entities} />
       })}
     </div>
   )

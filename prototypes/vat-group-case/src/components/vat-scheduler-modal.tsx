@@ -11,12 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Label,
   Stepper,
   Switch,
 } from '@wts/ui'
 
 import { generateCaseId, shortPeriodLabel, toIsoDate } from './case-generation'
 import type { Case, CaseListItem, VatGroupCase } from './case-management-data'
+import { usersForOrg } from './org-details-data'
 import {
   FrequencyPeriodFields,
   periodLabel,
@@ -24,6 +26,23 @@ import {
   StatutoryDeadlineFields,
   useDeadlineSchedule,
 } from './scheduler-shared'
+import { SelectableUser, UserSelect } from './user-select'
+
+// Feature 6 ("VAT Groups" ticket) — per-legal-entity Creator/Reviewer/Client/Partner
+// assignment, done here at scheduling time rather than at group creation/edit time (see
+// group-modals.tsx, which used to own this). Creator/Reviewer/Client are mandatory (>=1
+// person each); Partner is the only optional role — same rule the group modals used to
+// enforce, just relocated.
+export interface EntityAssignees {
+  creators: string[]
+  reviewers: string[]
+  clients: string[]
+  partners: string[]
+}
+const EMPTY_ASSIGNEES: EntityAssignees = { creators: [], reviewers: [], clients: [], partners: [] }
+function hasMandatoryRoles(a: EntityAssignees): boolean {
+  return a.creators.length >= 1 && a.reviewers.length >= 1 && a.clients.length >= 1
+}
 
 // Prototype replica of the reference platform's VAT scheduler modal (see
 // reference/WTS20Platform/src/components/vat-scheduler/vat-scheduler-modal.tsx). Layout,
@@ -80,6 +99,15 @@ export interface VatSchedulerModalProps {
   clientName: string
   /** Legal entities belonging to the selected group — each gets a Client Approval toggle. */
   groupMembers: GroupMember[]
+  /** Feature 6 — the group's own organisation; Creator/Reviewer/Client/Partner choices for
+   * every entity below are limited to this organisation's users. */
+  groupOrgId: string
+  /** "Correction Case" ticket, Segment 2 — step 2 additionally lists a per-entity "reopen for
+   * this correction" switcher, and step 2's tab is relabeled. Step 1 is unchanged either way. */
+  isCorrection?: boolean
+  /** Correction mode only — called instead of the normal case-generation submit, with the ids
+   * of whichever legal entities were switched to "reopen." */
+  onCorrectionSubmit?: (reopenedEntityIds: string[]) => void
 }
 
 export function VatSchedulerModal({
@@ -98,13 +126,20 @@ export function VatSchedulerModal({
   partnerNames,
   clientName,
   groupMembers,
+  groupOrgId,
+  isCorrection,
+  onCorrectionSubmit,
 }: VatSchedulerModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [templateFileName, setTemplateFileName] = useState<string | undefined>(undefined)
   const [step, setStep] = useState<SchedulerStep>('schedule')
   // Client Approval rule per legal entity — defaults to skipped (false/absent) for everyone.
   const [approvalByEntityId, setApprovalByEntityId] = useState<Record<string, boolean>>({})
+  // Segment 2 — correction mode only: which legal entities get reopened by this correction.
+  const [reopenByEntityId, setReopenByEntityId] = useState<Record<string, boolean>>({})
   const [entitySearch, setEntitySearch] = useState('')
+  // Feature 6 — Creator/Reviewer/Client/Partner per legal entity, filled in on this step.
+  const [assigneesByEntityId, setAssigneesByEntityId] = useState<Record<string, EntityAssignees>>({})
 
   // Group cases are named after the group, not a per-entity case type — e.g.
   // "DE VAT Group — Q1 2026" — since a VAT group files one consolidated return per period.
@@ -118,12 +153,25 @@ export function VatSchedulerModal({
     setTemplateFileName(undefined)
     setStep('schedule')
     setApprovalByEntityId({})
+    setReopenByEntityId({})
     setEntitySearch('')
+    setAssigneesByEntityId({})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const toggleApproval = (entityId: string) =>
     setApprovalByEntityId((prev) => ({ ...prev, [entityId]: !prev[entityId] }))
+  const toggleReopen = (entityId: string) =>
+    setReopenByEntityId((prev) => ({ ...prev, [entityId]: !prev[entityId] }))
+  const updateAssignee = (entityId: string, patch: Partial<EntityAssignees>) =>
+    setAssigneesByEntityId((prev) => ({
+      ...prev,
+      [entityId]: { ...EMPTY_ASSIGNEES, ...prev[entityId], ...patch },
+    }))
+
+  // Feature 6 — every entity's role pickers draw from the same pool: the group's own
+  // organisation's users (a VAT group's members always belong to one organisation).
+  const peoplePool: SelectableUser[] = useMemo(() => usersForOrg(groupOrgId), [groupOrgId])
 
   const visibleGroupMembers = useMemo(() => {
     const q = entitySearch.trim().toLowerCase()
@@ -132,7 +180,8 @@ export function VatSchedulerModal({
   }, [groupMembers, entitySearch])
 
   const approvedCount = groupMembers.filter((m) => approvalByEntityId[m.id]).length
-  const approvedNames = groupMembers.filter((m) => approvalByEntityId[m.id]).map((m) => m.name)
+  const reopenedCount = groupMembers.filter((m) => reopenByEntityId[m.id]).length
+  const reopenedNames = groupMembers.filter((m) => reopenByEntityId[m.id]).map((m) => m.name)
 
   const schedulePayload = useMemo(
     () => ({
@@ -140,6 +189,7 @@ export function VatSchedulerModal({
       entities: groupMembers.map((m) => ({
         name: m.name,
         requiresClientApproval: !!approvalByEntityId[m.id],
+        assignees: assigneesByEntityId[m.id] ?? EMPTY_ASSIGNEES,
       })),
       cases: schedule.cases.map((c) => ({
         name: c.name,
@@ -147,10 +197,12 @@ export function VatSchedulerModal({
       })),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groupName, groupMembers, approvalByEntityId, schedule.cases],
+    [groupName, groupMembers, approvalByEntityId, assigneesByEntityId, schedule.cases],
   )
 
-  const canSubmit = schedule.canSubmitSchedule
+  // Feature 6 — VAT creation is blocked until every entity has its mandatory roles filled.
+  const rolesComplete = groupMembers.every((m) => hasMandatoryRoles(assigneesByEntityId[m.id] ?? EMPTY_ASSIGNEES))
+  const canSubmit = schedule.canSubmitSchedule && rolesComplete
 
   const handleCancel = () => onOpenChange(false)
   const handleNext = () => {
@@ -160,6 +212,18 @@ export function VatSchedulerModal({
 
   const handleSubmit = () => {
     if (!canSubmit) return
+
+    // Segment 2/3 — correction mode never fabricates a brand-new group of Draft cases (a
+    // correction re-references the ORIGINAL Child Cases, it doesn't start them over from
+    // scratch) — it hands the reopened entity ids back to the Parent Case page, which already
+    // has the one seeded correction (case-management-data.ts's CORRECTION_PARENT_CASE) to show.
+    if (isCorrection) {
+      const reopenedEntityIds = groupMembers.filter((m) => reopenByEntityId[m.id]).map((m) => m.id)
+      onOpenChange(false)
+      onCorrectionSubmit?.(reopenedEntityIds)
+      return
+    }
+
     // No backend yet — mirrors what the drawer's submit used to do. The structured
     // group/entity/requiresClientApproval/roles payload has nowhere to go yet, so it's
     // logged here to demonstrate the data model this modal produces.
@@ -227,7 +291,10 @@ export function VatSchedulerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName="bg-background/40 backdrop-blur-sm"
-        className="flex max-h-[85vh] max-w-7xl flex-row gap-0 overflow-hidden p-0"
+        // Feature 6/8 ("VAT Groups" ticket) — fixed at 85% of the viewport (not just capped
+        // there) so the modal is already sized for step 2's per-entity role grids and doesn't
+        // resize when moving between steps 1 and 2; the entity list scrolls internally instead.
+        className="flex h-[85vh] max-h-[85vh] max-w-7xl flex-row gap-0 overflow-hidden p-0"
       >
         {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
             scrolls (it's always short static case info, unlike the scheduler form beside it). */}
@@ -249,7 +316,9 @@ export function VatSchedulerModal({
         {/* Right column: header, step indicator, scheduling form, footer */}
         <div className="flex min-w-0 flex-1 flex-col">
           <DialogHeader className="flex-row items-center gap-2.5 border-b px-6 py-5">
-            <DialogTitle className="text-lg">VAT Group Scheduler</DialogTitle>
+            <DialogTitle className="text-lg">
+              {isCorrection ? 'VAT Group Correction Scheduler' : 'VAT Group Scheduler'}
+            </DialogTitle>
             {caseTypeLabel && (
               <Badge variant="soft" tone="blue" size="sm">
                 {caseTypeLabel}
@@ -262,7 +331,14 @@ export function VatSchedulerModal({
             <Stepper
               steps={[
                 { label: 'Schedule details', state: step === 'schedule' ? 'inProgress' : 'finished' },
-                { label: 'Client Approval enablement', state: step === 'entities' ? 'inProgress' : 'notStarted' },
+                {
+                  // Feature 6 ("VAT Groups" ticket) — renamed from "Client Approval enablement"
+                  // now that this step also carries per-entity role assignment. Segment 2 —
+                  // correction mode additionally carries the per-entity reopen switcher, so its
+                  // label names that too.
+                  label: isCorrection ? 'Child cases configuration & reopen selection' : 'Child cases configuration',
+                  state: step === 'entities' ? 'inProgress' : 'notStarted',
+                },
               ]}
             />
           </div>
@@ -303,12 +379,19 @@ export function VatSchedulerModal({
                 </div>
               </>
             ) : (
-              /* Client Approval selection. Group-specific: a single case has only one legal
-                 entity, so this step has no equivalent in SingleCaseSchedulerModal. */
-              <div className="flex flex-col gap-2">
+              /* Client Approval + per-entity role assignment. Group-specific: a single case has
+                 only one legal entity, so this step has no equivalent in
+                 SingleCaseSchedulerModal. Feature 8 ("VAT Groups" ticket) — fills the fixed-height
+                 modal (see DialogContent's h-[85vh] above) rather than growing/shrinking with
+                 entity count, so moving from step 1 to step 2 never resizes the modal; the
+                 search bar and the summary below stay pinned while only the entity list (below)
+                 scrolls internally. */
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-foreground text-sm">
-                    Select legal entities that require Client Approval
+                    {isCorrection
+                      ? 'Select legal entities that require Client Approval, and which to reopen'
+                      : 'Select legal entities that require Client Approval'}
                   </p>
                   <div className="relative w-56 shrink-0">
                     <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -321,51 +404,123 @@ export function VatSchedulerModal({
                   </div>
                 </div>
 
-                {/* Large VAT Groups shouldn't keep growing the modal — past 5 entities the
-                    list scrolls internally instead. */}
-                <div
-                  className={cn(
-                    'flex flex-col gap-2',
-                    visibleGroupMembers.length > 5 && 'max-h-[300px] overflow-y-auto pr-1',
-                  )}
-                >
+                {/* Feature 8 — large VAT Groups shouldn't grow the modal (it's fixed-height, see
+                    above): the list fills whatever room is left below the search bar and above
+                    the summary, and scrolls internally once it runs out — a plain fixed pixel
+                    cap would either waste space for a small group or barely show one entity's
+                    role grid for a large one. */}
+                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
                   {visibleGroupMembers.map((m) => {
                     const requiresApproval = !!approvalByEntityId[m.id]
+                    const assignees = assigneesByEntityId[m.id] ?? EMPTY_ASSIGNEES
+                    const rolesMissing = !hasMandatoryRoles(assignees)
                     return (
                       <div
                         key={m.id}
                         className={cn(
-                          'flex items-center justify-between gap-4 rounded-md border px-3 py-2.5 transition-colors',
+                          'flex flex-col gap-3 rounded-md border px-3 py-2.5 transition-colors',
                           requiresApproval ? 'border-amber-300 bg-amber-50' : 'border-border',
                         )}
                       >
-                        <span
-                          className={cn(
-                            'flex items-center gap-2 text-sm',
-                            requiresApproval ? 'font-medium text-amber-950' : 'text-foreground',
-                          )}
-                        >
-                          {m.name}
-                          {m.isRepresentative && (
-                            <Badge variant="soft" tone="blue" size="sm">
-                              Representative
-                            </Badge>
-                          )}
-                        </span>
-                        {/* A plain checkbox left it unclear what selecting it actually did —
-                            the switch + on/off label + amber row highlight (same accent as a
-                            manually-set Statutory Deadline) makes "this enables Client
-                            Approval for this entity" obvious at a glance. */}
-                        <div className="flex items-center gap-2">
-                          <span className={cn('text-sm', requiresApproval ? 'text-amber-900' : 'text-muted-foreground')}>
-                            Client Approval is {requiresApproval ? 'on' : 'off'}
+                        <div className="flex items-center justify-between gap-4">
+                          <span
+                            className={cn(
+                              'flex items-center gap-2 text-sm',
+                              requiresApproval ? 'font-medium text-amber-950' : 'text-foreground',
+                            )}
+                          >
+                            {m.name}
+                            {m.isRepresentative && (
+                              <Badge variant="soft" tone="blue" size="sm">
+                                Representative
+                              </Badge>
+                            )}
                           </span>
-                          <Switch
-                            aria-label={`Requires Client Approval — ${m.name}`}
-                            checked={requiresApproval}
-                            onCheckedChange={() => toggleApproval(m.id)}
-                          />
+                          {/* A plain checkbox left it unclear what selecting it actually did —
+                              the switch + on/off label + amber row highlight (same accent as a
+                              manually-set Statutory Deadline) makes "this enables Client
+                              Approval for this entity" obvious at a glance. */}
+                          <div className="flex items-center gap-2">
+                            <span className={cn('text-sm', requiresApproval ? 'text-amber-900' : 'text-muted-foreground')}>
+                              Client Approval is {requiresApproval ? 'on' : 'off'}
+                            </span>
+                            <Switch
+                              aria-label={`Requires Client Approval — ${m.name}`}
+                              checked={requiresApproval}
+                              onCheckedChange={() => toggleApproval(m.id)}
+                            />
+                          </div>
+                          {/* Segment 2 — a second, independent switch: which legal entities this
+                              correction reopens (back to In Preparation) vs. leaves as already
+                              Ready for Consolidation. Only shown building a correction — a normal
+                              schedule has no "reopen" concept at all. */}
+                          {isCorrection && (
+                            <div className="flex items-center gap-2 border-l border-border pl-4">
+                              <span className={cn('text-sm', reopenByEntityId[m.id] ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                                Reopen is {reopenByEntityId[m.id] ? 'on' : 'off'}
+                              </span>
+                              <Switch
+                                aria-label={`Reopen for correction — ${m.name}`}
+                                checked={!!reopenByEntityId[m.id]}
+                                onCheckedChange={() => toggleReopen(m.id)}
+                              />
+                            </div>
+                          )}
                         </div>
+
+                        {/* Feature 6 — Creator/Reviewer/Client/Partner, scoped to this entity,
+                            picked from the group's own organisation's users. Always open (never
+                            a collapsed/expandable section — see Feature 8) so filling every
+                            entity in is a straight scroll down the list, not click-to-expand. */}
+                        <div className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3">
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">Creator</Label>
+                            <UserSelect
+                              multiple
+                              users={peoplePool.filter((u) => !assignees.reviewers.includes(u.id))}
+                              value={assignees.creators}
+                              onChange={(ids) => updateAssignee(m.id, { creators: ids })}
+                              data-testid={`vat-scheduler-creator-${m.id}`}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">Reviewer</Label>
+                            <UserSelect
+                              multiple
+                              users={peoplePool.filter((u) => !assignees.creators.includes(u.id))}
+                              value={assignees.reviewers}
+                              onChange={(ids) => updateAssignee(m.id, { reviewers: ids })}
+                              data-testid={`vat-scheduler-reviewer-${m.id}`}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">
+                              Partner <span className="font-normal text-muted-foreground">(optional)</span>
+                            </Label>
+                            <UserSelect
+                              multiple
+                              users={peoplePool}
+                              value={assignees.partners}
+                              onChange={(ids) => updateAssignee(m.id, { partners: ids })}
+                              data-testid={`vat-scheduler-partner-${m.id}`}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Label className="text-xs">Client</Label>
+                            <UserSelect
+                              multiple
+                              users={peoplePool}
+                              value={assignees.clients}
+                              onChange={(ids) => updateAssignee(m.id, { clients: ids })}
+                              data-testid={`vat-scheduler-client-${m.id}`}
+                            />
+                          </div>
+                        </div>
+                        {rolesMissing && (
+                          <p className="text-amber-600 text-xs">
+                            Creator, Reviewer and Client each need at least one assignee.
+                          </p>
+                        )}
                       </div>
                     )
                   })}
@@ -375,11 +530,13 @@ export function VatSchedulerModal({
                   <p className="text-muted-foreground text-sm">
                     {approvedCount} of {groupMembers.length} require the Client Approval step
                   </p>
-                  <p className="text-muted-foreground text-sm">
-                    {approvedNames.length > 0
-                      ? `Selected legal entities that will have a Client Approval step: ${approvedNames.join(', ')}.`
-                      : 'No legal entities from this group will have the Client Approval step.'}
-                  </p>
+                  {isCorrection && (
+                    <p className="text-muted-foreground text-sm">
+                      {reopenedNames.length > 0
+                        ? `${reopenedCount} of ${groupMembers.length} reopened for this correction: ${reopenedNames.join(', ')}.`
+                        : 'No legal entities reopened yet — everyone else stays Ready for Consolidation.'}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -401,7 +558,7 @@ export function VatSchedulerModal({
                   Back
                 </Button>
                 <Button type="button" size="lg" className="flex-1" disabled={!canSubmit} onClick={handleSubmit}>
-                  Create scheduled cases
+                  {isCorrection ? 'Create correction case' : 'Create scheduled cases'}
                 </Button>
               </>
             )}

@@ -368,7 +368,6 @@ export function OrgWorkspace({
       members: draft.members.map((m) => ({
         entityId: m.entityId, vatRegistrationId: vatRegForMember(draft.type, draft.jurisdiction, m.entityId),
         representative: m.entityId === draft.representativeId, validFrom: m.validFrom, validTo: m.validTo,
-        assigneeIds: m.assigneeIds,
       })),
     };
     setGroups((prev) => {
@@ -421,7 +420,6 @@ export function OrgWorkspace({
             representative: m.entityId === draft.representativeId,
             validFrom: m.validFrom,
             validTo: m.validTo,
-            assigneeIds: m.assigneeIds,
           };
         });
 
@@ -862,7 +860,6 @@ export function OrgWorkspace({
           <GroupsTab
             groups={groups}
             entities={entities}
-            orgUsers={users}
             selectedId={selectedGroupId}
             onSelect={setSelectedGroupId}
             onAddGroup={() => setGroupModal({ mode: "create" })}
@@ -1067,7 +1064,6 @@ export function OrgWorkspace({
         <CreateGroupModal
           orgId={org.id}
           entities={entities}
-          orgUsers={users}
           prefill={groupModal.prefill}
           onClose={() => setGroupModal(null)}
           onCreate={createGroup}
@@ -1077,7 +1073,6 @@ export function OrgWorkspace({
         <EditGroupModal
           orgId={org.id}
           entities={entities}
-          orgUsers={users}
           group={groups.find((g) => g.id === editGroupTarget.id) ?? editGroupTarget}
           onClose={() => setEditGroupTarget(null)}
           onSave={updateGroup}

@@ -3,6 +3,7 @@ export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './
 export { Button, buttonVariants, type ButtonProps } from './button'
 export { Badge, badgeVariants, type BadgeProps, type BadgeTone } from './badge'
 export { Alert, alertVariants, type AlertProps } from './alert'
+export { Toast, type ToastProps } from './toast'
 export { EmptyState, type EmptyStateProps } from './empty-state'
 export { Separator } from './separator'
 export { Input, type InputProps } from './input'

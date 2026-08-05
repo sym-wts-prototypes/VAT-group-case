@@ -47,6 +47,10 @@ export interface Case {
   statutoryDeadline: string // ISO date
   nextDeadline: string | null // ISO date
   latestActivity: CaseLatestActivity
+  // "Correction Case" ticket — set only on a Child Case created as part of a correction; points
+  // back at the original (non-correction) Child Case it was made from, for the link-back element
+  // shown on that case's own header (see parent-vat-group-case-page.tsx).
+  correctionOfCaseId?: string
 }
 
 // A VAT Group Case is a parent for one legal entity's registrations across an entire VAT
@@ -71,6 +75,14 @@ export interface VatGroupCase {
   statutoryDeadline: string
   nextDeadline: string | null
   children: Case[]
+  // "Correction Case" ticket — set only on a correction parent; points back at the original
+  // (non-correction) parent case it was made from. `correctionNumber` names the naming suffix
+  // ("/ Correction 1", "/ Correction 2", ...); `reopenedChildIds` are this correction's own
+  // `children[].id`s that start at In Preparation — every other child starts Ready for
+  // Consolidation (see parent-vat-group-case-page.tsx's CHILD_CONFIG, which reads this list).
+  correctionOfCaseId?: string
+  correctionNumber?: number
+  reopenedChildIds?: string[]
 }
 
 export type CaseListItem = Case | VatGroupCase
@@ -274,3 +286,59 @@ export const DUMMY_GROUP_CASES: VatGroupCase[] = [
   buildDeVatGroupCase({ idSuffix: '01', period: 1, year: 2026 }),
   buildDeVatGroupCase({ idSuffix: '02', period: 2, year: 2026, allDraft: true }),
 ]
+
+// "Correction Case" ticket, Segment 3 — builds a new parent case that re-references every one
+// of `original`'s children: the ones in `reopenChildIds` (by their ORIGINAL id) start over at
+// In Preparation, everyone else is already Ready for Consolidation (their original filing still
+// stands). Scoped to exactly the one period `original` belongs to — building a correction from,
+// say, the January group case never touches February's own separate `VatGroupCase` object.
+export function buildCorrectionCase(
+  original: VatGroupCase,
+  args: { reopenChildIds: string[]; correctionNumber: number },
+): VatGroupCase {
+  const { reopenChildIds, correctionNumber } = args
+  const suffix = ` / Correction ${correctionNumber}`
+  const reopenSet = new Set(reopenChildIds)
+  const newReopenedChildIds: string[] = []
+
+  const children: Case[] = original.children.map((child) => {
+    const isReopened = reopenSet.has(child.id)
+    const newId = `${child.id}-C${correctionNumber}`
+    if (isReopened) newReopenedChildIds.push(newId)
+    return {
+      ...child,
+      id: newId,
+      caseName: `${child.caseName}${suffix}`,
+      status: isReopened ? 'InPreparation' : 'Submission',
+      correctionOfCaseId: child.id,
+    }
+  })
+
+  return {
+    ...original,
+    id: `${original.id}-C${correctionNumber}`,
+    caseName: `${original.caseName}${suffix}`,
+    status: 'InPreparation',
+    children,
+    correctionOfCaseId: original.id,
+    correctionNumber,
+    reopenedChildIds: newReopenedChildIds,
+  }
+}
+
+// Segment 8 — one permanent demo correction, built from the January group case (PARENT_CASE in
+// parent-vat-group-case-page.tsx) so it's reachable any time via the Playground's Regular/
+// Correction toggle (Segment 9), with nothing to click through first. Reopens the Representative
+// (index 0) and EUROPIPE France (index 3) — 2 of 12 — matching the ticket's own "10 of 12"
+// example exactly; both are also in the "always accessible" demo set (see
+// ALWAYS_ACCESSIBLE_CHILD_CLIENTS), so this correction's reopened children are always openable
+// regardless of which Playground role is currently selected.
+export const CORRECTION_PARENT_CASE: VatGroupCase = buildCorrectionCase(DUMMY_GROUP_CASES[0], {
+  reopenChildIds: [DUMMY_GROUP_CASES[0].children[0].id, DUMMY_GROUP_CASES[0].children[3].id],
+  correctionNumber: 1,
+})
+
+// Segment 3 — "In Case Management, the new parent + child cases appear as NEW, In Progress like
+// other cases." Appended (not spliced in) so DUMMY_GROUP_CASES[0]/[1]'s indices — read
+// elsewhere by index (e.g. parent-vat-group-case-page.tsx's `PARENT_CASE`) — stay stable.
+DUMMY_GROUP_CASES.push(CORRECTION_PARENT_CASE)

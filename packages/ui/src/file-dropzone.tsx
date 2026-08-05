@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Download, File as FileIcon, FileX, Upload, X } from 'lucide-react'
 
 import { cn } from './cn'
@@ -7,13 +8,16 @@ const DEFAULT_MAX_BYTES = 300 * 1024 * 1024
 
 export interface FileDropzoneProps {
   id: string
-  label: string
+  label: ReactNode
   onFileChange: (name: string | null) => void
   accept?: string
   hint?: string
   maxBytes?: number
   templateLabel?: string
   onTemplateDownload?: () => void
+  /** Lets a consumer stretch this to fill leftover height in a taller sibling column (e.g. a
+   * flex-1 flex-col wrapper) — the dropzone/selected-file box grows with it, content centered. */
+  className?: string
 }
 
 interface SelectedFile {
@@ -36,6 +40,7 @@ export function FileDropzone({
   maxBytes = DEFAULT_MAX_BYTES,
   templateLabel,
   onTemplateDownload,
+  className,
 }: FileDropzoneProps) {
   const maxLabel = `${Math.round(maxBytes / 1024 / 1024)} MB`
   const resolvedHint =
@@ -112,7 +117,7 @@ export function FileDropzone({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={cn('flex min-h-0 flex-col gap-2', className)}>
       <div className="flex items-center justify-between gap-3">
         <label htmlFor={id} className="text-sm font-medium text-foreground">
           {label}
@@ -130,8 +135,8 @@ export function FileDropzone({
       </div>
 
       {selected ? (
-        <div className="rounded-lg border border-border p-3">
-          <div className="flex min-h-[60px] items-center gap-3 rounded-lg bg-muted px-4 py-3.5">
+        <div className="flex-1 rounded-lg border border-border p-3">
+          <div className="flex h-full min-h-[60px] items-center gap-3 rounded-lg bg-muted px-4 py-3.5">
             {error ? (
               <FileX className="h-8 w-8 shrink-0 text-red-600" aria-hidden />
             ) : (
@@ -186,7 +191,7 @@ export function FileDropzone({
             acceptFile(event.dataTransfer.files?.[0])
           }}
           className={cn(
-            'flex items-center gap-4 rounded-lg border border-dashed border-border bg-muted/40 px-6 py-5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'flex flex-1 items-center gap-4 rounded-lg border border-dashed border-border bg-muted/40 px-6 py-5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             dragActive && 'border-ring bg-muted',
           )}
         >

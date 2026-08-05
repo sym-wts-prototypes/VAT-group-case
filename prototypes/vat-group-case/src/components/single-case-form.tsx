@@ -30,8 +30,10 @@ import {
   countryCodeFor,
   Group,
   LegalEntity,
+  registrationsForEntity,
   representativeOf,
   SERVICE_CATALOGUE,
+  usersForOrg,
 } from './org-details-data'
 import { Organization } from './organizations-data'
 import { SingleCaseSchedulerModal } from './single-case-scheduler-modal'
@@ -172,6 +174,23 @@ export function SingleCaseFormContent({
     }
   }, [isVatGroupCase, representedGroups, selectedGroupId])
 
+  // Feature 4 — VAT Group Case doesn't get the Single Case flow's default Creator/Reviewer, and
+  // its people pickers are scoped to the legal entity's own organisation (see peoplePool below),
+  // not the generic directory — so a switch into this case type must start every role empty
+  // rather than carrying over ids that pool may not even contain. Switching back out restores
+  // the normal single-case defaults.
+  useEffect(() => {
+    if (isVatGroupCase) {
+      setCreatorIds([])
+      setReviewerIds([])
+      setPartnerIds([])
+      setClientIds([])
+    } else {
+      setCreatorIds(DEFAULT_CREATOR_IDS)
+      setReviewerIds(DEFAULT_REVIEWER_IDS)
+    }
+  }, [isVatGroupCase])
+
   const selectedServiceLine = useMemo(
     () => SERVICE_CATALOGUE.find((s) => s.key === serviceLineKey),
     [serviceLineKey],
@@ -203,8 +222,17 @@ export function SingleCaseFormContent({
     if (!isVat || !caseType) return []
     const isCrossBorderEu = CROSS_BORDER_EU_CASE_TYPES.includes(caseType)
     const list = isCrossBorderEu ? EU_VAT_COUNTRIES : [...EU_VAT_COUNTRIES, ...NON_EU_VAT_COUNTRIES]
-    return [...list].sort((a, b) => a.localeCompare(b))
-  }, [isVat, caseType])
+    const sorted = [...list].sort((a, b) => a.localeCompare(b))
+    // Feature 5/6 follow-up — VAT Group Case only: offering a country none of the group's
+    // active members are actually registered in would leave step 2 of the VAT Scheduler with
+    // zero legal entities to configure, so narrow the list to countries the group can serve.
+    if (!isVatGroupCase) return sorted
+    if (!selectedGroup) return []
+    const registeredCountries = new Set(
+      activeMembers(selectedGroup).flatMap((m) => registrationsForEntity(m.entityId).map((r) => r.country)),
+    )
+    return sorted.filter((c) => registeredCountries.has(c))
+  }, [isVat, caseType, isVatGroupCase, selectedGroup])
 
   // The available country list changes with the case type — clear a selection that's no longer
   // offered (e.g. switching from a non-cross-border case type, which includes UK/US, to a
@@ -242,8 +270,16 @@ export function SingleCaseFormContent({
   const deadlineOrderInvalid =
     !!internalDeadline && !!statutoryDeadline && internalDeadline.getTime() > statutoryDeadline.getTime()
 
-  const creatorOptions = DUMMY_USERS.filter((u) => !reviewerIds.includes(u.id))
-  const reviewerOptions = DUMMY_USERS.filter((u) => !creatorIds.includes(u.id))
+  const legalEntity = entities.find((e) => e.id === legalEntityId)
+
+  // Feature 4 — VAT Group Case limits every role picker to the legal entity's own organisation
+  // (not the generic 8-person directory every other case type still uses).
+  const peoplePool: SelectableUser[] = useMemo(
+    () => (isVatGroupCase ? (legalEntity ? usersForOrg(legalEntity.orgId) : []) : DUMMY_USERS),
+    [isVatGroupCase, legalEntity],
+  )
+  const creatorOptions = peoplePool.filter((u) => !reviewerIds.includes(u.id))
+  const reviewerOptions = peoplePool.filter((u) => !creatorIds.includes(u.id))
   const reviewerOverlapsCreator = creatorIds.length > 0 && creatorIds.some((id) => reviewerIds.includes(id))
 
   const canCreate =
@@ -277,12 +313,11 @@ export function SingleCaseFormContent({
     return `${serviceLineKey} | ${effectiveCaseType}`
   }, [serviceLineKey, effectiveCaseType, isCit, fiscalYear])
 
-  const legalEntity = entities.find((e) => e.id === legalEntityId)
   const legalEntityName = legalEntity?.legalName ?? ''
-  const creatorNames = creatorIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
-  const reviewerNames = reviewerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
-  const partnerNames = partnerIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
-  const clientNames = clientIds.map((id) => DUMMY_USERS.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const creatorNames = creatorIds.map((id) => peoplePool.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const reviewerNames = reviewerIds.map((id) => peoplePool.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const partnerNames = partnerIds.map((id) => peoplePool.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
+  const clientNames = clientIds.map((id) => peoplePool.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
 
   // Segment 5 — data for the existing two-step group-case modal (VatSchedulerModal), computed
   // the same way group-case-form.tsx computes it for the same group: the higher-level
@@ -291,15 +326,23 @@ export function SingleCaseFormContent({
   const organisationName = legalEntity
     ? organisations.find((o) => o.id === legalEntity.orgId)?.name ?? legalEntityName
     : ''
+  // Feature 5/6 — step 2 of the VAT Scheduler only ever shows entities registered in the
+  // selected Country (of VAT registration); an entity in the group with no registration there
+  // simply doesn't get a case (or a role-assignment row) this period.
   const groupMembers = useMemo(() => {
     if (!selectedGroup) return []
     const representativeId = representativeOf(selectedGroup)?.entityId
-    return activeMembers(selectedGroup).map((m) => ({
+    const members = vatRegCountry
+      ? activeMembers(selectedGroup).filter((m) =>
+          registrationsForEntity(m.entityId).some((r) => r.country === vatRegCountry),
+        )
+      : activeMembers(selectedGroup)
+    return members.map((m) => ({
       id: m.entityId,
       name: entities.find((e) => e.id === m.entityId)?.legalName ?? m.entityId,
       isRepresentative: m.entityId === representativeId,
     }))
-  }, [selectedGroup, entities])
+  }, [selectedGroup, entities, vatRegCountry])
   const clientName = clientNames.join(', ')
 
   // A single, non-group VAT case gets the same VAT Scheduler flow the Group Case form uses
@@ -585,6 +628,14 @@ export function SingleCaseFormContent({
                   ))}
                 </SelectContent>
               </Select>
+              {/* Feature 5 — VAT Group Case only: this country doesn't just tag the case, it
+                  filters which of the group's legal entities get included. */}
+              {isVatGroupCase && (
+                <p className="text-[12px] leading-4 text-neutral-400">
+                  Only legal entities registered in this country will be included from the
+                  selected group.
+                </p>
+              )}
             </div>
           )}
 
@@ -656,7 +707,7 @@ export function SingleCaseFormContent({
             </Label>
             <UserSelect
               multiple
-              users={DUMMY_USERS}
+              users={peoplePool}
               value={partnerIds}
               onChange={setPartnerIds}
               data-testid="create-single-case-partner"
@@ -667,7 +718,7 @@ export function SingleCaseFormContent({
             <Label className="text-sm">Client</Label>
             <UserSelect
               multiple
-              users={DUMMY_USERS}
+              users={peoplePool}
               value={clientIds}
               onChange={setClientIds}
               data-testid="create-single-case-client"
@@ -743,6 +794,7 @@ export function SingleCaseFormContent({
         partnerNames={partnerNames}
         clientName={clientName}
         groupMembers={groupMembers}
+        groupOrgId={selectedGroup?.orgId ?? ''}
       />
     </>
   )

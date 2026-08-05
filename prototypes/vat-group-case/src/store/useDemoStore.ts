@@ -37,6 +37,11 @@ export type AssessmentsState = 'empty' | 'arrived' | 'mixed' | 'done'
 /** Playground case-type hierarchy — see `caseKind`/`groupCaseView` below. */
 export type CaseKind = 'single' | 'group'
 export type GroupCaseView = 'parent' | 'child'
+/** "Correction Case" ticket, Segment 9 — which of the two parallel case datasets a Group Case
+ * view (parent or child) renders: the normal one, or the seeded correction (see
+ * case-management-data.ts's CORRECTION_PARENT_CASE). Orthogonal to `groupCaseView` — applies to
+ * both Parent Case and Child Case views. */
+export type GroupCaseVariant = 'regular' | 'correction'
 
 interface DemoState {
   process: Process
@@ -76,6 +81,7 @@ interface DemoState {
   // no separate rendering path needed for it.
   caseKind: CaseKind
   groupCaseView: GroupCaseView
+  groupCaseVariant: GroupCaseVariant
   // Whether the Child Case currently being viewed (Group + Child) requires a Client Approval
   // step — set by the Parent Case page when a specific Child Case is opened (see
   // parent-vat-group-case-page.tsx's openChildCase). Defaults to true (today's behaviour, full
@@ -118,6 +124,7 @@ interface DemoState {
   setShowOrganisations: (show: boolean) => void
   setCaseKind: (kind: CaseKind) => void
   setGroupCaseView: (view: GroupCaseView) => void
+  setGroupCaseVariant: (variant: GroupCaseVariant) => void
   setChildCaseRequiresClientApproval: (requires: boolean) => void
   setReopenedChildCaseIds: (ids: string[]) => void
   setOpenChildCaseId: (id: string | null) => void
@@ -142,6 +149,7 @@ const DEFAULTS = {
   showOrganisations: false,
   caseKind: 'single' as CaseKind,
   groupCaseView: 'parent' as GroupCaseView,
+  groupCaseVariant: 'regular' as GroupCaseVariant,
   // Defaults to the Child Case that skips Client Approval (3 steps) — see the "Child-Case
   // Default Opening & Step-Dependent Behaviour" ticket: opening Group + Child by default, or
   // toggling into it from the Playground controls, should land on the simpler workflow variant
@@ -378,6 +386,7 @@ const initialState = reconcile(parseHash(), {
   setShowOrganisations: () => {},
   setCaseKind: () => {},
   setGroupCaseView: () => {},
+  setGroupCaseVariant: () => {},
   setChildCaseRequiresClientApproval: () => {},
   setReopenedChildCaseIds: () => {},
   setOpenChildCaseId: () => {},
@@ -460,6 +469,13 @@ export const useDemoStore = create<DemoState>((set) => ({
         prev,
       ),
     ),
+  // "Correction toggle & wiring" ticket, Segment 1/3 — always lands on In Preparation, whichever
+  // direction the switch goes: Correction always opens there (Segment 3), and Regular resets to
+  // the same clean starting step so a stale phase (e.g. still Submitted) never carries over and
+  // shows a correction-only element on the wrong side of the toggle. This is the one thing that
+  // makes a single switch reliably return to a clean state both ways.
+  setGroupCaseVariant: (groupCaseVariant) =>
+    set((prev) => ({ ...prev, groupCaseVariant, phase: 'inPreparation' })),
   // Feature 3 of the "button states & child-case comments" ticket — switching to the
   // no-Client-Approval (3-step) variant while already sitting on the Client Approval phase
   // would otherwise leave `phase` pointing at a step this variant doesn't have (the Phase

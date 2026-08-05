@@ -21,7 +21,7 @@ import {
   cn,
 } from '@wts/ui'
 
-import { LegalEntity, OrgUser } from './org-details-data'
+import { LegalEntity } from './org-details-data'
 import {
   GROUP_TYPES,
   DISABLED_GROUP_TYPES,
@@ -30,28 +30,6 @@ import {
   periodStatus,
   today,
 } from './org-details-data'
-import { UserSelect } from './user-select'
-
-/* ─── Shared: member assignee shape, validation, and the entity row ─────────
- * Feature 6 of the "upload modal & data-package visuals" ticket — who a selected legal entity's
- * Child Case will assign once a VAT group case is created from this group (the actual
- * case-creation wiring is a later task; this only collects the assignment). The "task element /
- * needs-changes / sidebar / create-group" and "Groups tab refactor" tickets reuse this exact
- * shape and row UI in both the Create and Edit Group modals instead of rebuilding it. */
-export interface MemberAssigneeIds {
-  creators: string[]
-  reviewers: string[]
-  partners: string[]
-  clients: string[]
-}
-
-const EMPTY_ASSIGNEES: MemberAssigneeIds = { creators: [], reviewers: [], partners: [], clients: [] }
-
-// Partner is the only optional role — Creator, Reviewer and Client each need at least one
-// person on every entity being added before a batch can be saved / a group can be created.
-function hasMandatoryRoles(assignees: MemberAssigneeIds): boolean {
-  return assignees.creators.length >= 1 && assignees.reviewers.length >= 1 && assignees.clients.length >= 1
-}
 
 // "A", "A and B", "A, B and C" — for composing the Feature 6 add/remove banner's sentences.
 function joinNames(names: string[]): string {
@@ -67,24 +45,21 @@ function fmtDate(iso: string): string {
 interface EntityDraft {
   validFrom: string
   validTo: string
-  assignees: MemberAssigneeIds
 }
 
 /** One selectable legal-entity row: collapsed shows just the name and a select toggle;
- * selecting it expands into Valid-from/to dates and the Creator/Reviewer/Partner/Client
- * assignment fields. Shared by the Create and Edit Group modals so the two don't drift into
- * two different pickers for the same job. */
+ * selecting it expands into Valid-from/to dates. Shared by the Create and Edit Group modals
+ * so the two don't drift into two different pickers for the same job. People assignment used
+ * to live here too — removed; per-entity role assignment now happens later, at VAT Scheduler
+ * time (see vat-scheduler-modal.tsx), not at group creation/edit time. */
 function EntityAssignmentRow({
   entity,
   isSelected,
   isActive,
   draft,
-  orgUsers,
   onToggle,
   onUpdateDraft,
-  onUpdateAssignees,
   badge,
-  hideMandatoryHint,
   rowRef,
 }: {
   entity: LegalEntity
@@ -94,15 +69,10 @@ function EntityAssignmentRow({
    * own "Pending" pill + activation date instead. Meaningless when `isSelected` is false. */
   isActive?: boolean
   draft?: EntityDraft
-  orgUsers: OrgUser[]
   onToggle: () => void
   onUpdateDraft: (patch: Partial<{ validFrom: string; validTo: string }>) => void
-  onUpdateAssignees: (patch: Partial<MemberAssigneeIds>) => void
   /** e.g. a "Representative" badge next to the name once chosen via the dedicated dropdown. */
   badge?: React.ReactNode
-  /** Create/Edit Group modals drop the inline validation copy (the restriction itself still
-   * blocks submit) — Add Members-style callers keep it as an inline hint. */
-  hideMandatoryHint?: boolean
   /** Lets the parent scroll a just-selected/just-expanded row into view. */
   rowRef?: (el: HTMLDivElement | null) => void
 }) {
@@ -119,7 +89,7 @@ function EntityAssignmentRow({
             : 'border-neutral-200',
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <button
           type="button"
           onClick={onToggle}
@@ -136,95 +106,54 @@ function EntityAssignmentRow({
         >
           {isSelected && <Check className="h-3 w-3" />}
         </button>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="truncate text-[14px] font-medium leading-5 text-neutral-900">
-            {entity.legalName}
-          </span>
-          {/* self-start — a flex-col ancestor stretches children to its own width by default;
-              without this the badge would fill the whole row instead of hugging its text. */}
-          {badge && <span className="shrink-0 self-start">{badge}</span>}
-          {/* Feature 3 — visible in the collapsed row too, not just once expanded: a "Pending"
-              pill plus exactly when it activates. */}
-          {isPending && draft && (
-            <span className="flex shrink-0 items-center gap-1.5 self-start">
-              <Badge tone="orange" size="sm">Pending</Badge>
-              <span className="whitespace-nowrap text-[12px] text-neutral-500">
-                Active from {fmtDate(draft.validFrom)}
-              </span>
+        {/* Name + badges are their own tight column so the badges sit right under the name —
+            not under the (taller, label-topped) date pickers, which live in their own sibling
+            column and stay top-aligned via items-start on this row. */}
+        <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate text-[14px] font-medium leading-5 text-neutral-900">
+              {entity.legalName}
             </span>
+            {(badge || (isPending && draft)) && (
+              <div className="flex items-center gap-1.5">
+                {badge}
+                {/* Feature 3 — visible in the collapsed row too, not just once expanded: a
+                    "Pending" pill plus exactly when it activates. */}
+                {isPending && draft && (
+                  <>
+                    <Badge tone="orange" size="sm">Pending</Badge>
+                    <span className="whitespace-nowrap text-[12px] text-neutral-500">
+                      Active from {fmtDate(draft.validFrom)}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {isSelected && draft && (
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-[11px] text-neutral-500">Valid from</Label>
+                <Input
+                  type="date"
+                  className="h-8"
+                  value={draft.validFrom}
+                  onChange={(ev) => onUpdateDraft({ validFrom: ev.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-[11px] text-neutral-500">Valid to (optional)</Label>
+                <Input
+                  type="date"
+                  className="h-8"
+                  value={draft.validTo}
+                  onChange={(ev) => onUpdateDraft({ validTo: ev.target.value })}
+                />
+              </div>
+            </div>
           )}
         </div>
-        {isSelected && draft && (
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[11px] text-neutral-500">Valid from</Label>
-              <Input
-                type="date"
-                className="h-8"
-                value={draft.validFrom}
-                onChange={(ev) => onUpdateDraft({ validFrom: ev.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[11px] text-neutral-500">Valid to (optional)</Label>
-              <Input
-                type="date"
-                className="h-8"
-                value={draft.validTo}
-                onChange={(ev) => onUpdateDraft({ validTo: ev.target.value })}
-              />
-            </div>
-          </div>
-        )}
       </div>
-
-      {isSelected && draft && (
-        <div className="grid grid-cols-1 gap-3 pl-8 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[12px] text-neutral-600">Creator</Label>
-            <UserSelect
-              multiple
-              users={orgUsers}
-              value={draft.assignees.creators}
-              onChange={(ids) => onUpdateAssignees({ creators: ids })}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[12px] text-neutral-600">Reviewer</Label>
-            <UserSelect
-              multiple
-              users={orgUsers}
-              value={draft.assignees.reviewers}
-              onChange={(ids) => onUpdateAssignees({ reviewers: ids })}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[12px] text-neutral-600">
-              Partner <span className="font-normal text-neutral-400">(optional)</span>
-            </Label>
-            <UserSelect
-              multiple
-              users={orgUsers}
-              value={draft.assignees.partners}
-              onChange={(ids) => onUpdateAssignees({ partners: ids })}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[12px] text-neutral-600">Client</Label>
-            <UserSelect
-              multiple
-              users={orgUsers}
-              value={draft.assignees.clients}
-              onChange={(ids) => onUpdateAssignees({ clients: ids })}
-            />
-          </div>
-          {!hideMandatoryHint && !hasMandatoryRoles(draft.assignees) && (
-            <p className="col-span-full text-[12px] text-amber-600">
-              Creator, Reviewer and Client each need at least one person before this entity can be added.
-            </p>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -235,7 +164,6 @@ export interface GroupMemberDraft {
   entityId: string
   validFrom: string
   validTo: string | null
-  assigneeIds: MemberAssigneeIds
 }
 
 export interface GroupFormDraft {
@@ -249,8 +177,6 @@ export interface GroupFormDraft {
 interface GroupFormModalProps {
   orgId: string
   entities: LegalEntity[]
-  /** Creator/Reviewer/Partner/Client choices are limited to this organisation's own users. */
-  orgUsers: OrgUser[]
   onClose: () => void
 }
 
@@ -268,7 +194,6 @@ function GroupFormModal({
   mode,
   orgId,
   entities,
-  orgUsers,
   group,
   prefill,
   onClose,
@@ -278,7 +203,6 @@ function GroupFormModal({
   mode: 'create' | 'edit'
   orgId: string
   entities: LegalEntity[]
-  orgUsers: OrgUser[]
   group?: Group
   prefill?: { type?: GroupType; jurisdiction?: string; memberEntityId?: string }
   onClose: () => void
@@ -309,12 +233,6 @@ function GroupFormModal({
       initial[m.entityId] = {
         validFrom: m.validFrom,
         validTo: m.validTo ?? '',
-        assignees: {
-          creators: m.assigneeIds?.creators ?? [],
-          reviewers: m.assigneeIds?.reviewers ?? [],
-          partners: m.assigneeIds?.partners ?? [],
-          clients: m.assigneeIds?.clients ?? [],
-        },
       }
     }
     return initial
@@ -333,7 +251,7 @@ function GroupFormModal({
   useEffect(() => {
     if (mode !== 'create' || !prefill?.memberEntityId) return
     const id = prefill.memberEntityId
-    setDrafts({ [id]: { validFrom: today(), validTo: '', assignees: { ...EMPTY_ASSIGNEES } } })
+    setDrafts({ [id]: { validFrom: today(), validTo: '' } })
     setRepId(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -356,14 +274,11 @@ function GroupFormModal({
         return rest
       }
       setJustExpandedId(id)
-      return { ...prev, [id]: { validFrom: today(), validTo: '', assignees: { ...EMPTY_ASSIGNEES } } }
+      return { ...prev, [id]: { validFrom: today(), validTo: '' } }
     })
 
   const updateDraft = (id: string, patch: Partial<{ validFrom: string; validTo: string }>) =>
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
-
-  const updateAssignees = (id: string, patch: Partial<MemberAssigneeIds>) =>
-    setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], assignees: { ...prev[id].assignees, ...patch } } }))
 
   // Feature 5/7 — choosing a representative instantly selects it too (seeding a draft if it
   // isn't already one), forcing the user to assign its responsible people before saving. This
@@ -371,9 +286,7 @@ function GroupFormModal({
   const chooseRepresentative = (id: string) => {
     setRepId(id)
     setJustExpandedId(id)
-    setDrafts((prev) =>
-      prev[id] ? prev : { ...prev, [id]: { validFrom: today(), validTo: '', assignees: { ...EMPTY_ASSIGNEES } } },
-    )
+    setDrafts((prev) => (prev[id] ? prev : { ...prev, [id]: { validFrom: today(), validTo: '' } }))
   }
 
   // Auto-fill name from the representative until the user takes over (Create only).
@@ -398,23 +311,14 @@ function GroupFormModal({
     [group],
   )
 
-  // Group creation/editing requires the REPRESENTATIVE to have its mandatory roles assigned.
-  // In Edit mode, any entity newly added this session (not already a member of the group) must
-  // also have Creator/Reviewer/Client filled before it can be saved in — Partner stays optional.
+  // Group creation/editing requires a REPRESENTATIVE to be selected (and present-active — see
+  // below). Per-role people assignment no longer happens here; it happens per legal entity at
+  // VAT Scheduler time instead (see vat-scheduler-modal.tsx).
   const repDraft = repId ? drafts[repId] : undefined
-  const newlyAddedIncomplete =
-    mode === 'edit' &&
-    selected.some((id) => !initialMemberIds.has(id) && !hasMandatoryRoles(drafts[id].assignees))
   // Feature 3 (representative date restriction ticket) — a representative must be a
   // present-active member, never one whose stint hasn't started yet.
   const repIsFutureDated = !!repDraft && repDraft.validFrom > today()
-  const canSubmit =
-    !!name.trim() &&
-    !!repId &&
-    !!repDraft &&
-    hasMandatoryRoles(repDraft.assignees) &&
-    !newlyAddedIncomplete &&
-    !repIsFutureDated
+  const canSubmit = !!name.trim() && !!repId && !!repDraft && !repIsFutureDated
 
   // Feature 6 — live preview of what this session is about to add/remove, named by legal
   // entity, so the user sees exactly what they're confirming before saving.
@@ -440,7 +344,6 @@ function GroupFormModal({
       entityId,
       validFrom: drafts[entityId].validFrom,
       validTo: drafts[entityId].validTo || null,
-      assigneeIds: drafts[entityId].assignees,
     })),
     representativeId: repId,
   })
@@ -453,17 +356,22 @@ function GroupFormModal({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      {/* ~90% of the viewport in both directions (Feature 2 of the "inactive→active history
-          migration" ticket — the entity-selection/assignment segment needs the room, and a
-          legal entity's full name must never get cut off) — locked header/footer with only the
-          middle content scrolling: the outer DialogContent is a fixed-height flex column, the
-          header and footer are `shrink-0`, and only the entity list inside the row below
-          scrolls — so adding/expanding entities never grows the modal itself. Wider than a
-          single column: a left column for group-level fields, a right column for member
-          selection. */}
+      {/* Tall, not gratuitously wide (Feature 7, "VAT Groups" ticket) — per-entity role
+          assignment moved out of this modal entirely (see EntityAssignmentRow's docs above), but
+          a selected row's inline Valid-from/Valid-to date pickers still need real width right
+          next to the legal entity name, so the cap can't go as narrow as a single-column form —
+          1200px keeps a long legal entity name from truncating next to those date pickers while
+          still landing well short of the old 90vw. Height stays tall — a group can hold ~50
+          legal entities, and while the list itself scrolls internally, keeping the box tall
+          keeps far more of them on screen at once before that scroll kicks in. Locked
+          header/footer with only the middle content scrolling: the outer DialogContent is a
+          fixed-height flex column, the header and footer are `shrink-0`, and only the entity
+          list inside the row below scrolls — so adding/expanding entities never grows the modal
+          itself. Wider than a single column: a left column for group-level fields, a right
+          column for member selection. */}
       <DialogContent
         overlayClassName="bg-background/40 backdrop-blur-sm"
-        className="flex h-[90vh] max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0"
+        className="flex h-[90vh] max-h-[90vh] w-[90vw] max-w-[1200px] flex-col gap-0 overflow-hidden p-0"
       >
         <DialogHeader className="shrink-0 gap-1 border-b border-border px-6 py-5">
           <DialogTitle className="font-display text-xl font-bold tracking-tight">
@@ -531,18 +439,14 @@ function GroupFormModal({
               </Select>
               {!repId ? (
                 <p className="text-[12px] leading-4 text-neutral-400">
-                  Required — assigns Creator, Reviewer and Client for this entity on the right.
+                  Required — adds this entity to the group on the right.
                 </p>
               ) : repIsFutureDated ? (
                 <p className="text-[12px] leading-4 text-red-500">
                   This entity's Valid from date is in the future — a representative must be
                   active now. Change its date or pick another entity.
                 </p>
-              ) : (
-                jurisdiction && (
-                  <p className="text-[12px] leading-4 text-neutral-400">Jurisdiction: {jurisdiction}</p>
-                )
-              )}
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -590,7 +494,10 @@ function GroupFormModal({
                 what this session is about to add/remove, named by legal entity: only the lines
                 that actually apply render (both, either, or neither), always closing with the
                 future-cases impact note. Sits right under the search box, not in the footer, so
-                it's visible while still picking members. */}
+                it's visible while still picking members. Feature 2 (people-assignment removal
+                ticket) — removing the representative clears repId (see toggle above), so this
+                same banner also has to carry the save-blocked warning; there's no other UI on
+                this modal that explains why the Save button just disabled itself. */}
             {showChangeBanner && (
               <Alert variant="info" onClose={() => setDismissedChangeSignature(changeSignature)} className="shrink-0">
                 {removedNames.length > 0 && (
@@ -606,6 +513,7 @@ function GroupFormModal({
                   </>
                 )}
                 Future cases will be impacted.
+                {!repId && ' Saving is blocked until a representative is selected.'}
               </Alert>
             )}
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
@@ -623,12 +531,9 @@ function GroupFormModal({
                     isSelected={!!drafts[e.id]}
                     isActive={!!drafts[e.id] && drafts[e.id].validFrom <= today()}
                     draft={drafts[e.id]}
-                    orgUsers={orgUsers}
                     onToggle={() => toggle(e.id)}
                     onUpdateDraft={(patch) => updateDraft(e.id, patch)}
-                    onUpdateAssignees={(patch) => updateAssignees(e.id, patch)}
                     badge={repId === e.id ? <Badge tone="sky" size="sm">Representative</Badge> : undefined}
-                    hideMandatoryHint
                     rowRef={(el) => { rowRefs.current[e.id] = el }}
                   />
                 ))

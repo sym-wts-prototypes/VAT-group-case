@@ -28,6 +28,7 @@ import {
   Case,
   CASE_STATUS_LABEL,
   CASE_STATUS_TONE,
+  CORRECTION_PARENT_CASE,
   DUMMY_CASES,
   DUMMY_GROUP_CASES,
   isGroupCase,
@@ -338,7 +339,12 @@ function GroupCaseRow({
             <NextDeadlineCell value={group.nextDeadline} />
           </div>
           <div role="cell" className="p-2 text-sm text-muted-foreground">
-            {group.children.length} legal entities
+            {/* "Correction Case" ticket, Segment 3 — a correction's starting progress is how
+                many of its Child Cases are already Ready for Consolidation vs. reopened back
+                to In Preparation, not just its legal-entity count. */}
+            {group.correctionOfCaseId
+              ? `${group.children.length - (group.reopenedChildIds?.length ?? 0)} of ${group.children.length} ready`
+              : `${group.children.length} legal entities`}
           </div>
           <div
             role="cell"
@@ -372,6 +378,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const setCaseKind = useDemoStore((state) => state.setCaseKind)
   const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
   const setOpenChildCaseId = useDemoStore((state) => state.setOpenChildCaseId)
+  const setGroupCaseVariant = useDemoStore((state) => state.setGroupCaseVariant)
   const generatedCases = useGeneratedCasesStore((state) => state.cases)
   const addGeneratedCases = useGeneratedCasesStore((state) => state.addCases)
 
@@ -391,12 +398,18 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   // A VAT Group Case child row — same launcher as an individual case, but into the dedicated
   // Group Case Child Case view (setCaseKind/setGroupCaseView switch the Playground to Case Type
   // → Group Case, Group Case View → Child Case).
+  //
+  // "Correction toggle & wiring" ticket, Segment 2 — the clicked child decides the Correction
+  // toggle itself (a correction child always has `correctionOfCaseId` set), so this always opens
+  // into the right variant regardless of whatever the toggle was left on before. Every other
+  // (non-correction) child forces it back to 'regular', so no correction element ever leaks in.
   const openChildCaseFromManagement = (child: Case) => {
     setCaseKind('group')
     setGroupCaseView('child')
     setRole('creator')
     setPhase('inPreparation')
     setShowCaseManagement(false)
+    setGroupCaseVariant(child.correctionOfCaseId ? 'correction' : 'regular')
     // Feature 6 of the "button states & child-case comments" ticket — records which Child Case
     // this is, so if it has a reopen comment on file (see childCaseComments), its own Needs
     // Changes banner shows it verbatim instead of the generic dummy copy.
@@ -407,12 +420,18 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   // switching the Playground to Case Type → Group Case, Group Case View → Parent Case —
   // exactly as if the user had selected those controls manually. Previously a stand-in that
   // launched the representative child's own scenario, before the Parent Case page existed.
-  const openGroupCase = (_group: VatGroupCase) => {
+  //
+  // "Correction toggle & wiring" ticket, Segment 2 — same rule as the child launcher above:
+  // the dummy correction case (case-management-data.ts's CORRECTION_PARENT_CASE) always opens
+  // straight into the Correction-toggled view; every other Group Case forces 'regular' so it
+  // never shows a correction element left over from a previous visit.
+  const openGroupCase = (group: VatGroupCase) => {
     setCaseKind('group')
     setGroupCaseView('parent')
     setRole('creator')
     setPhase('inPreparation')
     setShowCaseManagement(false)
+    setGroupCaseVariant(group.id === CORRECTION_PARENT_CASE.id ? 'correction' : 'regular')
   }
 
   // Newly created cases (see create-case-drawer.tsx's scheduler modals) show up here

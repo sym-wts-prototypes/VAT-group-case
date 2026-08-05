@@ -16,7 +16,7 @@ import {
   isPhaseDisabledInControls,
 } from '@/lib/controlHeaderTypes'
 import { useDemoStore } from '@/store/useDemoStore'
-import type { CaseKind, GroupCaseView } from '@/store/useDemoStore'
+import type { CaseKind, GroupCaseVariant, GroupCaseView } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
 import { CheckboxField, Switch } from '@wts/ui'
@@ -66,6 +66,14 @@ const CHILD_CASE_VARIANT_OPTIONS: { value: 'withApproval' | 'withoutApproval'; l
   { value: 'withApproval', label: 'With Client Approval (4 steps)' },
 ]
 
+// "Correction Case" ticket, Segment 9 — chosen last, after every other context selector, since
+// it's an overlay on top of whichever Group Case view (Parent or Child) is already selected
+// rather than a new branch of its own.
+const GROUP_CASE_VARIANT_OPTIONS: { value: GroupCaseVariant; label: string }[] = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'correction', label: 'Correction' },
+]
+
 export function ControlPanel() {
   const {
     process,
@@ -82,8 +90,10 @@ export function ControlPanel() {
     showCaseManagement,
     caseKind,
     groupCaseView,
+    groupCaseVariant,
     childCaseRequiresClientApproval,
     reopenedChildCaseIds,
+    setGroupCaseVariant,
     setProcess,
     setRole,
     setHeaderType,
@@ -337,6 +347,18 @@ export function ControlPanel() {
           description="Enables the primary action for this phase."
           checked={approvedChecked}
           onCheckedChange={setApprovedChecked}
+        />
+      )}
+
+      {/* "Correction Case" ticket, Segment 9 — last, after every other selector: set the usual
+          context (Group Case → Parent/Child Case → phase/role/etc.) first, then pick Regular or
+          Correction to view that variant of whichever case is currently selected. */}
+      {isGroupCase && (
+        <OptionPills
+          label="Group Case Variant"
+          value={groupCaseVariant}
+          onChange={setGroupCaseVariant}
+          options={GROUP_CASE_VARIANT_OPTIONS}
         />
       )}
     </div>

@@ -55,4 +55,5 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | Table | shadcn | `table.figma.tsx` | |
 | Tabs | shadcn (Radix) | — | Generic Radix tabs; see SegmentedTabs for project pattern |
 | Textarea | shadcn | `textarea.figma.tsx` | |
+| Toast | WTS custom | — | Single fixed-position notification (`open`/`onOpenChange`/`title`/`description`), no queue |
 | Tooltip | shadcn (Radix) | — | Wrap trigger in `TooltipProvider` |

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Download, Search } from 'lucide-react'
+import { ArrowUpLeft, Check, Download, Search } from 'lucide-react'
 
 import {
   Alert,
@@ -10,6 +10,7 @@ import {
   MiniStepper,
   Progress,
   Stepper,
+  Toast,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -21,8 +22,11 @@ import {
 
 import { AssignedPeople, type AssignedPeopleData } from '@/components/assigned-people'
 import { SectionLabel, TaskRow } from '@/components/body/BodyPlaceholder'
+import { SendPackageDialog, type SendPackageDetails } from '@/components/body/SendPackageDialog'
 import { ConsolidationTaskCard, type ConsolidationUploadedFile } from '@/components/consolidation-task-card'
+import { CreateCorrectionCaseDrawer } from '@/components/create-correction-case-drawer'
 import { NeedsChangesReopenModal } from '@/components/needs-changes-reopen-modal'
+import { VatSchedulerModal } from '@/components/vat-scheduler-modal'
 import { PackageBanner } from '@/components/body/PackageBanner'
 import { PackageVersionHistoryDrawer } from '@/components/package-version-history-drawer'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
@@ -40,7 +44,7 @@ import type { HeaderDescriptor, Phase, Role } from '@/types'
 import { formatDottedDate } from './case-generation'
 import { ROLE_TO_PLAYGROUND_ROLE } from './case-management-page'
 import { DataTablePagination } from './data-table-pagination'
-import { DUMMY_GROUP_CASES, type Case } from './case-management-data'
+import { CORRECTION_PARENT_CASE, DUMMY_GROUP_CASES, type Case } from './case-management-data'
 import { vatRegistrationForJurisdiction } from './org-details-data'
 import { assignedPeopleForChildIndex, REPRESENTATIVE_ASSIGNEES } from './vat-group-case-assignees'
 
@@ -54,6 +58,9 @@ import { assignedPeopleForChildIndex, REPRESENTATIVE_ASSIGNEES } from './vat-gro
 // static content here without touching how it's wired in.
 const PARENT_CASE = DUMMY_GROUP_CASES[0]
 const REPRESENTATIVE_VAT_REGISTRATION = vatRegistrationForJurisdiction(PARENT_CASE.jurisdiction)
+// Feature 6 ("VAT Groups" ticket) — org-details-data.ts's org id for PARENT_CASE.organisation
+// ('EUROPIPE'); scopes the correction scheduler's role pickers to this organisation's users.
+const PARENT_CASE_ORG_ID = 'europipe'
 
 const EDIT_TOOLTIP =
   "Changes made here apply only to the Parent Case. Assigned users will also be assigned to the Representative Legal Entity's Child Case, but not to the Child Cases of the other Legal Entities in the group."
@@ -379,6 +386,22 @@ const CHILD_CONFIG: Record<string, { requiresClientApproval: boolean; defaultSta
     }),
   )
 
+// "Correction Case" ticket, Segment 3 — the seeded correction's own Child Cases need entries
+// too (they're new ids, `${originalId}-C1`, not the ones above): each keeps its ORIGINAL
+// sibling's Client-Approval requirement (same legal entity, same rule), but its status is
+// simply derived from `reopenedChildIds` — reopened ones are In Preparation, everyone else is
+// already Ready for Consolidation. This is what makes the Parent Case page's existing progress
+// bar/child list correctly show "10 of 12" etc. for the correction with no other changes.
+const CORRECTION_CHILD_CONFIG: Record<string, { requiresClientApproval: boolean; defaultStatus: WorkflowStatus }> =
+  Object.fromEntries(
+    CORRECTION_PARENT_CASE.children.map((child, index) => {
+      const [requiresClientApproval] = CHILD_CONFIG_BY_INDEX[index % CHILD_CONFIG_BY_INDEX.length]
+      const isReopened = CORRECTION_PARENT_CASE.reopenedChildIds?.includes(child.id) ?? false
+      return [child.id, { requiresClientApproval, defaultStatus: isReopened ? 'InPreparation' : 'ReadyForConsolidation' }]
+    }),
+  )
+Object.assign(CHILD_CONFIG, CORRECTION_CHILD_CONFIG)
+
 // Feature 4 of the "reopen-modal NO-state copy" ticket — these two Child Cases always have
 // access, bypassing the myRole/Playground-role dummy gate every other Child Case still uses.
 // Keyed by legal-entity name (stable across the group) rather than case id (which is generated
@@ -401,6 +424,14 @@ const ALWAYS_ACCESSIBLE_CHILD_DEFAULT_COMMENT: Record<string, string> = {
 // exactly; every other child gets a different, only-minorly-overlapping profile.
 const CHILD_ASSIGNED_PEOPLE: Record<string, AssignedPeopleData> = Object.fromEntries(
   PARENT_CASE.children.map((child, index) => [child.id, assignedPeopleForChildIndex(index)]),
+)
+// Correction Child Cases (new ids) reuse the same index-ordered assignees as their original
+// siblings — same legal entity, same people.
+Object.assign(
+  CHILD_ASSIGNED_PEOPLE,
+  Object.fromEntries(
+    CORRECTION_PARENT_CASE.children.map((child, index) => [child.id, assignedPeopleForChildIndex(index)]),
+  ),
 )
 
 // Fixed-width stepper AND pill columns so both line up across rows regardless of a row's step
@@ -432,6 +463,29 @@ export function ParentVatGroupCasePage() {
   const setOpenChildCaseId = useDemoStore((state) => state.setOpenChildCaseId)
   const addChildCaseComments = useDemoStore((state) => state.addChildCaseComments)
   const childCaseComments = useDemoStore((state) => state.childCaseComments)
+  const groupCaseVariant = useDemoStore((state) => state.groupCaseVariant)
+  const setGroupCaseVariant = useDemoStore((state) => state.setGroupCaseVariant)
+  // "Correction Case" ticket — which of the two static datasets this render shows. Regular is
+  // PARENT_CASE (the original January group case); Correction is the one seeded correction
+  // (case-management-data.ts's CORRECTION_PARENT_CASE) reached via the Playground's Group Case
+  // Variant toggle (Segment 9) or by following the blue banner/link-back elements (Segments 5/7).
+  const activeCase = groupCaseVariant === 'correction' ? CORRECTION_PARENT_CASE : PARENT_CASE
+  const isCorrectionView = groupCaseVariant === 'correction'
+  // "Correction toggle & wiring" ticket, Segment 5 — the "Send for approval"/"Submit to tax
+  // authorities" primary actions no longer fire on a single click; each opens this dialog first,
+  // and only its own explicit Send confirms the transition `pendingSend` already knows to make.
+  const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [pendingSend, setPendingSend] = useState<'approval' | 'authorities' | null>(null)
+  const [sendToastOpen, setSendToastOpen] = useState(false)
+  const [correctionDrawerOpen, setCorrectionDrawerOpen] = useState(false)
+  const [correctionSchedulerOpen, setCorrectionSchedulerOpen] = useState(false)
+  const [correctionAssignees, setCorrectionAssignees] = useState<{
+    creatorNames: string[]
+    reviewerNames: string[]
+    partnerNames: string[]
+    clientNames: string[]
+  } | null>(null)
+  const [correctionToastOpen, setCorrectionToastOpen] = useState(false)
   const isCreator = role === 'creator'
   const isReviewer = role === 'reviewer'
   const isClient = role === 'client'
@@ -535,7 +589,7 @@ export function ParentVatGroupCasePage() {
 
   // Reused by the Data Package element and every PackageBanner footer on this page — extracted
   // once instead of repeating the same expression at every call site.
-  const packageFileName = `${PARENT_CASE.vatGroupName.replace(/\s+/g, '_')}_${PARENT_CASE.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`
+  const packageFileName = `${activeCase.vatGroupName.replace(/\s+/g, '_')}_${activeCase.reportingPeriod.replace(/\s+/g, '_')}_Package.zip`
 
   // Same status a Child Case's row computes for itself (see the render loop below) — pulled up
   // here so both the list filter and the progress bar can use it without duplicating the rule.
@@ -562,21 +616,21 @@ export function ParentVatGroupCasePage() {
   // pattern as the VAT Scheduler's "Search legal entities…" filter (vat-scheduler-modal.tsx) —
   // plus the "hide Ready for Consolidation" filter (Segment 5): the Parent Case is waiting on
   // whichever Child Cases aren't done yet, so that's the useful default view of a large group.
-  // Filtering never mutates PARENT_CASE.children, just narrows what's rendered below.
+  // Filtering never mutates activeCase.children, just narrows what's rendered below.
   const visibleChildren = useMemo(() => {
     const q = childSearch.trim().toLowerCase()
-    return PARENT_CASE.children.filter((child) => {
+    return activeCase.children.filter((child) => {
       if (q && !child.client.toLowerCase().includes(q)) return false
       if (hideReadyChildren && statusForChild(child.id) === 'ReadyForConsolidation') return false
       return true
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [childSearch, hideReadyChildren, forcedChildStatus, tasksDoneChecked])
+  }, [childSearch, hideReadyChildren, forcedChildStatus, tasksDoneChecked, groupCaseVariant])
 
   // Progress bar (Segment 6) — always reflects the WHOLE group, independent of the search/hide
   // filters above (those only narrow what's rendered in the list below).
-  const readyChildrenCount = PARENT_CASE.children.filter((child) => statusForChild(child.id) === 'ReadyForConsolidation').length
-  const childReadyPercent = Math.round((readyChildrenCount / PARENT_CASE.children.length) * 100)
+  const readyChildrenCount = activeCase.children.filter((child) => statusForChild(child.id) === 'ReadyForConsolidation').length
+  const childReadyPercent = Math.round((readyChildrenCount / activeCase.children.length) * 100)
 
   const childTotalPages = Math.max(1, Math.ceil(visibleChildren.length / childPageSize))
   const childCurrentPage = Math.min(childPage, childTotalPages)
@@ -633,6 +687,7 @@ export function ParentVatGroupCasePage() {
   const creatorInReviewState = packageBannerStateFromOutcome('inReview', 'creator', packageReviewOutcome)
   const reviewerInReviewState = packageBannerStateFromOutcome('inReview', 'reviewer', packageReviewOutcome)
   const creatorClientApprovalState = packageBannerStateFromOutcome('clientApproval', 'creator', packageReviewOutcome)
+  const reviewerClientApprovalState = packageBannerStateFromOutcome('clientApproval', 'reviewer', packageReviewOutcome)
   const clientClientApprovalState = packageBannerStateFromOutcome('clientApproval', 'client', packageReviewOutcome)
 
   let actions: HeaderDescriptor['actions'] = {}
@@ -660,8 +715,14 @@ export function ParentVatGroupCasePage() {
       // action instead (Feature 5), same "back to In Preparation" reset a needChanges decision
       // triggers everywhere else in this page.
       if (creatorInReviewState === 'approved') {
+        // "Correction toggle & wiring" ticket, Segment 5 — opens the send-confirmation dialog
+        // instead of advancing the phase directly; the dialog's own Send is what actually calls
+        // setPhase now (see the onConfirm handler near the dialog render below).
         actions = { primary: { label: 'Send for approval', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
-        handlePrimaryClick = () => setPhase('clientApproval')
+        handlePrimaryClick = () => {
+          setPendingSend('approval')
+          setSendDialogOpen(true)
+        }
       } else if (creatorInReviewState === 'needChanges') {
         actions = { primary: { label: 'Send for review', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         handlePrimaryClick = () => {
@@ -676,12 +737,20 @@ export function ParentVatGroupCasePage() {
     } else if (isReviewer) {
       // Segment 1 of the "review-flow rework" ticket: the review modal now opens while the
       // decision is still pending ("Review requested" — the `default` outcome), not once
-      // "Needs Changes" has already been recorded. Once a decision exists — approved or
-      // needChanges — the Reviewer has no button at all: approved has nothing left to do,
-      // needChanges hands the ball back to the Creator (its own "Send for review" branch above).
+      // "Needs Changes" has already been recorded. needChanges hands the ball back to the
+      // Creator (its own "Send for review" branch above) — Reviewer still gets no button there.
+      // "Correction toggle & wiring" ticket, Segment 4 — once Approved, though, the Reviewer now
+      // gets the same "Send for approval" primary action the Creator does (same dialog too),
+      // rather than no button at all.
       if (reviewerInReviewState === 'requested') {
         actions = { primary: { label: 'Submit review', icon: 'Check', iconSide: 'right', variant: 'default' } }
         handlePrimaryClick = () => setReopenModalOpen(true)
+      } else if (reviewerInReviewState === 'approved') {
+        actions = { primary: { label: 'Send for approval', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        handlePrimaryClick = () => {
+          setPendingSend('approval')
+          setSendDialogOpen(true)
+        }
       }
     }
   } else if (parentPhase === 'clientApproval') {
@@ -698,10 +767,26 @@ export function ParentVatGroupCasePage() {
           setPhase('inPreparation')
         }
       } else {
+        // Segment 5 — same dialog-first treatment as "Send for approval" above; the dialog's
+        // Send is what calls setPhase('submitted') now.
         actions = { primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         primaryDisabled = creatorClientApprovalState !== 'approved'
         handlePrimaryClick = () => {
-          if (creatorClientApprovalState === 'approved') setPhase('submitted')
+          if (creatorClientApprovalState === 'approved') {
+            setPendingSend('authorities')
+            setSendDialogOpen(true)
+          }
+        }
+      }
+    } else if (isReviewer) {
+      // Segment 4 — once the client has Approved, the Reviewer sees "Submit to tax authorities"
+      // too, exactly like the Creator (same dialog). No button for any other state, same as the
+      // Creator's needChanges branch hands that back to the Creator alone.
+      if (reviewerClientApprovalState === 'approved') {
+        actions = { primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
+        handlePrimaryClick = () => {
+          setPendingSend('authorities')
+          setSendDialogOpen(true)
         }
       }
     } else if (isClient) {
@@ -714,19 +799,30 @@ export function ParentVatGroupCasePage() {
         handlePrimaryClick = () => setReopenModalOpen(true)
       }
     }
-  } else if (parentPhase === 'submitted' && isCreator) {
-    // Same as the single-case VAT Creator at Submission — no-op here, happy path only.
+  } else if (parentPhase === 'submitted' && isCreator && !isCorrectionView) {
+    // "Correction Case" ticket, Segment 1 — previously a no-op placeholder; now opens the
+    // locked/prefilled creation drawer. Not shown while already viewing the correction itself —
+    // this prototype doesn't model correcting a correction.
     actions = { primary: { label: 'Create correction', icon: 'Plus', iconSide: 'left', variant: 'default' } }
+    handlePrimaryClick = () => setCorrectionDrawerOpen(true)
   }
 
   const descriptor: HeaderDescriptor = {
     headerType: 'caseWrapper',
-    breadcrumb: [CASE_MANAGEMENT_BREADCRUMB, { label: PARENT_CASE.id, current: true }],
+    breadcrumb: [CASE_MANAGEMENT_BREADCRUMB, { label: activeCase.id, current: true }],
     title: {
-      parts: ['VAT', 'Group Case', PARENT_CASE.reportingPeriod],
+      // Segment 4 — the title's period part gets the same "/ Correction N" suffix as the case's
+      // own name; `reportingPeriod` itself stays unsuffixed since it's still the same period.
+      parts: [
+        'VAT',
+        'Group Case',
+        activeCase.correctionNumber
+          ? `${activeCase.reportingPeriod} / Correction ${activeCase.correctionNumber}`
+          : activeCase.reportingPeriod,
+      ],
       // The Parent Case belongs to the Representative Legal Entity — not the parent
       // organisation or VAT group name — so that's what the info pill under the title shows.
-      subtitle: PARENT_CASE.representativeEntity,
+      subtitle: activeCase.representativeEntity,
       // Same "compact code under subtitle" slot every other case header uses for a VAT/company
       // code (e.g. "DE999999") — here it's the Representative Legal Entity's VAT Registration.
       subCode: REPRESENTATIVE_VAT_REGISTRATION,
@@ -739,7 +835,7 @@ export function ParentVatGroupCasePage() {
     assignedPeopleEditable: isCreator || isReviewer,
     // Blue pill, same visual pattern as the Due Date pill on single (non-group) case headers —
     // just relabeled, since a VAT Group Case's deadline is the group's, not any one entity's.
-    dueDate: formatDottedDate(PARENT_CASE.statutoryDeadline),
+    dueDate: formatDottedDate(activeCase.statutoryDeadline),
     dueDateLabel: 'Group Case Deadline',
     // Only the Creator may progress the Parent Case (its primary actions) — everyone else
     // (Reviewer, Partner, Client) gets those omitted from the descriptor rather than
@@ -788,6 +884,28 @@ export function ParentVatGroupCasePage() {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
       <HeaderRenderer descriptor={descriptor} primaryDisabled={primaryDisabled} onPrimaryClick={handlePrimaryClick} />
+
+      {/* "Correction Case" ticket, Segment 7 — the one extra element a correction case carries
+          that a normal case doesn't: a link back to the original (non-correction) case it was
+          made from. Sits right below the header, above the stepper, matching the reference
+          screenshot's placement. */}
+      {isCorrectionView && (
+        <div className="border-b border-border bg-background px-6 py-3">
+          <button
+            type="button"
+            onClick={() => {
+              setGroupCaseVariant('regular')
+              // The original stayed in Submission the whole time this correction existed.
+              setPhase('submitted')
+            }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowUpLeft className="size-4" />
+            Parent correction case: <span className="font-medium text-foreground underline">{PARENT_CASE.caseName}</span>
+          </button>
+        </div>
+      )}
+
       {/* Client never sees the step-by-step progress bar (Feature 11.3) — In Preparation and In
           Review are the same child-list view for Client; only Client Approval and Submission
           have distinct Client-facing content. */}
@@ -877,6 +995,33 @@ export function ParentVatGroupCasePage() {
 
       {parentPhase === 'submitted' && (
         <div className="border-b border-border bg-background px-6 py-6">
+          {/* "Correction banner placement" ticket, Features 1/3 — this blue banner used to sit on
+              the REGULAR/original case (pointing forward to the correction) once Submitted; it now
+              only shows while viewing the CORRECTION itself, right above — same div as — the
+              "Group Case submitted" banner below, pointing back at the original instead. The
+              Regular view no longer shows any correction-related banner at all. */}
+          {isCorrectionView && (
+            <div className="mb-4">
+              <Alert
+                variant="info"
+                title={`This is a correction of ${PARENT_CASE.caseName}.`}
+                action={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setGroupCaseVariant('regular')
+                      // The original stayed in Submission the whole time this correction existed.
+                      setPhase('submitted')
+                    }}
+                  >
+                    {PARENT_CASE.caseName}
+                    <ArrowUpLeft className="size-4" />
+                  </Button>
+                }
+              />
+            </div>
+          )}
           <PackageBanner
             descriptor={PARENT_SUBMITTED_BANNER}
             packageFileName={packageFileName}
@@ -925,7 +1070,7 @@ export function ParentVatGroupCasePage() {
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-foreground">Child cases ready for consolidation</span>
             <span className="text-muted-foreground text-sm">
-              {readyChildrenCount} of {PARENT_CASE.children.length} ({childReadyPercent}%)
+              {readyChildrenCount} of {activeCase.children.length} ({childReadyPercent}%)
             </span>
           </div>
           <Progress
@@ -1014,7 +1159,7 @@ export function ParentVatGroupCasePage() {
               const config = CHILD_CONFIG[child.id]
               const status: WorkflowStatus = statusForChild(child.id)
               const steps = config.requiresClientApproval ? STEPS_WITH_APPROVAL : STEPS_WITHOUT_APPROVAL
-              const isRepresentative = child.client === PARENT_CASE.representativeEntity
+              const isRepresentative = child.client === activeCase.representativeEntity
               const stepper = <MiniStepper states={miniStepperStates(steps, status)} />
 
               const handleOpen = () => openChildCase(child, status, config.requiresClientApproval)
@@ -1097,16 +1242,86 @@ export function ParentVatGroupCasePage() {
       <NeedsChangesReopenModal
         open={reopenModalOpen}
         onOpenChange={setReopenModalOpen}
-        parentCaseId={PARENT_CASE.id}
-        childCases={PARENT_CASE.children.map((child) => ({ id: child.id, client: child.client }))}
+        childCases={activeCase.children.map((child) => ({ id: child.id, client: child.client }))}
         onConfirmNeedsChanges={handleReopenChildCases}
         onConfirmApprove={handleApproveFromModal}
       />
+
+      {/* "Correction toggle & wiring" ticket, Segment 5 — one dialog reused for both the In
+          Review → Client Approval and Client Approval → Submitted transitions; `pendingSend`
+          decides which copy/phase-change applies. */}
+      <SendPackageDialog
+        open={sendDialogOpen}
+        title={pendingSend === 'authorities' ? 'Submit to tax authorities' : 'Send for approval'}
+        description={
+          pendingSend === 'authorities'
+            ? 'This sends the package to the tax authorities.'
+            : 'This sends the package to the client for approval.'
+        }
+        confirmLabel={pendingSend === 'authorities' ? 'Submit to tax authorities' : 'Send for approval'}
+        onClose={() => setSendDialogOpen(false)}
+        onConfirm={(_details: SendPackageDetails) => {
+          if (pendingSend === 'authorities') setPhase('submitted')
+          else if (pendingSend === 'approval') setPhase('clientApproval')
+          setPendingSend(null)
+          setSendToastOpen(true)
+        }}
+      />
+
+      <Toast open={sendToastOpen} onOpenChange={setSendToastOpen} title="Package sent" />
 
       <PackageVersionHistoryDrawer
         open={versionHistoryOpen}
         onOpenChange={setVersionHistoryOpen}
         packageFileName={packageFileName}
+      />
+
+      {/* "Correction Case" ticket, Segments 1/2/6 — the drawer opened by the header's "Create
+          correction" button, then its own VAT Scheduler (reopen-switcher variant). Submitting
+          either always reveals the one seeded correction (CORRECTION_PARENT_CASE) rather than
+          fabricating a new dynamic case — see the scheduler's own onCorrectionSubmit comment. */}
+      <CreateCorrectionCaseDrawer
+        open={correctionDrawerOpen}
+        onOpenChange={setCorrectionDrawerOpen}
+        original={PARENT_CASE}
+        onContinue={(assignees) => {
+          setCorrectionAssignees(assignees)
+          setCorrectionDrawerOpen(false)
+          setCorrectionSchedulerOpen(true)
+        }}
+      />
+      <VatSchedulerModal
+        open={correctionSchedulerOpen}
+        onOpenChange={setCorrectionSchedulerOpen}
+        onCreated={() => setCorrectionSchedulerOpen(false)}
+        organisationName={PARENT_CASE.organisation}
+        groupName={PARENT_CASE.vatGroupName}
+        jurisdiction={PARENT_CASE.jurisdiction}
+        vatRegistration={REPRESENTATIVE_VAT_REGISTRATION}
+        projectCode=""
+        caseTypeLabel={PARENT_CASE.caseType}
+        creatorNames={correctionAssignees?.creatorNames ?? []}
+        reviewerNames={correctionAssignees?.reviewerNames ?? []}
+        partnerNames={correctionAssignees?.partnerNames ?? []}
+        clientName={correctionAssignees?.clientNames.join(', ') ?? ''}
+        groupMembers={PARENT_CASE.children.map((child) => ({
+          id: child.id,
+          name: child.client,
+          isRepresentative: child.client === PARENT_CASE.representativeEntity,
+        }))}
+        groupOrgId={PARENT_CASE_ORG_ID}
+        isCorrection
+        onCorrectionSubmit={() => {
+          setGroupCaseVariant('correction')
+          setPhase('inPreparation')
+          setCorrectionToastOpen(true)
+        }}
+      />
+
+      <Toast
+        open={correctionToastOpen}
+        onOpenChange={setCorrectionToastOpen}
+        title="Correction case created"
       />
     </div>
   )

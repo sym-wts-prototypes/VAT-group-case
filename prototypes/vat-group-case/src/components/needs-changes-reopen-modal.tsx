@@ -19,6 +19,8 @@ import {
   cn,
 } from '@wts/ui'
 
+import { SectionLabel } from '@/components/body/BodyPlaceholder'
+
 const PARENT_COMMENT_MAX_LENGTH = 500
 const CHILD_COMMENT_MAX_LENGTH = 300
 
@@ -43,9 +45,6 @@ type ReopenChoice = 'no' | 'yes'
 export interface NeedsChangesReopenModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Named explicitly in the parent-comment label below (Feature 6 of the "button states &
-   * child-case comments" ticket) so it's unambiguous which case that comment applies to. */
-  parentCaseId: string
   /** Every Child Case in the group — all of them are listed, selection decides which get
    * reopened (see the "Reviewer/Client Needs Changes reopen" ticket, Segment 2). */
   childCases: ReopenableChildCase[]
@@ -73,7 +72,6 @@ export interface NeedsChangesReopenModalProps {
 export function NeedsChangesReopenModal({
   open,
   onOpenChange,
-  parentCaseId,
   childCases,
   onConfirmNeedsChanges,
   onConfirmApprove,
@@ -161,7 +159,6 @@ export function NeedsChangesReopenModal({
 
   const isReopening = reopenChoice === 'yes'
   const selectedChildCases = childCases.filter((c) => selectedIds.has(c.id))
-  const filledChildComments = selectedChildCases.filter((c) => childComments[c.id]?.trim()).length
 
   // Change 2 — the small paperclip button opens this Child Case's own hidden file input;
   // reused for both the first upload and "replace" (Change 4), same input either way.
@@ -193,9 +190,7 @@ export function NeedsChangesReopenModal({
       >
         <DialogHeader className="gap-1.5">
           <DialogTitle>Submit review</DialogTitle>
-          <DialogDescription>
-            You can upload files if needed before approving or requesting changes.
-          </DialogDescription>
+          <DialogDescription className="sr-only">Submit review</DialogDescription>
         </DialogHeader>
 
         {/* Layout-refinement ticket ("review modal YES-state polish") — two visually distinct
@@ -210,13 +205,20 @@ export function NeedsChangesReopenModal({
               parent-comment label fits on one line next to the wider right region); in the NO
               state this instead fills the whole (narrower) dialog width, so form elements sit
               flush with the right edge instead of leaving that width capped and empty. */}
-          <div className={cn('flex flex-col gap-4', isReopening ? 'w-[420px] shrink-0' : 'w-full')}>
+          <div className={cn('flex min-h-0 flex-col gap-4', isReopening ? 'w-[420px] shrink-0' : 'w-full')}>
+            {isReopening && <SectionLabel>Parent case</SectionLabel>}
             <FileDropzone
               id="reopen-upload-documents"
-              label="Upload additional documents (Optional)"
+              label={
+                <>
+                  Upload additional documents{' '}
+                  <span className="font-normal text-muted-foreground">(optional)</span>
+                </>
+              }
               onFileChange={setStagedFileName}
               accept=".csv,.xls,.xlsx"
               hint="Max file size is 5 MB. Supported file types are csv, xls, xlsx."
+              className="flex-1"
             />
 
             <div className="flex flex-col gap-1.5">
@@ -225,18 +227,15 @@ export function NeedsChangesReopenModal({
                   the right, which each name their own Child Case instead). Column width (420px)
                   is sized so this label fits on one line at any zoom level. */}
               <Label htmlFor="reopen-parent-comment" className="whitespace-nowrap">
-                Parent case comment ({parentCaseId}){' '}
-                <span className="font-normal text-muted-foreground">(Optional)</span>
+                Parent case comment{' '}
+                <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
-              <p className="text-xs text-muted-foreground">
-                Applies to the whole group case sent back to the creator.
-              </p>
               <Textarea
                 id="reopen-parent-comment"
                 rows={3}
                 maxLength={PARENT_COMMENT_MAX_LENGTH}
                 value={parentComment}
-                placeholder="Notes for the creator on the overall package…"
+                placeholder="A note for the creators of the parent case…"
                 onChange={(e) => setParentComment(e.target.value)}
               />
               <span className="self-end text-muted-foreground text-xs">
@@ -278,181 +277,169 @@ export function NeedsChangesReopenModal({
                   thin/light to read as a real divider at this width). */}
               <div className="w-0.5 shrink-0 bg-zinc-300" />
 
-              <div className="grid min-w-0 flex-1 grid-cols-2 gap-6">
-                <div className="flex min-h-0 flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label>Child cases to reopen</Label>
-                    <span className="shrink-0 text-muted-foreground text-xs">
-                      {selectedIds.size} of {childCases.length}
-                    </span>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+                <SectionLabel>Child cases</SectionLabel>
+                <div className="grid min-h-0 flex-1 grid-cols-2 gap-6">
+                  <div className="flex min-h-0 flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Child cases to reopen</Label>
+                      <span className="shrink-0 text-muted-foreground text-xs">
+                        {selectedIds.size} of {childCases.length}
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search child cases…"
+                        className="h-9 pl-8"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={selectAllVisible}
+                        className="text-xs font-medium text-[hsl(var(--link))] hover:underline"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearSelection}
+                        className="text-xs font-medium text-[hsl(var(--link))] hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    {/* Change 3/6 — fills the rest of the fixed-height column (flex-1 + min-h-0
+                        instead of a max-h cap) so the frame reaches all the way to the column's
+                        bottom, full width, scrolling internally once its own content overflows.
+                        No `truncate` on the entity name: it wraps onto a second line instead of
+                        clipping, matching the "no text overflow" requirement literally. */}
+                    <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
+                      {visibleChildCases.length === 0 ? (
+                        <p className="px-2 py-6 text-center text-muted-foreground text-sm">
+                          No matches. Try a different search term.
+                        </p>
+                      ) : (
+                        visibleChildCases.map((child) => (
+                          <label
+                            key={child.id}
+                            className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 hover:bg-muted"
+                          >
+                            <Checkbox
+                              className="mt-0.5"
+                              checked={selectedIds.has(child.id)}
+                              onCheckedChange={() => toggle(child.id)}
+                            />
+                            <span className="min-w-0 flex-1 text-foreground text-sm">
+                              {child.client}
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
                   </div>
 
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search child cases…"
-                      className="h-9 pl-8"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={selectAllVisible}
-                      className="text-xs font-medium text-[hsl(var(--link))] hover:underline"
-                    >
-                      Select all
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearSelection}
-                      className="text-xs font-medium text-[hsl(var(--link))] hover:underline"
-                    >
-                      Clear
-                    </button>
-                  </div>
-
-                  {/* Change 3/6 — fills the rest of the fixed-height column (flex-1 + min-h-0
-                      instead of a max-h cap) so the frame reaches all the way to the column's
-                      bottom, full width, scrolling internally once its own content overflows.
-                      No `truncate` on the entity name: it wraps onto a second line instead of
-                      clipping, matching the "no text overflow" requirement literally. */}
-                  <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1">
-                    {visibleChildCases.length === 0 ? (
-                      <p className="px-2 py-6 text-center text-muted-foreground text-sm">
-                        No matches. Try a different search term.
-                      </p>
-                    ) : (
-                      visibleChildCases.map((child) => (
-                        <label
-                          key={child.id}
-                          className="flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 hover:bg-muted"
-                        >
-                          <Checkbox
-                            className="mt-0.5"
-                            checked={selectedIds.has(child.id)}
-                            onCheckedChange={() => toggle(child.id)}
-                          />
-                          <span className="min-w-0 flex-1 text-foreground text-sm">
-                            {child.client}
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex min-h-0 flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label>Child case comments</Label>
-                    <span className="shrink-0 text-muted-foreground text-xs">
-                      {filledChildComments} of {selectedChildCases.length} filled
-                    </span>
-                  </div>
-                  {/* Change 3 — short addition noting the (also optional) per-entity document,
-                      not just the comment.
-                      Feature 2 of the "reopen modal rules" ticket — a forced break at the
-                      sentence boundary reads cleaner than letting the browser wrap wherever it
-                      runs out of room, which left "Not" stranded at the end of the first line
-                      and only "mandatory." on the second. */}
-                  <p className="text-xs text-muted-foreground">
-                    A note (and optional document) per child case being sent back.
-                    <br />
-                    Not mandatory.
-                  </p>
-                  {/* Change 3 — light frame added around the scroller (previously borderless),
-                      matching the checklist's own frame; fills to the column's bottom the same
-                      way, via flex-1 + min-h-0 instead of a max-h cap. */}
-                  <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-md border border-border p-2">
-                    {selectedChildCases.length === 0 ? (
-                      // Change 4 — plain informational message: solid border + muted fill,
-                      // not the dashed drag-and-drop treatment (which read as an upload target).
-                      <p className="rounded-md border border-border bg-muted/30 px-3 py-6 text-center text-muted-foreground text-sm">
-                        Select at least one child case to leave it a comment.
-                      </p>
-                    ) : (
-                      selectedChildCases.map((child) => {
-                        const file = childFiles[child.id]
-                        return (
-                          <div key={child.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-3">
-                            <div className="flex items-baseline justify-between gap-2">
-                              {/* Feature 6 — each comment names its own Child Case, so it's
-                                  never ambiguous whose feedback this is (paired with the
-                                  parent-comment label, which names the Parent Case instead). */}
-                              <span className="min-w-0 text-sm font-medium text-foreground">{child.client}</span>
-                              <span className="shrink-0 text-muted-foreground text-xs">{child.id}</span>
-                            </div>
-                            {/* Change 1 — ~2 lines by default (min-h override; the textarea
-                                variants' own min-h-[80px] read closer to 3-4 lines), still
-                                natively resizable via the corner handle if more room is needed.
-                                Change 2 — the small paperclip button sits to the right of the
-                                textarea, not below it, so it doesn't add its own row. */}
-                            <div className="flex items-start gap-2">
-                              <Textarea
-                                rows={2}
-                                maxLength={CHILD_COMMENT_MAX_LENGTH}
-                                value={childComments[child.id] ?? ''}
-                                placeholder="What needs rework for this entity?"
-                                onChange={(e) =>
-                                  setChildComments((prev) => ({ ...prev, [child.id]: e.target.value }))
-                                }
-                                className="min-h-[52px] flex-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="size-8 shrink-0"
-                                aria-label={file ? `Replace document for ${child.client}` : `Attach a document for ${child.client}`}
-                                onClick={() => childFileInputRefs.current[child.id]?.click()}
-                              >
-                                <Paperclip className="size-3.5" aria-hidden />
-                              </Button>
-                              <input
-                                ref={(el) => {
-                                  childFileInputRefs.current[child.id] = el
-                                }}
-                                type="file"
-                                className="hidden"
-                                accept=".pdf,.csv,.xls,.xlsx,.docx"
-                                onChange={(e) => {
-                                  handleChildFilePick(child.id, e.target.files?.[0])
-                                  e.target.value = ''
-                                }}
-                              />
-                            </div>
-                            {/* Change 4 — minimal uploaded-file row: name + size, a small
-                                reupload control (reopens the same file picker) and a remove
-                                control (clears it entirely), no larger than it needs to be. */}
-                            {file && (
-                              <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-2 py-1 text-xs">
-                                <FileIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                                <span className="min-w-0 flex-1 truncate text-foreground">{file.name}</span>
-                                <span className="shrink-0 text-muted-foreground">{formatFileSize(file.size)}</span>
-                                <button
+                  <div className="flex min-h-0 flex-col gap-2">
+                    <Label>
+                      Child cases comments and additional documents{' '}
+                      <span className="font-normal text-muted-foreground">(optional)</span>
+                    </Label>
+                    {/* Change 3 — light frame added around the scroller (previously borderless),
+                        matching the checklist's own frame; fills to the column's bottom the same
+                        way, via flex-1 + min-h-0 instead of a max-h cap. */}
+                    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-md border border-border p-2">
+                      {selectedChildCases.length === 0 ? (
+                        <p className="px-3 py-6 text-center text-muted-foreground text-sm">
+                          Select a child case first…
+                        </p>
+                      ) : (
+                        selectedChildCases.map((child) => {
+                          const file = childFiles[child.id]
+                          return (
+                            <div key={child.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-3">
+                              <div className="flex items-baseline justify-between gap-2">
+                                {/* Feature 6 — each comment names its own Child Case, so it's
+                                    never ambiguous whose feedback this is (paired with the
+                                    parent-comment label, which names the Parent Case instead). */}
+                                <span className="min-w-0 text-sm font-medium text-foreground">{child.client}</span>
+                                <span className="shrink-0 text-muted-foreground text-xs">{child.id}</span>
+                              </div>
+                              {/* Change 1 — ~2 lines by default (min-h override; the textarea
+                                  variants' own min-h-[80px] read closer to 3-4 lines), still
+                                  natively resizable via the corner handle if more room is needed.
+                                  Change 2 — the small paperclip button sits to the right of the
+                                  textarea, not below it, so it doesn't add its own row. */}
+                              <div className="flex items-start gap-2">
+                                <Textarea
+                                  rows={2}
+                                  maxLength={CHILD_COMMENT_MAX_LENGTH}
+                                  value={childComments[child.id] ?? ''}
+                                  placeholder="A note for the creators of the child case…"
+                                  onChange={(e) =>
+                                    setChildComments((prev) => ({ ...prev, [child.id]: e.target.value }))
+                                  }
+                                  className="min-h-[52px] flex-1"
+                                />
+                                <Button
                                   type="button"
-                                  aria-label={`Replace document for ${child.client}`}
-                                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8 shrink-0"
+                                  aria-label={file ? `Replace document for ${child.client}` : `Attach a document for ${child.client}`}
                                   onClick={() => childFileInputRefs.current[child.id]?.click()}
                                 >
-                                  <RefreshCw className="size-3.5" aria-hidden />
-                                </button>
-                                <button
-                                  type="button"
-                                  aria-label={`Remove document for ${child.client}`}
-                                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                                  onClick={() => handleChildFileRemove(child.id)}
-                                >
-                                  <X className="size-3.5" aria-hidden />
-                                </button>
+                                  <Paperclip className="size-3.5" aria-hidden />
+                                </Button>
+                                <input
+                                  ref={(el) => {
+                                    childFileInputRefs.current[child.id] = el
+                                  }}
+                                  type="file"
+                                  className="hidden"
+                                  accept=".pdf,.csv,.xls,.xlsx,.docx"
+                                  onChange={(e) => {
+                                    handleChildFilePick(child.id, e.target.files?.[0])
+                                    e.target.value = ''
+                                  }}
+                                />
                               </div>
-                            )}
-                          </div>
-                        )
-                      })
-                    )}
+                              {/* Change 4 — minimal uploaded-file row: name + size, a small
+                                  reupload control (reopens the same file picker) and a remove
+                                  control (clears it entirely), no larger than it needs to be. */}
+                              {file && (
+                                <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-2 py-1 text-xs">
+                                  <FileIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                                  <span className="min-w-0 flex-1 truncate text-foreground">{file.name}</span>
+                                  <span className="shrink-0 text-muted-foreground">{formatFileSize(file.size)}</span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Replace document for ${child.client}`}
+                                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                                    onClick={() => childFileInputRefs.current[child.id]?.click()}
+                                  >
+                                    <RefreshCw className="size-3.5" aria-hidden />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove document for ${child.client}`}
+                                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                                    onClick={() => handleChildFileRemove(child.id)}
+                                  >
+                                    <X className="size-3.5" aria-hidden />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -461,7 +448,9 @@ export function NeedsChangesReopenModal({
         </div>
 
         <Alert variant="info">
-          Approval sends the package back to the creator, not directly to the client.
+          {isReopening
+            ? 'The parent case and the selected child cases will be sent back to the creator for changes.'
+            : 'Approval sends the package back to the creator, not directly to the client.'}
         </Alert>
 
         <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col sm:items-stretch sm:justify-normal sm:space-x-0">

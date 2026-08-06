@@ -130,9 +130,9 @@ export function PlaygroundMain() {
     baseDescriptor && needChangesCreator
       ? { ...baseDescriptor, actions: NEED_CHANGES_CREATOR_HEADER_ACTIONS }
       : baseDescriptor
-  // Same Due Date pill, same position (bottom right of the header) — just relabeled for the
-  // Group Case's Child Case context, matching the Parent Case header's own "Group Case
-  // Deadline" pill (see parent-vat-group-case-page.tsx).
+  // Same Next Deadline chip, same position (bottom right of the header) — just relabeled for
+  // the Group Case's Child Case context, matching the Parent Case header's own "Group Case
+  // Deadline" chip (see parent-vat-group-case-page.tsx).
   const withDueDateLabel =
     withNeedChanges && isChildCaseView
       ? { ...withNeedChanges, dueDateLabel: 'Group Case Deadline' }

@@ -113,6 +113,9 @@ const CIT: ProcessConfig = {
         parts: SAMPLE_CASE_TITLE.cit,
         subtitle: SAMPLE_CASE.company,
       },
+      // Single Case header only — the case-level Next Deadline chip reads "Statutory
+      // deadline", not the generic "Due Date" the requirement list/bucket headers keep.
+      dueDateLabel: 'Statutory deadline',
     },
     phases: {
       draft: {
@@ -413,6 +416,7 @@ const HR: ProcessConfig = {
         parts: SAMPLE_CASE_TITLE.hr,
         subtitle: SAMPLE_CASE.company,
       },
+      dueDateLabel: 'Statutory deadline',
     },
     phases: {
       draft: {
@@ -470,6 +474,7 @@ const HR: ProcessConfig = {
       title: {
         plain: SAMPLE_HR_CASE_TITLE,
       },
+      dueDateLabel: 'Statutory deadline',
     },
     phases: {
       ...CIT.case.phases,
@@ -538,6 +543,7 @@ const VAT: ProcessConfig = {
         subtitle: SAMPLE_CASE.company,
         subCode: SAMPLE_CASE.vatCode,
       },
+      dueDateLabel: 'Statutory deadline',
     },
     phases: {
       ...CIT.case.phases,

@@ -853,8 +853,8 @@ export function ParentVatGroupCasePage() {
     // (independent of `editable` below, which also gates the header's other primary actions).
     assignedPeopleEditable: isCreator || isReviewer,
     onEditAssignedPeople: () => setAssigneesModalTarget({ kind: 'parent' }),
-    // Blue pill, same visual pattern as the Due Date pill on single (non-group) case headers —
-    // just relabeled, since a VAT Group Case's deadline is the group's, not any one entity's.
+    // Same Next Deadline chip as single (non-group) case headers — just relabeled, since a
+    // VAT Group Case's deadline is the group's, not any one entity's.
     dueDate: formatDottedDate(activeCase.statutoryDeadline),
     dueDateLabel: 'Group Case Deadline',
     // Only the Creator may progress the Parent Case (its primary actions) — everyone else

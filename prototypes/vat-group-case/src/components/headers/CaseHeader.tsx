@@ -2,8 +2,8 @@ import { AssignedPeople, adaptLegacyPeople } from '@/components/assigned-people'
 
 import { Actions } from './parts/Actions'
 import { Breadcrumb } from './parts/Breadcrumb'
-import { DueDate } from './parts/DueDate'
 import { HeaderShell } from './parts/HeaderShell'
+import { NextDeadline } from './parts/NextDeadline'
 import { Title, TitleSubtitle } from './parts/Title'
 import type { HeaderDescriptor } from '@/types'
 
@@ -54,8 +54,8 @@ export function CaseHeader({
         </div>
 
         {/* items-center — the AssignedPeople pill (~42px, driven by its 32px avatars) is
-            noticeably taller than the DueDate badge (~26px, Badge's default `sm` size);
-            bottom-aligning them left the badge visually offset below the pill's center. */}
+            noticeably taller than the NextDeadline chip (~30px); bottom-aligning them left
+            the chip visually offset below the pill's center. */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           {descriptor.people || descriptor.assignedPeople ? (
             <AssignedPeople
@@ -69,10 +69,9 @@ export function CaseHeader({
             <span />
           )}
           {descriptor.dueDate && (
-            <DueDate
+            <NextDeadline
               date={descriptor.dueDate}
-              variant="sky"
-              label={descriptor.dueDateLabel}
+              label={descriptor.dueDateLabel ?? 'Due Date'}
               className="shrink-0"
             />
           )}

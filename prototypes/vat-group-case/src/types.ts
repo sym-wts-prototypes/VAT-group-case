@@ -137,6 +137,8 @@ export interface HeaderDescriptor {
    * component's own rule, independent of the broader `editable` flag below (which also gates
    * unrelated workflow actions). Defaults to `editable` when omitted. */
   assignedPeopleEditable?: boolean
+  /** Wired to AssignedPeople's own Edit action (only rendered there when editable). */
+  onEditAssignedPeople?: () => void
   dueDate?: string
   /** Overrides the due-date pill's label — e.g. "Group Case Deadline" for VAT Group cases.
    * Defaults to "Due Date" (see DueDate.tsx) when omitted. */

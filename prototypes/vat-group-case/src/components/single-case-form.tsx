@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Badge,
   Button,
@@ -23,6 +23,7 @@ import {
 // `DateRangePickerProps` instead of adding a new dependency for a single type import.
 type DateRange = NonNullable<DateRangePickerProps['value']>
 
+import type { AssignedPeopleData } from './assigned-people'
 import type { CaseListItem } from './case-management-data'
 import {
   activeMembers,
@@ -78,6 +79,33 @@ const DUMMY_USERS: SelectableUser[] = [
 const DEFAULT_CREATOR_IDS = ['maria-fischer']
 const DEFAULT_REVIEWER_IDS = ['jordan-miller']
 
+// "Edit roles" ticket — reuses this exact drawer/form (not a separate one) to edit an ALREADY-
+// EXISTING VAT Group Case's Parent or Child Case assignees, locking every other field to
+// whatever it was when the group case was originally created. `caseName` is the one thing that
+// differs between editing the Parent Case and editing one of its Child Cases (see the Case name
+// preview below) — everything else (legal entity, group, jurisdiction, VAT registration) is the
+// same for both, since both stem from the same original group-creation form state.
+export interface EditCaseRolesContext {
+  kind: 'parent' | 'child'
+  caseName: string
+  /** `kind: 'child'` only — the Parent Case this Child Case belongs to, named right under the
+   * Case name preview so it's unmistakable which group case the roles being edited feed into. */
+  parentCaseName?: string
+  legalEntityId: string
+  legalEntityName: string
+  groupId: string
+  groupName: string
+  jurisdiction: string
+  vatRegCountry: string
+  vatRegistrationNumber: string
+  /** Scopes the Creator/Reviewer/Partner/Client pickers, same rule as at creation time. */
+  orgId: string
+  /** Prepopulates the pickers — the Parent Case's own assignees, or this specific Child Case's
+   * own (not the Parent's), depending on `kind`. */
+  assignees: AssignedPeopleData
+  onSave: (people: AssignedPeopleData) => void
+}
+
 export interface SingleCaseFormContentProps {
   /** Mirrors the parent Sheet's `open` — drives the reset-on-open effect below. */
   open: boolean
@@ -88,6 +116,9 @@ export interface SingleCaseFormContentProps {
   /** Called with the newly generated cases once the scheduler submits — Case Management owns
    * persisting/displaying them, this form just hands over what it produced. */
   onCasesGenerated?: (items: CaseListItem[]) => void
+  /** When set, this drawer opens in "edit roles" mode instead of the normal creation flow — see
+   * EditCaseRolesContext. */
+  editContext?: EditCaseRolesContext
 }
 
 export function SingleCaseFormContent({
@@ -97,7 +128,13 @@ export function SingleCaseFormContent({
   organisations,
   groups,
   onCasesGenerated,
+  editContext,
 }: SingleCaseFormContentProps) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  // "Edit roles" ticket — a brief highlight flash on the Creator/Reviewer/Partner/Client block
+  // right after the auto-scroll below lands there, so it's unmistakable which part of the
+  // (mostly locked) form just became the point of attention.
+  const [highlightAssignees, setHighlightAssignees] = useState(false)
   const [legalEntityId, setLegalEntityId] = useState<string | undefined>(undefined)
   const [serviceLineKey, setServiceLineKey] = useState<string | undefined>(undefined)
   const [caseType, setCaseType] = useState<string | undefined>(undefined)
@@ -127,9 +164,10 @@ export function SingleCaseFormContent({
 
   // Reset to a fresh, empty form every time the drawer opens — mirrors the group-case form's
   // reset-on-open behavior so switching the Case Type toggle back to Single Case never shows
-  // a stale previous entry.
+  // a stale previous entry. Skipped entirely in "edit roles" mode (see the seed effect below,
+  // which populates the form instead of clearing it).
   useEffect(() => {
-    if (!open) return
+    if (!open || editContext) return
     setLegalEntityId(undefined)
     setServiceLineKey(undefined)
     setCaseType(undefined)
@@ -149,7 +187,56 @@ export function SingleCaseFormContent({
     setCustomCaseTypeName('')
     setSelectedGroupId(undefined)
     setGroupSchedulerOpen(false)
-  }, [open])
+  }, [open, editContext])
+
+  // "Edit roles" ticket — prepopulates every field exactly as it was when this VAT Group Case
+  // was originally created (locked below, see each field's `disabled`), and seeds the
+  // Creator/Reviewer/Partner/Client pickers from this specific case's own assignees (the Parent
+  // Case's, or a particular Child Case's — see EditCaseRolesContext). Runs instead of the reset
+  // effect above, not in addition to it.
+  useEffect(() => {
+    if (!open || !editContext) return
+    setServiceLineKey('VAT')
+    setCaseType(VAT_GROUP_CASE_TYPE)
+    setLegalEntityId(editContext.legalEntityId)
+    setSelectedGroupId(editContext.groupId)
+    setJurisdiction(editContext.jurisdiction)
+    setVatRegCountry(editContext.vatRegCountry)
+    setVatRegistrationNumber(editContext.vatRegistrationNumber)
+    const pool = usersForOrg(editContext.orgId)
+    const idsFor = (people?: { name: string; email: string }[]) =>
+      (people ?? []).map((p) => pool.find((u) => u.email === p.email)?.id).filter((id): id is string => !!id)
+    setCreatorIds(idsFor(editContext.assignees.creator))
+    setReviewerIds(idsFor(editContext.assignees.reviewer))
+    setPartnerIds(idsFor(editContext.assignees.partner))
+    setClientIds(idsFor(editContext.assignees.client))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editContext])
+
+  // "Edit roles" ticket — lands straight on the Creator/Reviewer/Partner/Client fields at the
+  // bottom (the only editable part) so the user can start assigning immediately, with no wall of
+  // locked fields to scroll past first. Jumps instantly (no smooth animation) so the drawer is
+  // already showing the bottom the moment it's visible, rather than opening at the top and
+  // animating down. Also flashes a brief highlight on that block once it lands, so it's
+  // unmistakable where to look.
+  // The progressive-reveal section those fields live in is gated on `caseType`/`selectedGroupId`
+  // (see below), which the seed effect above only *requests* — React doesn't commit that state
+  // until the render after this effect runs, so a naive `[open, editContext]` dependency fires the
+  // scroll a beat too early, while the section (and its height) still doesn't exist. Depending on
+  // `caseType`/`selectedGroupId` too makes this effect re-fire once they've actually landed, so the
+  // second pass measures the real, fully-rendered scrollHeight.
+  useEffect(() => {
+    if (!open || !editContext) return
+    const scrollId = requestAnimationFrame(() => {
+      contentRef.current?.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'auto' })
+      setHighlightAssignees(true)
+    })
+    const hideId = setTimeout(() => setHighlightAssignees(false), 1200)
+    return () => {
+      cancelAnimationFrame(scrollId)
+      clearTimeout(hideId)
+    }
+  }, [open, editContext, caseType, selectedGroupId])
 
   const isHrOrVat = serviceLineKey === 'HR Tax' || serviceLineKey === 'VAT'
   const isCit = serviceLineKey === 'CIT'
@@ -167,19 +254,25 @@ export function SingleCaseFormContent({
   const selectedGroup = representedGroups.find((g) => g.id === selectedGroupId)
 
   // Clears a stale group pick if the case type moves away from VAT Group Case, or if the
-  // selected entity changes and no longer represents the previously-picked group.
+  // selected entity changes and no longer represents the previously-picked group. Skipped in
+  // edit mode — a Child Case's own legal entity is never the group's representative, so this
+  // would otherwise immediately clear the group the seed effect above just locked in.
   useEffect(() => {
+    if (editContext) return
     if (!isVatGroupCase || !representedGroups.some((g) => g.id === selectedGroupId)) {
       setSelectedGroupId(undefined)
     }
-  }, [isVatGroupCase, representedGroups, selectedGroupId])
+  }, [isVatGroupCase, representedGroups, selectedGroupId, editContext])
 
   // Feature 4 — VAT Group Case doesn't get the Single Case flow's default Creator/Reviewer, and
   // its people pickers are scoped to the legal entity's own organisation (see peoplePool below),
   // not the generic directory — so a switch into this case type must start every role empty
   // rather than carrying over ids that pool may not even contain. Switching back out restores
-  // the normal single-case defaults.
+  // the normal single-case defaults. Skipped in edit mode: `isVatGroupCase` flips true the
+  // moment the seed effect sets `caseType`, which would otherwise wipe the assignees that same
+  // effect just seeded.
   useEffect(() => {
+    if (editContext) return
     if (isVatGroupCase) {
       setCreatorIds([])
       setReviewerIds([])
@@ -189,7 +282,7 @@ export function SingleCaseFormContent({
       setCreatorIds(DEFAULT_CREATOR_IDS)
       setReviewerIds(DEFAULT_REVIEWER_IDS)
     }
-  }, [isVatGroupCase])
+  }, [isVatGroupCase, editContext])
 
   const selectedServiceLine = useMemo(
     () => SERVICE_CATALOGUE.find((s) => s.key === serviceLineKey),
@@ -204,21 +297,28 @@ export function SingleCaseFormContent({
   // i.e. LEGAL_ENTITIES) locks in as the Jurisdiction — no more free-picking. Falls back to
   // Germany on the rare entity with no country on file (there always is one today, but the
   // ticket calls for a safety fallback). Applies to every service line, not just VAT — the
-  // Jurisdiction field means the same thing everywhere in this drawer.
+  // Jurisdiction field means the same thing everywhere in this drawer. Skipped in edit mode —
+  // `entities` isn't even populated there (see the edit-drawer's own call site), and the seed
+  // effect above already set the correct locked Jurisdiction directly.
   useEffect(() => {
+    if (editContext) return
     if (!legalEntityId) {
       setJurisdiction(undefined)
       return
     }
     const entity = entities.find((e) => e.id === legalEntityId)
     setJurisdiction(entity?.jurisdiction ?? entity?.country ?? 'Germany')
-  }, [legalEntityId, entities])
+  }, [legalEntityId, entities, editContext])
 
   // Segment 3 — the country list depends on the selected case type: Cross-border EU case types
   // (EC Sales, Intrastat) only make sense for an EU registration; every other VAT case type
   // (including Custom VAT filing) can also register in the UK or US. Sorted alphabetically by
-  // country name throughout.
+  // country name throughout. Edit mode short-circuits to a single-item list containing just the
+  // case's own locked country — this field's Select is disabled either way, and the real
+  // options list depends on the group's real member data, which the edit-drawer's call site
+  // doesn't pass in (see EditCaseRolesContext — it doesn't need to).
   const vatRegCountryOptions = useMemo(() => {
+    if (editContext) return [editContext.vatRegCountry]
     if (!isVat || !caseType) return []
     const isCrossBorderEu = CROSS_BORDER_EU_CASE_TYPES.includes(caseType)
     const list = isCrossBorderEu ? EU_VAT_COUNTRIES : [...EU_VAT_COUNTRIES, ...NON_EU_VAT_COUNTRIES]
@@ -232,21 +332,26 @@ export function SingleCaseFormContent({
       activeMembers(selectedGroup).flatMap((m) => registrationsForEntity(m.entityId).map((r) => r.country)),
     )
     return sorted.filter((c) => registeredCountries.has(c))
-  }, [isVat, caseType, isVatGroupCase, selectedGroup])
+  }, [editContext, isVat, caseType, isVatGroupCase, selectedGroup])
 
   // The available country list changes with the case type — clear a selection that's no longer
   // offered (e.g. switching from a non-cross-border case type, which includes UK/US, to a
-  // Cross-border EU one) rather than silently keeping an invalid value.
+  // Cross-border EU one) rather than silently keeping an invalid value. Skipped in edit mode
+  // (redundant there anyway — `vatRegCountryOptions` above always includes the locked value).
   useEffect(() => {
+    if (editContext) return
     if (vatRegCountry && !vatRegCountryOptions.includes(vatRegCountry)) {
       setVatRegCountry(undefined)
     }
-  }, [vatRegCountry, vatRegCountryOptions])
+  }, [vatRegCountry, vatRegCountryOptions, editContext])
 
   // Segment 4 — VAT Registration auto-fills from the chosen Country (of VAT registration): its
   // 2-letter code + 11 random digits. Locked (no manual edits); only regenerates when the
-  // country selection itself changes, not on every render.
+  // country selection itself changes, not on every render. Skipped in edit mode — regenerating
+  // would overwrite the case's own real, already-locked VAT registration number with a fresh
+  // random one the moment the seed effect sets `vatRegCountry`.
   useEffect(() => {
+    if (editContext) return
     if (!vatRegCountry) {
       setVatRegistrationNumber('')
       return
@@ -254,7 +359,7 @@ export function SingleCaseFormContent({
     const code = countryCodeFor(vatRegCountry)
     const digits = Array.from({ length: 11 }, () => Math.floor(Math.random() * 10)).join('')
     setVatRegistrationNumber(`${code}${digits}`)
-  }, [vatRegCountry])
+  }, [vatRegCountry, editContext])
 
   // Clears a stale custom name if the user switches away from Custom VAT filing.
   useEffect(() => {
@@ -273,10 +378,19 @@ export function SingleCaseFormContent({
   const legalEntity = entities.find((e) => e.id === legalEntityId)
 
   // Feature 4 — VAT Group Case limits every role picker to the legal entity's own organisation
-  // (not the generic 8-person directory every other case type still uses).
+  // (not the generic 8-person directory every other case type still uses). Edit mode sources
+  // the org directly from EditCaseRolesContext, since `entities`/`legalEntity` aren't populated
+  // there (see the edit-drawer's own call site).
   const peoplePool: SelectableUser[] = useMemo(
-    () => (isVatGroupCase ? (legalEntity ? usersForOrg(legalEntity.orgId) : []) : DUMMY_USERS),
-    [isVatGroupCase, legalEntity],
+    () =>
+      editContext
+        ? usersForOrg(editContext.orgId)
+        : isVatGroupCase
+          ? legalEntity
+            ? usersForOrg(legalEntity.orgId)
+            : []
+          : DUMMY_USERS,
+    [editContext, isVatGroupCase, legalEntity],
   )
   const creatorOptions = peoplePool.filter((u) => !reviewerIds.includes(u.id))
   const reviewerOptions = peoplePool.filter((u) => !creatorIds.includes(u.id))
@@ -302,6 +416,11 @@ export function SingleCaseFormContent({
         projectCode.trim().length > 0)) &&
     (!isVat || (!!vatRegCountry && (!isCustomVatFiling || customCaseTypeName.trim().length > 0)))
 
+  // "Edit roles" ticket — same mandatory-role rule the (now-unused, kept for later)
+  // CaseAssigneesModal enforced: Creator/Reviewer/Client each need >=1 person; Partner stays
+  // optional. Everything else is already locked/valid, so it isn't re-checked here.
+  const canSaveEdit = creatorIds.length > 0 && reviewerIds.length > 0 && clientIds.length > 0
+
   const caseNamePreview = useMemo(() => {
     if (!serviceLineKey || !effectiveCaseType) return null
     if (isCit) {
@@ -312,6 +431,11 @@ export function SingleCaseFormContent({
     }
     return `${serviceLineKey} | ${effectiveCaseType}`
   }, [serviceLineKey, effectiveCaseType, isCit, fiscalYear])
+
+  // Feature 3 ("edit roles" ticket) — the Case name preview shows this specific case's own name
+  // in edit mode (the Parent Case's, or a particular Child Case's), not the generic
+  // ServiceLine|CaseType preview the create flow computes above.
+  const caseNameToShow = editContext ? editContext.caseName : caseNamePreview
 
   const legalEntityName = legalEntity?.legalName ?? ''
   const creatorNames = creatorIds.map((id) => peoplePool.find((u) => u.id === id)?.name).filter((n): n is string => !!n)
@@ -345,12 +469,36 @@ export function SingleCaseFormContent({
   }, [selectedGroup, entities, vatRegCountry])
   const clientName = clientNames.join(', ')
 
+  // Feature 1 ("edit roles" ticket) — converts the picker ids back into the {name,email}-per-role
+  // shape the header/list assignee displays use, the same conversion CaseAssigneesModal (now
+  // unused, kept for later) did.
+  const buildEditedAssignees = (): AssignedPeopleData => {
+    const peopleFor = (ids: string[]) =>
+      ids
+        .map((id) => peoplePool.find((u) => u.id === id))
+        .filter((u): u is SelectableUser => !!u)
+        .map((u) => ({ name: u.name, email: u.email }))
+    return {
+      creator: peopleFor(creatorIds),
+      reviewer: peopleFor(reviewerIds),
+      partner: peopleFor(partnerIds),
+      client: peopleFor(clientIds),
+    }
+  }
+
   // A single, non-group VAT case gets the same VAT Scheduler flow the Group Case form uses
   // (period-by-period case generation) — CIT/HR cases have no scheduler yet, so they just
   // close the drawer directly, same as before this feature existed. VAT Group Case instead
   // opens the existing two-step group-case modal (Segment 5) — the same modal the old "Group
-  // case" toggle position used to open.
+  // case" toggle position used to open. "Edit roles" mode bypasses all of this entirely — there's
+  // no new case to generate, just an assignee update on an existing one.
   const handleSubmit = () => {
+    if (editContext) {
+      if (!canSaveEdit) return
+      editContext.onSave(buildEditedAssignees())
+      onClose()
+      return
+    }
     if (!canCreate) return
     if (isVatGroupCase) {
       setGroupSchedulerOpen(true)
@@ -363,29 +511,36 @@ export function SingleCaseFormContent({
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+      <div ref={contentRef} className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
         <div className="flex flex-col gap-1.5">
           <Label className="text-sm">Legal entity</Label>
-          <Select value={legalEntityId} onValueChange={setLegalEntityId}>
+          <Select value={legalEntityId} onValueChange={setLegalEntityId} disabled={!!editContext}>
             <SelectTrigger data-testid="create-single-case-legal-entity">
               <SelectValue placeholder="Select legal entity" />
             </SelectTrigger>
             <SelectContent>
-              {/* Segment 6 — badges the entities that are a VAT group representative, so picking
-                  one and then Case type → VAT Group Case leads to an enabled, populated
-                  "Select group" dropdown below (the happy path). */}
-              {entities.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  <span className="flex w-full items-center justify-between gap-2">
-                    <span>{e.legalName}</span>
-                    {vatGroupsRepresentedBy(e.id, groups).length > 0 && (
-                      <Badge variant="soft" tone="blue" size="sm">
-                        Representative
-                      </Badge>
-                    )}
-                  </span>
-                </SelectItem>
-              ))}
+              {/* "Edit roles" ticket — a single locked option standing in for the real list,
+                  which isn't even passed to this drawer in edit mode (see EditCaseRolesContext;
+                  the field is disabled either way, so it never needs the rest). */}
+              {editContext ? (
+                <SelectItem value={editContext.legalEntityId}>{editContext.legalEntityName}</SelectItem>
+              ) : (
+                // Segment 6 — badges the entities that are a VAT group representative, so picking
+                // one and then Case type → VAT Group Case leads to an enabled, populated
+                // "Select group" dropdown below (the happy path).
+                entities.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    <span className="flex w-full items-center justify-between gap-2">
+                      <span>{e.legalName}</span>
+                      {vatGroupsRepresentedBy(e.id, groups).length > 0 && (
+                        <Badge variant="soft" tone="blue" size="sm">
+                          Representative
+                        </Badge>
+                      )}
+                    </span>
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -403,6 +558,7 @@ export function SingleCaseFormContent({
                 setInternalDeadline(undefined)
                 setStatutoryDeadline(undefined)
               }}
+              disabled={!!editContext}
             >
               <SelectTrigger data-testid="create-single-case-service-line">
                 <SelectValue placeholder="Select service line" />
@@ -419,7 +575,7 @@ export function SingleCaseFormContent({
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Case type</Label>
-            <Select value={caseType} onValueChange={setCaseType} disabled={!serviceLineKey}>
+            <Select value={caseType} onValueChange={setCaseType} disabled={!!editContext || !serviceLineKey}>
               <SelectTrigger data-testid="create-single-case-type">
                 <SelectValue placeholder="Select case type" />
               </SelectTrigger>
@@ -459,7 +615,7 @@ export function SingleCaseFormContent({
             <Select
               value={selectedGroupId}
               onValueChange={setSelectedGroupId}
-              disabled={representedGroups.length === 0}
+              disabled={!!editContext || representedGroups.length === 0}
             >
               <SelectTrigger data-testid="create-single-case-vat-group">
                 <SelectValue
@@ -471,11 +627,15 @@ export function SingleCaseFormContent({
                 />
               </SelectTrigger>
               <SelectContent>
-                {representedGroups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
+                {editContext ? (
+                  <SelectItem value={editContext.groupId}>{editContext.groupName}</SelectItem>
+                ) : (
+                  representedGroups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -609,7 +769,7 @@ export function SingleCaseFormContent({
           {isVat && !!jurisdiction && (
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm">Country (of VAT registration)</Label>
-              <Select value={vatRegCountry} onValueChange={setVatRegCountry}>
+              <Select value={vatRegCountry} onValueChange={setVatRegCountry} disabled={!!editContext}>
                 <SelectTrigger data-testid="create-single-case-vat-reg-country">
                   <SelectValue placeholder="Select a country" />
                 </SelectTrigger>
@@ -663,6 +823,7 @@ export function SingleCaseFormContent({
                 onChange={(e) => setProjectCode(e.target.value.slice(0, PROJECT_CODE_MAX_LENGTH))}
                 placeholder="Enter project code"
                 maxLength={PROJECT_CODE_MAX_LENGTH}
+                disabled={!!editContext}
                 data-testid="create-single-case-project-code"
               />
             </div>
@@ -676,59 +837,86 @@ export function SingleCaseFormContent({
             </span>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Creator</Label>
-            <UserSelect
-              multiple
-              users={creatorOptions}
-              value={creatorIds}
-              onChange={setCreatorIds}
-              data-testid="create-single-case-creator"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Reviewer</Label>
-            <UserSelect
-              multiple
-              users={reviewerOptions}
-              value={reviewerIds}
-              onChange={setReviewerIds}
-              data-testid="create-single-case-reviewer"
-            />
-            {reviewerOverlapsCreator && (
-              <p className="text-destructive text-xs">Reviewer must be different from the creator.</p>
+          <div
+            className={cn(
+              '-mx-3 flex flex-col gap-4 rounded-lg border border-transparent p-3 transition-colors duration-700',
+              highlightAssignees && 'border-amber-200 bg-amber-50',
             )}
+          >
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Creator</Label>
+              <UserSelect
+                multiple
+                users={creatorOptions}
+                value={creatorIds}
+                onChange={setCreatorIds}
+                data-testid="create-single-case-creator"
+              />
+              {/* "Edit roles" ticket — same mandatory-role rule the (now-unused) CaseAssigneesModal
+                  enforced: orange hint the moment a mandatory role has nobody assigned. */}
+              {creatorIds.length === 0 && (
+                <p className="text-amber-600 text-xs">Creator needs at least one assignee.</p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Reviewer</Label>
+              <UserSelect
+                multiple
+                users={reviewerOptions}
+                value={reviewerIds}
+                onChange={setReviewerIds}
+                data-testid="create-single-case-reviewer"
+              />
+              {reviewerOverlapsCreator && (
+                <p className="text-destructive text-xs">Reviewer must be different from the creator.</p>
+              )}
+              {reviewerIds.length === 0 && (
+                <p className="text-amber-600 text-xs">Reviewer needs at least one assignee.</p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">
+                Partner <span className="font-normal text-neutral-400">(optional)</span>
+              </Label>
+              <UserSelect
+                multiple
+                users={peoplePool}
+                value={partnerIds}
+                onChange={setPartnerIds}
+                data-testid="create-single-case-partner"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm">Client</Label>
+              <UserSelect
+                multiple
+                users={peoplePool}
+                value={clientIds}
+                onChange={setClientIds}
+                data-testid="create-single-case-client"
+              />
+              {clientIds.length === 0 && (
+                <p className="text-amber-600 text-xs">Client needs at least one assignee.</p>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">
-              Partner <span className="font-normal text-neutral-400">(optional)</span>
-            </Label>
-            <UserSelect
-              multiple
-              users={peoplePool}
-              value={partnerIds}
-              onChange={setPartnerIds}
-              data-testid="create-single-case-partner"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm">Client</Label>
-            <UserSelect
-              multiple
-              users={peoplePool}
-              value={clientIds}
-              onChange={setClientIds}
-              data-testid="create-single-case-client"
-            />
-          </div>
-
-          {caseNamePreview && (
+          {caseNameToShow && (
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
               <p className="text-[12px] text-neutral-500">Case name</p>
-              <p className="text-[14px] font-semibold text-neutral-900">{caseNamePreview}</p>
+              <p className="text-[14px] font-semibold text-neutral-900">{caseNameToShow}</p>
+              {/* "Edit roles" ticket — a Child Case's roles feed into its Parent Case's
+                  consolidated filing, so naming that parent right here removes any doubt about
+                  which group case this assignment belongs to. */}
+              {editContext?.kind === 'child' && editContext.parentCaseName && (
+                <p className="mt-1.5 border-t border-neutral-200 pt-1.5 text-[12px] text-neutral-500">
+                  Part of parent case:{' '}
+                  <span className="font-medium text-neutral-700">{editContext.parentCaseName}</span>
+                </p>
+              )}
             </div>
           )}
           </>
@@ -740,11 +928,11 @@ export function SingleCaseFormContent({
           type="button"
           size="lg"
           className="w-full"
-          disabled={!canCreate}
+          disabled={editContext ? !canSaveEdit : !canCreate}
           onClick={handleSubmit}
           data-testid="create-single-case-submit"
         >
-          {canCreate ? 'VAT Scheduler' : 'Create case'}
+          {editContext ? 'Save' : canCreate ? 'VAT Scheduler' : 'Create case'}
         </Button>
         <Button
           type="button"

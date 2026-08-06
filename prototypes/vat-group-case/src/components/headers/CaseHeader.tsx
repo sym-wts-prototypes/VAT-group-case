@@ -62,6 +62,7 @@ export function CaseHeader({
               people={descriptor.assignedPeople ?? adaptLegacyPeople(descriptor.people)}
               editable={descriptor.assignedPeopleEditable ?? descriptor.editable}
               editTooltip={descriptor.editTooltip}
+              onEdit={descriptor.onEditAssignedPeople}
               className="min-w-0"
             />
           ) : (

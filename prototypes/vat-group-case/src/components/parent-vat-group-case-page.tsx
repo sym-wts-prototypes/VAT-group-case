@@ -22,6 +22,7 @@ import {
 
 import { AssignedPeople, type AssignedPeopleData } from '@/components/assigned-people'
 import { SectionLabel, TaskRow } from '@/components/body/BodyPlaceholder'
+import { CreateCaseDrawer } from '@/components/create-case-drawer'
 import { SendPackageDialog, type SendPackageDetails } from '@/components/body/SendPackageDialog'
 import { ConsolidationTaskCard, type ConsolidationUploadedFile } from '@/components/consolidation-task-card'
 import { CreateCorrectionCaseDrawer } from '@/components/create-correction-case-drawer'
@@ -416,23 +417,30 @@ const ALWAYS_ACCESSIBLE_CHILD_DEFAULT_COMMENT: Record<string, string> = {
   'EUROPIPE France': 'Intra-community supplies were reported net of a credit note that has not been reissued yet — please correct and resend.',
 }
 
-// Who's assigned to each Child Case — informational only (Part 1 of the "Child Case
-// Responsibility, Access Messaging & Workflow Variants" ticket): always visible regardless of
-// whether the current role can open that case. Sourced from EUROPIPE's real Organisation Users
-// (see vat-group-case-assignees.ts) rather than the generic 8-person Create Case directory —
-// index 0 (EUROPIPE GmbH, the Representative) always matches the Parent Case's own assignees
-// exactly; every other child gets a different, only-minorly-overlapping profile.
-const CHILD_ASSIGNED_PEOPLE: Record<string, AssignedPeopleData> = Object.fromEntries(
-  PARENT_CASE.children.map((child, index) => [child.id, assignedPeopleForChildIndex(index)]),
-)
-// Correction Child Cases (new ids) reuse the same index-ordered assignees as their original
-// siblings — same legal entity, same people.
-Object.assign(
-  CHILD_ASSIGNED_PEOPLE,
-  Object.fromEntries(
-    CORRECTION_PARENT_CASE.children.map((child, index) => [child.id, assignedPeopleForChildIndex(index)]),
-  ),
-)
+// Who's assigned to each Child Case (Part 1 of the "Child Case Responsibility, Access
+// Messaging & Workflow Variants" ticket): always visible regardless of whether the current role
+// can open that case, and — via the "Edit roles" drawer (see CreateCaseDrawer's editContext
+// below) — editable by Creator/Reviewer. Sourced from EUROPIPE's real Organisation Users (see
+// vat-group-case-assignees.ts) rather than the generic 8-person Create Case directory — index 0
+// (EUROPIPE GmbH, the Representative) always matches the Parent Case's own assignees exactly;
+// every other child gets a different, only-minorly-overlapping profile. A plain function (not a
+// module-level constant) so each component instance seeds its own editable `useState` from it —
+// edits made in one session stick for as long as the prototype stays open, but never leak into a
+// fresh mount.
+function buildInitialChildAssignedPeople(): Record<string, AssignedPeopleData> {
+  const map: Record<string, AssignedPeopleData> = Object.fromEntries(
+    PARENT_CASE.children.map((child, index) => [child.id, assignedPeopleForChildIndex(index)]),
+  )
+  // Correction Child Cases (new ids) reuse the same index-ordered assignees as their original
+  // siblings — same legal entity, same people.
+  Object.assign(
+    map,
+    Object.fromEntries(
+      CORRECTION_PARENT_CASE.children.map((child, index) => [child.id, assignedPeopleForChildIndex(index)]),
+    ),
+  )
+  return map
+}
 
 // Fixed-width stepper AND pill columns so both line up across rows regardless of a row's step
 // count (3 vs 4) or pill label length ("In Review" vs "Ready for Consolidation") — an `auto`
@@ -493,6 +501,16 @@ export function ParentVatGroupCasePage() {
   const [deniedChild, setDeniedChild] = useState<Case | null>(null)
   const [childSearch, setChildSearch] = useState('')
   const [childPage, setChildPage] = useState(1)
+  // "Edit roles" drawer (see CreateCaseDrawer's editContext below) — editable Creator/Reviewer/
+  // Partner/Client per case, seeded from the dummy data below and kept in state so edits stick
+  // for the rest of the session instead of resetting every time the drawer reopens.
+  const [parentAssignedPeople, setParentAssignedPeople] = useState<AssignedPeopleData>(REPRESENTATIVE_ASSIGNEES)
+  const [childAssignedPeople, setChildAssignedPeople] = useState<Record<string, AssignedPeopleData>>(
+    buildInitialChildAssignedPeople,
+  )
+  const [assigneesModalTarget, setAssigneesModalTarget] = useState<
+    { kind: 'parent' } | { kind: 'child'; childId: string; caseName: string } | null
+  >(null)
   // Feature 5 of the "review-flow update batch" ticket — off by default: the list shows every
   // Child Case, completed ones included. Hiding Ready-for-Consolidation cases is opt-in, toggled
   // on via the pill below.
@@ -828,11 +846,13 @@ export function ParentVatGroupCasePage() {
       subCode: REPRESENTATIVE_VAT_REGISTRATION,
     },
     // The Parent Case belongs to the Representative Legal Entity (EUROPIPE GmbH) — its
-    // assignees must be identical to that entity's own Child Case (see EDIT_TOOLTIP below).
-    assignedPeople: REPRESENTATIVE_ASSIGNEES,
+    // assignees must be identical to that entity's own Child Case (see EDIT_TOOLTIP below and
+    // handleSaveParentAssignees, which propagates a save into childAssignedPeople accordingly).
+    assignedPeople: parentAssignedPeople,
     // AssignedPeople's own edit rule: Creator and Reviewer can edit, everyone else is view-only
     // (independent of `editable` below, which also gates the header's other primary actions).
     assignedPeopleEditable: isCreator || isReviewer,
+    onEditAssignedPeople: () => setAssigneesModalTarget({ kind: 'parent' }),
     // Blue pill, same visual pattern as the Due Date pill on single (non-group) case headers —
     // just relabeled, since a VAT Group Case's deadline is the group's, not any one entity's.
     dueDate: formatDottedDate(activeCase.statutoryDeadline),
@@ -879,6 +899,18 @@ export function ParentVatGroupCasePage() {
   const handleApproveFromModal = (comment: string) => {
     setReviewComment(comment.trim() ? comment.trim() : null)
     setPackageReviewOutcome('approved')
+  }
+
+  // See EDIT_TOOLTIP — the Parent Case's assignees are the Representative Legal Entity's own,
+  // so a save here also applies to that entity's Child Case (never to any other child's).
+  const handleSaveParentAssignees = (people: AssignedPeopleData) => {
+    setParentAssignedPeople(people)
+    const repChild = activeCase.children.find((c) => c.client === activeCase.representativeEntity)
+    if (repChild) setChildAssignedPeople((prev) => ({ ...prev, [repChild.id]: people }))
+  }
+
+  const handleSaveChildAssignees = (childId: string) => (people: AssignedPeopleData) => {
+    setChildAssignedPeople((prev) => ({ ...prev, [childId]: people }))
   }
 
   return (
@@ -1143,8 +1175,8 @@ export function ParentVatGroupCasePage() {
           {deniedChild && (
             <Alert variant="warning" title="No access" onClose={() => setDeniedChild(null)}>
               You don't have access. For access, contact{' '}
-              {CHILD_ASSIGNED_PEOPLE[deniedChild.id]?.reviewer?.[0]?.name},{' '}
-              {CHILD_ASSIGNED_PEOPLE[deniedChild.id]?.creator?.[0]?.name}.
+              {childAssignedPeople[deniedChild.id]?.reviewer?.[0]?.name},{' '}
+              {childAssignedPeople[deniedChild.id]?.creator?.[0]?.name}.
             </Alert>
           )}
 
@@ -1219,8 +1251,15 @@ export function ParentVatGroupCasePage() {
                       onClick={handleOpen} (the card is itself a role="button" ancestor). */}
                   <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                     <AssignedPeople
-                      people={CHILD_ASSIGNED_PEOPLE[child.id]}
+                      people={childAssignedPeople[child.id]}
                       editable={isCreator || isReviewer}
+                      onEdit={() =>
+                        setAssigneesModalTarget({
+                          kind: 'child',
+                          childId: child.id,
+                          caseName: child.caseName,
+                        })
+                      }
                       className="border-t border-border pt-3"
                     />
                   </div>
@@ -1322,6 +1361,47 @@ export function ParentVatGroupCasePage() {
         open={correctionToastOpen}
         onOpenChange={setCorrectionToastOpen}
         title="Correction case created"
+      />
+
+      {/* "Edit roles" ticket — reuses the Case Management "Create case" drawer instead of the
+          old CaseAssigneesModal (kept as a component for later, no longer shown here): every
+          field is prepopulated exactly as it was when this VAT Group Case was created and
+          locked, except Creator/Reviewer/Partner/Client, which stay editable. `entities`/
+          `organisations`/`groups` are intentionally empty — edit mode never needs the real
+          collections (see EditCaseRolesContext and single-case-form.tsx's own handling of it),
+          only the locked values already carried on `activeCase`/the target below. */}
+      <CreateCaseDrawer
+        open={assigneesModalTarget !== null}
+        onOpenChange={(o) => !o && setAssigneesModalTarget(null)}
+        entities={[]}
+        organisations={[]}
+        groups={[]}
+        editContext={
+          assigneesModalTarget
+            ? {
+                kind: assigneesModalTarget.kind,
+                caseName:
+                  assigneesModalTarget.kind === 'child' ? assigneesModalTarget.caseName : activeCase.caseName,
+                parentCaseName: assigneesModalTarget.kind === 'child' ? activeCase.caseName : undefined,
+                legalEntityId: activeCase.representativeEntity,
+                legalEntityName: activeCase.representativeEntity,
+                groupId: activeCase.id,
+                groupName: activeCase.vatGroupName,
+                jurisdiction: activeCase.jurisdiction,
+                vatRegCountry: activeCase.jurisdiction,
+                vatRegistrationNumber: REPRESENTATIVE_VAT_REGISTRATION,
+                orgId: PARENT_CASE_ORG_ID,
+                assignees:
+                  assigneesModalTarget.kind === 'child'
+                    ? childAssignedPeople[assigneesModalTarget.childId] ?? {}
+                    : parentAssignedPeople,
+                onSave:
+                  assigneesModalTarget.kind === 'child'
+                    ? handleSaveChildAssignees(assigneesModalTarget.childId)
+                    : handleSaveParentAssignees,
+              }
+            : undefined
+        }
       />
     </div>
   )

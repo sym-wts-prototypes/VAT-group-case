@@ -104,6 +104,11 @@ interface BodyPlaceholderProps {
    * is "needChanges" (see CaseWtsTasksBody) — every other state keeps the single-case dummy
    * copy untouched, and non-Group-Case flows never pass this prop at all. */
   childCommentOverride?: string | null
+  /** The Creator's own "Send for approval" comment (SendPackageDialog, PlaygroundMain.tsx) —
+   *  applied to every role's "Under client review"/"Awaiting your approval" banner at Client
+   *  Approval (plain single case, not a Group Case Child Case), same override shape as
+   *  childCommentOverride above. */
+  creatorClientComment?: string | null
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
@@ -149,6 +154,7 @@ export function BodyPlaceholder({
   initialTaskStatusesOverride,
   sectionHeadingOverride,
   childCommentOverride,
+  creatorClientComment,
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
@@ -214,6 +220,7 @@ export function BodyPlaceholder({
         initialTaskStatusesOverride={initialTaskStatusesOverride}
         sectionHeadingOverride={sectionHeadingOverride}
         childCommentOverride={childCommentOverride}
+        creatorClientComment={creatorClientComment}
       />
     )
   }
@@ -308,6 +315,7 @@ export function BodyPlaceholder({
             phase={phase}
             packageBannerState={packageBannerState}
             submittedBannerOverride={submittedBannerOverride}
+            creatorClientComment={creatorClientComment}
             onOpenBucket={onOpenRequirementBucket}
           />
         ))}
@@ -372,6 +380,7 @@ export function CaseWtsTasksBody({
   initialTaskStatusesOverride,
   sectionHeadingOverride,
   childCommentOverride,
+  creatorClientComment,
 }: {
   process: Process
   role: Role
@@ -401,6 +410,11 @@ export function CaseWtsTasksBody({
    * reopen comment, applied only when the resolved banner state is "needChanges" (replacing the
    * dummy body text, same pattern as parent-vat-group-case-page.tsx's applyReviewComment). */
   childCommentOverride?: string | null
+  /** The Creator's own "Send for approval" comment (SendPackageDialog, PlaygroundMain.tsx) —
+   * shown back to Creator/Reviewer/Partner on the "Under client review" banner (clientApproval,
+   * sent). Client's copy of the same comment is handled separately in ClientBucketCardsBody
+   * below. */
+  creatorClientComment?: string | null
 }) {
   const statuses = taskStatusesForDemo(phase, tasksDoneChecked, {
     process,
@@ -453,7 +467,7 @@ export function CaseWtsTasksBody({
   // scoped to the "needChanges" banner state only (every other state's dummy comment, if any,
   // stays untouched) and only when a Child Case's own comment override was actually passed in
   // (non-Group-Case flows never pass this prop, so they're unaffected).
-  const displayedPackageBanner =
+  const bannerWithChildComment =
     bannerWithTitleOverrides &&
     packageBannerState === 'needChanges' &&
     childCommentOverride != null &&
@@ -466,6 +480,24 @@ export function CaseWtsTasksBody({
           },
         }
       : bannerWithTitleOverrides
+  // The Creator's own "Send for approval" comment: echoed back to Creator/Reviewer/Partner on
+  // the "Under client review" banner (clientApproval, sent) — a reminder of what was told to
+  // the client, not the client's own decision comment (that's the needChanges override above).
+  const displayedPackageBanner =
+    bannerWithChildComment &&
+    phase === 'clientApproval' &&
+    role !== 'client' &&
+    packageBannerState === 'sent' &&
+    creatorClientComment != null &&
+    bannerWithChildComment.descriptor.comments
+      ? {
+          ...bannerWithChildComment,
+          descriptor: {
+            ...bannerWithChildComment.descriptor,
+            comments: { ...bannerWithChildComment.descriptor.comments, body: creatorClientComment },
+          },
+        }
+      : bannerWithChildComment
   const requiredItems = listItems.filter((item) => !item.optional)
   const optionalItems = listItems.filter((item) => item.optional)
   const sectionLabel = isSubmissionPhase ? 'Submission confirmation' : 'Tasks'
@@ -653,6 +685,7 @@ function ClientBucketCardsBody({
   phase,
   packageBannerState,
   submittedBannerOverride,
+  creatorClientComment,
   onOpenBucket,
 }: {
   process: Process
@@ -660,6 +693,7 @@ function ClientBucketCardsBody({
   phase: Phase
   packageBannerState: PackageBannerState
   submittedBannerOverride?: { title?: string; description?: string }
+  creatorClientComment?: string | null
   onOpenBucket?: (categoryId: string) => void
 }) {
   const canOpenBucket = phase !== 'draft'
@@ -673,13 +707,29 @@ function ClientBucketCardsBody({
     packageBanner && phase === 'submitted' && submittedBannerOverride
       ? { ...packageBanner, descriptor: { ...packageBanner.descriptor, ...submittedBannerOverride } }
       : packageBanner
+  // The Creator's own "Send for approval" comment only ever replaces the placeholder on the
+  // "requested" (awaiting-your-approval) banner — every other state (needChanges/approved)
+  // keeps its own existing static copy untouched.
+  const bannerWithCreatorComment =
+    displayedPackageBanner &&
+    creatorClientComment != null &&
+    packageBannerState === 'requested' &&
+    displayedPackageBanner.descriptor.comments
+      ? {
+          ...displayedPackageBanner,
+          descriptor: {
+            ...displayedPackageBanner.descriptor,
+            comments: { ...displayedPackageBanner.descriptor.comments, body: creatorClientComment },
+          },
+        }
+      : displayedPackageBanner
 
   return (
     <div className="flex flex-col gap-6">
-      {displayedPackageBanner && (
+      {bannerWithCreatorComment && (
         <PackageBanner
-          descriptor={displayedPackageBanner.descriptor}
-          packageFileName={displayedPackageBanner.packageFileName}
+          descriptor={bannerWithCreatorComment.descriptor}
+          packageFileName={bannerWithCreatorComment.packageFileName}
           hideVersionHistory
         />
       )}

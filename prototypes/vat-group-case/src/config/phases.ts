@@ -62,6 +62,7 @@ export const PHASE_LABELS: Record<Phase, string> = {
  * Consolidation is no longer a step of its own — its functionality now lives as a task inside
  * In Preparation, see parent-vat-group-case-page.tsx). */
 export const PARENT_CASE_PHASES: Phase[] = [
+  'draft',
   'inPreparation',
   'inReview',
   'clientApproval',

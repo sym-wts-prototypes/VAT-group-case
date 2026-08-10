@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronDown, Download, File as FileIcon, Trash2, Upload } from 'lucide-react'
 
 import {
@@ -45,6 +45,10 @@ export interface ConsolidationTaskCardProps {
    * (see parent-vat-group-case-page.tsx's `primaryDisabled`). */
   isDone: boolean
   onDoneChange: (done: boolean) => void
+  /** Overrides the default "Available when..." copy shown while the task is 'notStarted' —
+   *  e.g. the Parent Case's Draft state, where citing "Ready for Consolidation" doesn't read
+   *  naturally since child cases haven't even reached In Preparation yet. */
+  notStartedHelperText?: ReactNode
 }
 
 export function ConsolidationTaskCard({
@@ -55,6 +59,7 @@ export function ConsolidationTaskCard({
   onRemoveFile,
   isDone,
   onDoneChange,
+  notStartedHelperText,
 }: ConsolidationTaskCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
@@ -63,9 +68,11 @@ export function ConsolidationTaskCard({
 
   const helperText =
     status === 'notStarted' ? (
-      <>
-        Available when all child cases reach the <span className="italic">Ready for Consolidation</span> step
-      </>
+      notStartedHelperText ?? (
+        <>
+          Available when all child cases reach the <span className="italic">Ready for Consolidation</span> step
+        </>
+      )
     ) : status === 'inProgress' ? (
       'Upload the consolidation documents, then mark this task Done to continue'
     ) : (

@@ -136,7 +136,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaReviewRequestedByReviewer(),
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'inReview:reviewer:approved': {
     variant: 'green',
@@ -147,7 +147,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaApprovedByReviewer(),
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'inReview:partner:sent': {
     variant: 'purple',
@@ -214,6 +214,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaSentToClient(),
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'clientApproval:reviewer:sent': {
     variant: 'purple',
@@ -224,6 +225,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaSentToClient(),
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Creator comment', body: 'This is a comment' },
   },
   'clientApproval:partner:sent': {
     variant: 'purple',
@@ -234,6 +236,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaSentToClient(),
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Creator comment', body: 'This is a comment' },
   },
   'clientApproval:client:requested': {
     variant: 'purple',
@@ -244,6 +247,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaReviewRequested(),
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Creator comment', body: 'This is a comment' },
   },
   'clientApproval:client:needChanges': {
     variant: 'amber',
@@ -254,7 +258,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaChangesByClient(),
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'clientApproval:client:approved': {
     variant: 'green',
@@ -265,7 +269,7 @@ const BANNERS: Partial<Record<BannerKey, PackageBannerDescriptor>> = {
     meta: metaApprovedByClient(),
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'clientApproval:creator:needChanges': {
     variant: 'amber',

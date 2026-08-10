@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowUpLeft } from 'lucide-react'
 
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
+import { SendPackageDialog, type SendPackageDetails } from '@/components/body/SendPackageDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { CaseManagementPage } from '@/components/case-management-page'
 import { CORRECTION_PARENT_CASE, DUMMY_GROUP_CASES } from '@/components/case-management-data'
@@ -68,6 +69,12 @@ export function PlaygroundMain() {
   // edited, or removed afterwards (see the "Split closing comment" ticket, Segment 5).
   const [internalClosingComment, setInternalClosingComment] = useState('')
   const [clientClosingComment, setClientClosingComment] = useState('')
+  // Plain (non-group) single-case flow's own "Send for approval" confirm dialog — same
+  // component and same creator-comment-for-the-client behaviour as the Group Case's own
+  // SendPackageDialog usage (parent-vat-group-case-page.tsx), just a separate instance since
+  // this is a different component tree.
+  const [sendApprovalOpen, setSendApprovalOpen] = useState(false)
+  const [creatorClientComment, setCreatorClientComment] = useState<string | null>(null)
 
   if (showCaseManagement) {
     return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
@@ -299,14 +306,17 @@ export function PlaygroundMain() {
     ) {
       setPhase('inReview')
     }
+    // Creator, In Review: "Send for approval" (plain case) / "Send to approval" (Group Case
+    // Child Case) is already a real, enabled button once the Playground's "Approved" checkbox
+    // is ticked (see approvedChecked/isCaseApprovalGateActive above) — opens the same confirm
+    // dialog + creator-comment behaviour either way, same as the Group Case Parent page.
     if (
-      isChildCaseView &&
       role === 'creator' &&
       phase === 'inReview' &&
-      label === 'Send to approval' &&
+      (label === 'Send for approval' || label === 'Send to approval') &&
       !primaryDisabled
     ) {
-      setPhase('clientApproval')
+      setSendApprovalOpen(true)
     }
     if (
       isChildCaseView &&
@@ -442,6 +452,7 @@ export function PlaygroundMain() {
             : undefined
         }
         childCommentOverride={childCommentOverride}
+        creatorClientComment={creatorClientComment}
         selectedRequirementCategoryId={selectedRequirementCategoryId}
         onOpenRequirementList={() => setHeaderType('requirementList')}
         onOpenRequirementBucket={(categoryId) => {
@@ -463,6 +474,19 @@ export function PlaygroundMain() {
           setInternalClosingComment(comments.internalComment)
           setClientClosingComment(comments.clientComment)
           setPhase('summary')
+        }}
+      />
+
+      <SendPackageDialog
+        open={sendApprovalOpen}
+        title={isChildCaseView ? 'Send to approval' : 'Send for approval'}
+        description="This sends the package to the client for approval."
+        confirmLabel={isChildCaseView ? 'Send to approval' : 'Send for approval'}
+        onClose={() => setSendApprovalOpen(false)}
+        onConfirm={(details: SendPackageDetails) => {
+          setPhase('clientApproval')
+          setCreatorClientComment(details.comment.trim() || null)
+          setSendApprovalOpen(false)
         }}
       />
     </div>

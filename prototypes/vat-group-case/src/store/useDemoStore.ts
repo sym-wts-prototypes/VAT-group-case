@@ -176,6 +176,16 @@ function reconcile(
   proposed.platform = platformForRole(proposed.role)
   proposed.phase = normalizePhase(proposed.phase)
 
+  // VAT Group Parent Case: "Tasks Done" is repurposed as "every Child Case is Ready for
+  // Consolidation" (see parent-vat-group-case-page.tsx) — a fact about the world, not a
+  // per-visit gate, so it must survive navigating away from and back to In Preparation (e.g.
+  // Send for review, or a Reviewer/Client "Need Changes" reset — see the "In Progress Label &
+  // Return-State" ticket's Segments 3-4). Every other case type keeps the original per-phase
+  // reset below. Computed early because the Draft-for-Client rule right below also needs it —
+  // the Parent Case's own Draft state is Client-visible (Feature 1), unlike the single-case
+  // Draft stage isPhaseDisabledInControls() otherwise hides from Client.
+  const isGroupParentCase = proposed.caseKind === 'group' && proposed.groupCaseView === 'parent'
+
   // Assessment & Closure is a CIT-only stage.
   if (proposed.phase === 'assessmentClosure' && proposed.process !== 'cit') {
     proposed.phase = defaultPhaseForControls(proposed.role)
@@ -184,7 +194,7 @@ function reconcile(
     proposed.phase = defaultPhaseForControls(proposed.role)
   }
 
-  if (isPhaseDisabledInControls(proposed.phase, proposed.role)) {
+  if (!isGroupParentCase && isPhaseDisabledInControls(proposed.phase, proposed.role)) {
     proposed.phase = defaultPhaseForControls(proposed.role)
   }
 
@@ -235,14 +245,6 @@ function reconcile(
   }
 
   proposed.platform = platformForRole(proposed.role)
-
-  // VAT Group Parent Case: "Tasks Done" is repurposed as "every Child Case is Ready for
-  // Consolidation" (see parent-vat-group-case-page.tsx) — a fact about the world, not a
-  // per-visit gate, so it must survive navigating away from and back to In Preparation (e.g.
-  // Send for review, or a Reviewer/Client "Need Changes" reset — see the "In Progress Label &
-  // Return-State" ticket's Segments 3-4). Every other case type keeps the original per-phase
-  // reset below.
-  const isGroupParentCase = proposed.caseKind === 'group' && proposed.groupCaseView === 'parent'
 
   if (next.phase !== undefined) {
     if (proposed.phase !== 'inPreparation' && !isGroupParentCase) {

@@ -85,6 +85,7 @@ const CLIENT_APPROVAL_BANNERS: Partial<Record<PackageBannerState, PackageBannerD
     meta: `Review requested by ${SAMPLE_PEOPLE.creator} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Creator comment', body: 'This is a comment' },
   },
   needChanges: {
     variant: 'amber',
@@ -94,7 +95,7 @@ const CLIENT_APPROVAL_BANNERS: Partial<Record<PackageBannerState, PackageBannerD
     meta: `Changes requested by ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   approved: {
     variant: 'green',
@@ -104,7 +105,7 @@ const CLIENT_APPROVAL_BANNERS: Partial<Record<PackageBannerState, PackageBannerD
     meta: `Approved by ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
 }
 
@@ -113,7 +114,7 @@ const CLIENT_APPROVAL_BANNERS: Partial<Record<PackageBannerState, PackageBannerD
 // needChanges/approved decision states, all of Client Approval), and adapts only the "sent"
 // copy to name the Group Case package explicitly. Partner falls back to Creator's own copy
 // (informational, non-decision-maker in both phases, same as the single-case flow).
-type ParentBannerKey = `${'inReview' | 'clientApproval'}:${'creator' | 'reviewer'}:${PackageBannerState}`
+type ParentBannerKey = `${'inReview' | 'clientApproval'}:${'creator' | 'reviewer' | 'partner'}:${PackageBannerState}`
 const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> = {
   'inReview:creator:sent': {
     variant: 'purple',
@@ -162,7 +163,7 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     meta: 'Changes requested',
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'inReview:reviewer:approved': {
     variant: 'green',
@@ -172,7 +173,7 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     meta: 'Approved',
     showFooter: true,
     showVersionHistory: true,
-    comments: { label: 'Your comments', body: 'This is a comment' },
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'clientApproval:creator:sent': {
     variant: 'purple',
@@ -182,6 +183,7 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     meta: 'Sent for client approval',
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Your comment', body: 'This is a comment' },
   },
   'clientApproval:creator:needChanges': {
     variant: 'amber',
@@ -211,6 +213,17 @@ const PARENT_BANNERS: Partial<Record<ParentBannerKey, PackageBannerDescriptor>> 
     meta: `Request sent to ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
     showFooter: true,
     showVersionHistory: true,
+    comments: { label: 'Creator comment', body: 'This is a comment' },
+  },
+  'clientApproval:partner:sent': {
+    variant: 'purple',
+    icon: 'fileText',
+    title: 'Under client review',
+    description: "The package is with the client for approval. You'll be notified once they respond.",
+    meta: `Request sent to ${CLIENT_NAMES} · ${DEMO_TIMESTAMP}`,
+    showFooter: true,
+    showVersionHistory: true,
+    comments: { label: 'Creator comment', body: 'This is a comment' },
   },
   'clientApproval:reviewer:needChanges': {
     variant: 'amber',
@@ -255,6 +268,13 @@ function resolveParentBanner(
   role: Role,
   packageReviewOutcome: PackageReviewOutcome,
 ): PackageBannerDescriptor | undefined {
+  // Partner gets its own copy only for the pending-decision "Under client review" banner (so
+  // its "Creator comment" label doesn't collide with Creator's own "Your comment" — see
+  // PARENT_BANNERS above); every other state/phase keeps the existing fallback to Creator's
+  // copy (informational, non-decision-maker, same as the single-case flow).
+  if (phase === 'clientApproval' && role === 'partner' && packageReviewOutcome === 'default') {
+    return PARENT_BANNERS['clientApproval:partner:sent']
+  }
   const bannerRole = role === 'reviewer' ? 'reviewer' : 'creator'
   const state = packageBannerStateFromOutcome(phase, bannerRole, packageReviewOutcome)
   return PARENT_BANNERS[`${phase}:${bannerRole}:${state}`]
@@ -278,13 +298,18 @@ const SKIPPED_APPROVAL_TOOLTIP =
 
 // Each Child Case's workflow status — independent of whether it requires Client Approval at
 // all (a case that skips it just uses a 3-step progression instead of 4, see STEPS_* below).
-type WorkflowStatus = 'InPreparation' | 'InReview' | 'ClientApproval' | 'ReadyForConsolidation'
+// 'Draft' is a display-only addition (see displayStatus in the row render below) — it never
+// flows into WORKFLOW_STATUS_TO_PHASE/STEPS_WITH_APPROVAL/STEPS_WITHOUT_APPROVAL, since a
+// child's real status (and its navigation/tooltip behaviour) doesn't change while the Parent
+// Case itself is in Draft — only the chip it's shown with does.
+type WorkflowStatus = 'InPreparation' | 'InReview' | 'ClientApproval' | 'ReadyForConsolidation' | 'Draft'
 
 const WORKFLOW_STATUS_LABEL: Record<WorkflowStatus, string> = {
   InPreparation: 'In Preparation',
   InReview: 'In Review',
   ClientApproval: 'Client Approval',
   ReadyForConsolidation: 'Ready for Consolidation',
+  Draft: 'Draft',
 }
 
 // Current-step pill color, by stage: In Preparation is blue, every intermediate stage (In
@@ -295,6 +320,7 @@ const WORKFLOW_STATUS_BADGE_TONE: Record<WorkflowStatus, BadgeTone> = {
   InReview: 'orange',
   ClientApproval: 'orange',
   ReadyForConsolidation: 'green',
+  Draft: 'gray',
 }
 
 // Where clicking a Child Case lands in the normal case dispatch — mirrors
@@ -305,6 +331,10 @@ const WORKFLOW_STATUS_TO_PHASE: Record<WorkflowStatus, Phase> = {
   InReview: 'inReview',
   ClientApproval: 'clientApproval',
   ReadyForConsolidation: 'submitted',
+  // Never actually looked up — 'Draft' only ever appears as the row's display-only chip
+  // value, never as the real per-child `status` this map is keyed from. Present only because
+  // this is a full Record over WorkflowStatus.
+  Draft: 'draft',
 }
 
 // A Child Case's full progression when Client Approval applies, vs. the shorter one when it
@@ -329,16 +359,21 @@ function miniStepperStates(steps: WorkflowStatus[], current: WorkflowStatus): Mi
 // below), so this stepper matches the single-case one exactly. Client Approval/Submission stay
 // visible as the case's eventual remaining steps, same as the single-case stepper always shows
 // the full journey rather than only what's implemented so far.
-type ParentPhase = 'inPreparation' | 'inReview' | 'clientApproval' | 'submitted'
+// 'draft' is a real Parent Case phase (content below reacts to it directly), but per design
+// it never gets its own stepper box — the stepper keeps showing exactly what it shows for In
+// Preparation while the case is in Draft (see the parentStepperStates call site below, which
+// maps 'draft' to 'inPreparation' before this narrower type ever sees it).
+type ParentPhase = 'draft' | 'inPreparation' | 'inReview' | 'clientApproval' | 'submitted'
+type ParentStepperPhase = Exclude<ParentPhase, 'draft'>
 const PARENT_STEPPER_LABELS = ['In Preparation', 'In Review', 'Client Approval', 'Submission']
-const PARENT_PHASE_INDEX: Record<ParentPhase, number> = {
+const PARENT_PHASE_INDEX: Record<ParentStepperPhase, number> = {
   inPreparation: 0,
   inReview: 1,
   clientApproval: 2,
   submitted: 3,
 }
 
-function parentStepperStates(phase: ParentPhase): { label: string; state: StepperStepState }[] {
+function parentStepperStates(phase: ParentStepperPhase): { label: string; state: StepperStepState }[] {
   const activeIndex = PARENT_PHASE_INDEX[phase]
   // Submission is shown as already-finished the instant it's reached — the tax authority
   // submission itself is what "Submission" represents, and that's already done by this point.
@@ -521,6 +556,11 @@ export function ParentVatGroupCasePage() {
   // "whatever was written in the most recently confirmed decision" — null renders no comment
   // row at all, matching the field's own optional/blank-means-empty behaviour.
   const [reviewComment, setReviewComment] = useState<string | null>(null)
+  // Separate from reviewComment above — that one comes from the Needs Changes reopen modal
+  // and is shown to Creator/Reviewer/Partner. This one comes from the "Send for approval"
+  // dialog's Comment field (SendPackageDialog) and is shown only to the Client, on the
+  // Client-Approval-requested banner (CLIENT_APPROVAL_BANNERS.requested below).
+  const [creatorClientComment, setCreatorClientComment] = useState<string | null>(null)
   // Segment 3 — which phase a "Need Changes" decision came from, so the Creator/Reviewer/
   // Partner still see the right "Changes requested by reviewer/client" copy + comment once the
   // Parent Case has already snapped back to In Preparation (handleReopenChildCases sets the
@@ -530,7 +570,8 @@ export function ParentVatGroupCasePage() {
   // Driven by the Playground's own global Phase control (see ControlPanel.tsx's
   // PARENT_CASE_PHASES) rather than local state, so the PHASE radio buttons can manually
   // trigger/render each step exactly like every other case page in this prototype.
-  const parentPhase: ParentPhase = phase in PARENT_PHASE_INDEX ? (phase as ParentPhase) : 'inPreparation'
+  const parentPhase: ParentPhase =
+    phase === 'draft' || phase in PARENT_PHASE_INDEX ? (phase as ParentPhase) : 'inPreparation'
   // Feature 5 of the "VAT-registration alignment" ticket — the Creator-uploaded consolidation
   // documents (any number, see consolidation-task-card.tsx) and the task's own manual Done
   // toggle, replacing the old single generated-file/uploadedFileName pair.
@@ -577,7 +618,8 @@ export function ParentVatGroupCasePage() {
   // correct as-is (see the "Creator In Progress Task Element on Needs Changes / Client Return"
   // ticket) and must not gain a task card it didn't have before. Client never sees this task,
   // consistent with every other WTS-team-only element on this page.
-  const showConsolidationTask = !isClient && (parentPhase === 'inPreparation' || (isNeedChangesReset && isCreator))
+  const showConsolidationTask =
+    !isClient && (parentPhase === 'inPreparation' || parentPhase === 'draft' || (isNeedChangesReset && isCreator))
 
   // Client sees the same child-case list the Creator/Reviewer see In Preparation — full page
   // size, real per-child status — all the way through In Review (Feature 10); Client Approval
@@ -590,6 +632,7 @@ export function ParentVatGroupCasePage() {
   // "everyone's already green" reference list every other stage past In Preparation gets.
   const isFullChildList =
     parentPhase === 'inPreparation' ||
+    parentPhase === 'draft' ||
     (isClient && parentPhase === 'inReview') ||
     (isNeedChangesReset && isCreator)
   const showChildList =
@@ -943,7 +986,13 @@ export function ParentVatGroupCasePage() {
           have distinct Client-facing content. */}
       {!isClient && (
         <div className="border-b border-border bg-background px-6 py-6">
-          <Stepper steps={parentStepperStates(displayedParentPhase)} />
+          {/* Draft deliberately doesn't get its own stepper box — it renders exactly like In
+              Preparation does, per design (see the ParentPhase/ParentStepperPhase split above). */}
+          <Stepper
+            steps={parentStepperStates(
+              displayedParentPhase === 'draft' ? 'inPreparation' : displayedParentPhase,
+            )}
+          />
         </div>
       )}
 
@@ -978,7 +1027,15 @@ export function ParentVatGroupCasePage() {
         resolveParentBanner(parentPhase, role, packageReviewOutcome) && (
           <div className="border-b border-border bg-background px-6 py-6">
             <PackageBanner
-              descriptor={applyReviewComment(resolveParentBanner(parentPhase, role, packageReviewOutcome), reviewComment)!}
+              descriptor={applyReviewComment(
+                resolveParentBanner(parentPhase, role, packageReviewOutcome),
+                // The pending-decision "Under client review" banner (clientApproval, sent) is
+                // fed by the Creator's own Send-for-approval comment, not the unrelated
+                // Needs-Changes reviewComment every other banner on this page uses.
+                parentPhase === 'clientApproval' && packageReviewOutcome === 'default'
+                  ? creatorClientComment
+                  : reviewComment,
+              )!}
               packageFileName={packageFileName}
               onVersionHistoryClick={() => setVersionHistoryOpen(true)}
             />
@@ -1011,6 +1068,13 @@ export function ParentVatGroupCasePage() {
             onRemoveFile={(index) => setUploadedFiles((prev) => prev.filter((_, i) => i !== index))}
             isDone={isConsolidationDone}
             onDoneChange={setIsConsolidationDone}
+            notStartedHelperText={
+              parentPhase === 'draft' ? (
+                <>
+                  Available when child cases enter <span className="italic">preparation</span> stage
+                </>
+              ) : undefined
+            }
           />
         </div>
       )}
@@ -1018,7 +1082,12 @@ export function ParentVatGroupCasePage() {
       {parentPhase === 'clientApproval' && isClient && CLIENT_APPROVAL_BANNERS[clientClientApprovalState] && (
         <div className="border-b border-border bg-background px-6 py-6">
           <PackageBanner
-            descriptor={applyReviewComment(CLIENT_APPROVAL_BANNERS[clientClientApprovalState], reviewComment)!}
+            descriptor={applyReviewComment(
+              CLIENT_APPROVAL_BANNERS[clientClientApprovalState],
+              // 'requested' is fed by the Creator's own Send-for-approval comment, not the
+              // unrelated Needs-Changes reviewComment every other banner on this page uses.
+              clientClientApprovalState === 'requested' ? creatorClientComment : reviewComment,
+            )!}
             packageFileName={packageFileName}
             onVersionHistoryClick={() => setVersionHistoryOpen(true)}
           />
@@ -1136,24 +1205,28 @@ export function ParentVatGroupCasePage() {
             <div className="flex items-center gap-2">
               {/* Segment 5 — the Parent Case is only waiting on whichever Child Cases aren't
                   done yet, so hiding the ones already Ready for Consolidation is the useful
-                  default view of a large group; unchecking reveals the full list again. */}
-              <button
-                type="button"
-                aria-pressed={hideReadyChildren}
-                onClick={() => {
-                  setHideReadyChildren((v) => !v)
-                  setChildPage(1)
-                }}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
-                  hideReadyChildren
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-muted-foreground hover:bg-muted',
-                )}
-              >
-                {hideReadyChildren && <Check className="size-3.5" />}
-                {hideReadyChildren ? 'Showing only cases in progress' : 'Hide completed cases'}
-              </button>
+                  default view of a large group; unchecking reveals the full list again.
+                  Not shown in Draft — every child reads "Draft" there, so there's nothing
+                  "completed" to hide yet. */}
+              {parentPhase !== 'draft' && (
+                <button
+                  type="button"
+                  aria-pressed={hideReadyChildren}
+                  onClick={() => {
+                    setHideReadyChildren((v) => !v)
+                    setChildPage(1)
+                  }}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                    hideReadyChildren
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  {hideReadyChildren && <Check className="size-3.5" />}
+                  {hideReadyChildren ? 'Showing only cases in progress' : 'Hide completed cases'}
+                </button>
+              )}
               <div className="relative w-56 shrink-0">
                 <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -1190,6 +1263,10 @@ export function ParentVatGroupCasePage() {
             {pagedChildren.map((child) => {
               const config = CHILD_CONFIG[child.id]
               const status: WorkflowStatus = statusForChild(child.id)
+              // Display-only override: every child reads "Draft" while the Parent Case itself
+              // is in Draft, regardless of that child's own real status — `status` (not this)
+              // still drives navigation, the tooltip, and the mini-stepper below.
+              const displayStatus: WorkflowStatus = parentPhase === 'draft' ? 'Draft' : status
               const steps = config.requiresClientApproval ? STEPS_WITH_APPROVAL : STEPS_WITHOUT_APPROVAL
               const isRepresentative = child.client === activeCase.representativeEntity
               const stepper = <MiniStepper states={miniStepperStates(steps, status)} />
@@ -1226,7 +1303,13 @@ export function ParentVatGroupCasePage() {
                       <span className="truncate text-xs text-muted-foreground">{child.id}</span>
                     </div>
 
-                    {config.requiresClientApproval ? (
+                    {/* Draft has no step-by-step element — not present in that state (see the
+                        task spec); the chip alone is enough. An empty cell (rather than
+                        omitting this grid item outright) keeps the Badge below in the grid's
+                        3rd column track instead of implicitly shifting into the 2nd. */}
+                    {parentPhase === 'draft' ? (
+                      <div />
+                    ) : config.requiresClientApproval ? (
                       <div className="w-full">{stepper}</div>
                     ) : (
                       <TooltipProvider>
@@ -1239,8 +1322,16 @@ export function ParentVatGroupCasePage() {
                       </TooltipProvider>
                     )}
 
-                    <Badge variant="soft" tone={WORKFLOW_STATUS_BADGE_TONE[status]} size="sm" className="w-fit justify-self-start">
-                      {WORKFLOW_STATUS_LABEL[status]}
+                    <Badge
+                      variant="soft"
+                      tone={WORKFLOW_STATUS_BADGE_TONE[displayStatus]}
+                      size="sm"
+                      // Draft has no stepper to its left (the column above is blank), so the
+                      // chip is pushed flush against the row's right edge instead of sitting
+                      // start-aligned in its column.
+                      className={cn('w-fit', displayStatus === 'Draft' ? 'justify-self-end' : 'justify-self-start')}
+                    >
+                      {WORKFLOW_STATUS_LABEL[displayStatus]}
                     </Badge>
                   </div>
 
@@ -1299,9 +1390,12 @@ export function ParentVatGroupCasePage() {
         }
         confirmLabel={pendingSend === 'authorities' ? 'Submit to tax authorities' : 'Send for approval'}
         onClose={() => setSendDialogOpen(false)}
-        onConfirm={(_details: SendPackageDetails) => {
+        onConfirm={(details: SendPackageDetails) => {
           if (pendingSend === 'authorities') setPhase('submitted')
-          else if (pendingSend === 'approval') setPhase('clientApproval')
+          else if (pendingSend === 'approval') {
+            setPhase('clientApproval')
+            setCreatorClientComment(details.comment.trim() || null)
+          }
           setPendingSend(null)
           setSendToastOpen(true)
         }}

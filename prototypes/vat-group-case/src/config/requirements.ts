@@ -8,6 +8,10 @@ export type RequirementItem = {
   description: string
   /** Post-draft list — Figma ItemMarking (Done vs Open). */
   checkState?: RequirementItemCheckState
+  /** The file the client uploaded for this specific requirement, if any — backs the per-row
+   *  download button and the category's "Files" switcher view (which is just every item's
+   *  file, flattened — no separate file list to keep in sync). */
+  file?: { name: string; size: string }
 }
 
 export type RequirementCategoryStatus = 'In Progress' | 'Not started' | 'Done'
@@ -18,6 +22,8 @@ export type RequirementCategory = {
   items: RequirementItem[]
   /** Post-draft category header — files in subtitle. */
   filesUploaded?: number
+  /** Backs the "Comments" badge in the category's "..." dropdown. */
+  commentsCount?: number
   status?: RequirementCategoryStatus
 }
 
@@ -31,12 +37,14 @@ export const REQUIREMENT_CATEGORIES: RequirementCategory[] = [
         title: 'Requirement 1',
         description: 'Requirement description',
         checkState: 'done',
+        file: { name: 'Requirement_1_Support.pdf', size: '1.2 MB' },
       },
       {
         id: 'ID1002',
         title: 'Requirement 2',
         description: 'Requirement description',
         checkState: 'open',
+        file: { name: 'Requirement_2_Evidence.xlsx', size: '840 KB' },
       },
       {
         id: 'ID1003',
@@ -46,6 +54,7 @@ export const REQUIREMENT_CATEGORIES: RequirementCategory[] = [
       },
     ],
     filesUploaded: 2,
+    commentsCount: 2,
     status: 'In Progress',
   },
   {

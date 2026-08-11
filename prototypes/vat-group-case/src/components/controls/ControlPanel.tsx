@@ -226,11 +226,12 @@ export function ControlPanel() {
       {/* Feature 3 of the "review-flow update batch" ticket: the Parent Case page ignores
           headerType entirely (PlaygroundMain dispatches to it before this control could matter),
           so showing the selector there is pure noise — Case is the permanent, only page.
-          Feature 6 of the "reopen modal rules" ticket extends this to the Child Case view too:
-          Case Wrapper is HR-only (Group Case is always locked to VAT) and Requirement List/
-          Bucket are already disabled for every Group Case view just below — leaving "Case" as
-          the only ever-enabled option, so the whole selector is the same kind of noise here. */}
-      {!isGroupCase && (
+          Child Case is different: Requirement List renders real, distinct content there (same
+          WtsRequirementCategories/RequirementListAccordion the plain Single Case uses), so the
+          selector is reintroduced there too — Case Wrapper stays naturally disabled via
+          isHeaderTypeAllowedInControls below (Group Case is always VAT, non-HR), same as it
+          already is on CIT/VAT Single Case. */}
+      {!isParentCaseView && (
         <OptionPills
           label="Page"
           value={headerType}

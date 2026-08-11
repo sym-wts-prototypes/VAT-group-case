@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { X, ExternalLink, Plus, Trash2, Check } from "lucide-react";
 import { Badge, ConfirmDialog } from "@wts/ui";
 import { Engagement, EngagementStatus, LegalEntity, ServiceLineAssignment, ServiceFrequency, SERVICE_CATALOGUE, SERVICE_FREQUENCIES } from "./org-details-data";
 
@@ -43,6 +43,81 @@ function Select({ value, onChange, children }: { value: string; onChange: (v: st
     >
       {children}
     </select>
+  );
+}
+function formatDisplayDate(yyyy_mm_dd: string): string {
+  const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
+  if (!y || !m || !d) return yyyy_mm_dd;
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+// A native <input type="date"> with its own text hidden, overlaid with a styled label showing
+// either the formatted date or a placeholder ("Not set" / "Unlimited") — native date inputs
+// can't show custom placeholder text on their own. `clearable` adds an "X" to return the value
+// to empty (used by Start Date, which is allowed to stay unset).
+function DateField({
+  value, onChange, placeholder, disabled, clearable,
+}: { value: string; onChange: (v: string) => void; placeholder: string; disabled?: boolean; clearable?: boolean }) {
+  return (
+    <div className="relative">
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-[14px] leading-[20px] text-transparent bg-transparent focus:outline-none focus:ring-2 focus:ring-[oklch(0.55_0.22_25)] focus:border-transparent disabled:bg-neutral-50 disabled:cursor-not-allowed"
+      />
+      <div className="pointer-events-none absolute inset-0 flex items-center px-3">
+        <span className={`truncate text-[14px] leading-[20px] ${value ? "text-neutral-900" : "text-neutral-400"}`}>
+          {value ? formatDisplayDate(value) : placeholder}
+        </span>
+      </div>
+      {clearable && value && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Clear date"
+          className="absolute right-8 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+function todayInputDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// End Date is either "Unlimited" (empty) or a concrete date — never an in-between "unchecked but
+// no date yet" state: unchecking the box immediately seeds today's date so it's always resolved.
+function EndDateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const unlimited = value === "";
+  return (
+    <div className="flex flex-col gap-2">
+      <DateField
+        value={value}
+        onChange={onChange}
+        placeholder={unlimited ? "Unlimited" : "Select a date"}
+        disabled={unlimited}
+      />
+      <label className="flex cursor-pointer items-center gap-2 select-none">
+        <span
+          role="checkbox"
+          aria-checked={unlimited}
+          tabIndex={0}
+          onClick={() => onChange(unlimited ? todayInputDate() : "")}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            onChange(unlimited ? todayInputDate() : "");
+          }}
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${unlimited ? "border-primary bg-primary text-white" : "border-neutral-300"}`}
+        >
+          {unlimited && <Check className="h-3 w-3" />}
+        </span>
+        <span className="text-[13px] leading-[18px] text-neutral-600">Unlimited</span>
+      </label>
+    </div>
   );
 }
 
@@ -138,7 +213,7 @@ export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => vo
   const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }], status: "Active", startDate: "", endDate: "" });
   const set = (k: keyof EngagementDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
   // V8-A — case types were removed from the engagement form; a row is valid on its service line alone.
-  const valid = draft.contractRef.trim() && draft.startDate && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine);
+  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine);
 
   return (
     <Modal title="Create Engagement" onClose={onClose}>
@@ -151,11 +226,12 @@ export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => vo
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Start Date</Label>
-            <Input type="date" value={draft.startDate} onChange={set("startDate")} />
+            <DateField value={draft.startDate} onChange={set("startDate")} placeholder="Not set" clearable />
+            <p className="mt-1.5 text-[12px] leading-[16px] text-neutral-400">Optional — can be set later.</p>
           </div>
           <div>
             <Label>End Date</Label>
-            <Input type="date" value={draft.endDate} onChange={set("endDate")} />
+            <EndDateField value={draft.endDate} onChange={set("endDate")} />
           </div>
         </div>
       </div>
@@ -192,11 +268,12 @@ export function EditEngagementModal({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Start Date</Label>
-            <Input type="date" value={draft.startDate} onChange={set("startDate")} />
+            <DateField value={draft.startDate} onChange={set("startDate")} placeholder="Not set" clearable />
+            <p className="mt-1.5 text-[12px] leading-[16px] text-neutral-400">Optional — can be set later.</p>
           </div>
           <div>
             <Label>End Date</Label>
-            <Input type="date" value={draft.endDate} onChange={set("endDate")} />
+            <EndDateField value={draft.endDate} onChange={set("endDate")} />
           </div>
         </div>
         <div>

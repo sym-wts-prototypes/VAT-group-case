@@ -37,6 +37,9 @@ import {
 } from '@wts/ui'
 import { REQUIREMENT_CATEGORIES } from '@/config/requirements'
 import type { RequirementCategoryStatus } from '@/config/requirements'
+import { useRequirementCategories, requirementTotals } from '@/store/useRequirementsStore'
+import { RequirementsProgressBar } from '@/components/body/RequirementsProgressBar'
+import { CommentsDrawer } from '@/components/body/CommentsDrawer'
 import type { Role } from '@/types'
 
 interface RequirementListAccordionProps {
@@ -99,9 +102,24 @@ export function RequirementListAccordion({
   // Files view) — same controlled Toast pattern as parent-vat-group-case-page.tsx's send/
   // correction toasts.
   const [downloadedFileName, setDownloadedFileName] = useState<string | null>(null)
+  // "Comments" (dropdown item) opens this — placeholder shell only, no real comment
+  // communication wired up yet (no persisted thread, Send is always inert).
+  const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false)
+
+  // Shared with the Client's Requirement Bucket view (useRequirementsStore) — checking an item
+  // there, or the Playground's own "Simulate requirement adding or removing" control, moves
+  // this view's own progress bar too.
+  const categories = useRequirementCategories()
+  const { done, total } = requirementTotals(categories)
+  const allExpanded = categories.every((cat) => expanded[cat.id])
 
   function toggleCategory(id: string) {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  function toggleExpandAll() {
+    const next = !allExpanded
+    setExpanded(Object.fromEntries(categories.map((cat) => [cat.id, next])))
   }
 
   function setCategoryView(id: string, next: CategoryView) {
@@ -110,7 +128,16 @@ export function RequirementListAccordion({
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      {REQUIREMENT_CATEGORIES.map((category) => {
+      {!isDraft && (
+        <RequirementsProgressBar
+          done={done}
+          total={total}
+          allExpanded={allExpanded}
+          onExpandAll={toggleExpandAll}
+          onDownloadAll={() => setDownloadedFileName('All files')}
+        />
+      )}
+      {categories.map((category) => {
         const isOpen = expanded[category.id] ?? false
         const categoryView = view[category.id] ?? 'requirements'
         // The Files view is derived from the requirements' own attached files rather than a
@@ -179,7 +206,10 @@ export function RequirementListAccordion({
                         <Download className="h-4 w-4" />
                         Download as .zip
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="justify-between">
+                      <DropdownMenuItem
+                        className="justify-between"
+                        onClick={() => setCommentsDrawerOpen(true)}
+                      >
                         <span className="flex items-center gap-2">
                           <MessageSquareText className="h-4 w-4" />
                           Comments
@@ -312,7 +342,7 @@ export function RequirementListAccordion({
                               className={cn(
                                 'h-5 w-5',
                                 checkState === 'done'
-                                  ? 'text-foreground'
+                                  ? 'text-green-600'
                                   : 'text-muted-foreground/30',
                               )}
                               aria-hidden
@@ -385,6 +415,8 @@ export function RequirementListAccordion({
         onOpenChange={(open) => !open && setDownloadedFileName(null)}
         title={`${downloadedFileName} downloaded successfully.`}
       />
+
+      <CommentsDrawer open={commentsDrawerOpen} onOpenChange={setCommentsDrawerOpen} />
     </div>
   )
 }

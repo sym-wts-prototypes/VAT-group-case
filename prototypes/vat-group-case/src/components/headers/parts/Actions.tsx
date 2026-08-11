@@ -17,6 +17,9 @@ interface ActionsProps {
   /** Client bucket: Mark as done uses a checkbox (Figma 5346:112616). */
   markAsDoneChecked?: boolean
   onMarkAsDoneChange?: (checked: boolean) => void
+  /** The requirement bucket header's "Comments" secondary action — opens the shared
+   *  CommentsDrawer placeholder instead of being a no-op like every other secondary action. */
+  onCommentsClick?: () => void
   className?: string
 }
 
@@ -97,6 +100,7 @@ function renderAction(
     onPrimaryClick?: (label: string) => void
     markAsDoneChecked?: boolean
     onMarkAsDoneChange?: (checked: boolean) => void
+    onCommentsClick?: () => void
   },
 ) {
   if (action.label === 'Mark as done' && opts.onMarkAsDoneChange) {
@@ -120,9 +124,11 @@ function renderAction(
       size={opts.size}
       disabled={opts.isPrimary ? opts.primaryDisabled : false}
       onClick={
-        opts.isPrimary && opts.onPrimaryClick && !opts.primaryDisabled
-          ? () => opts.onPrimaryClick!(action.label)
-          : undefined
+        action.label === 'Comments' && opts.onCommentsClick
+          ? opts.onCommentsClick
+          : opts.isPrimary && opts.onPrimaryClick && !opts.primaryDisabled
+            ? () => opts.onPrimaryClick!(action.label)
+            : undefined
       }
     />
   )
@@ -138,6 +144,7 @@ export function Actions({
   allOutline = false,
   markAsDoneChecked,
   onMarkAsDoneChange,
+  onCommentsClick,
   className,
 }: ActionsProps) {
   const hasActions =
@@ -153,6 +160,7 @@ export function Actions({
     onPrimaryClick,
     markAsDoneChecked,
     onMarkAsDoneChange,
+    onCommentsClick,
   }
 
   return (

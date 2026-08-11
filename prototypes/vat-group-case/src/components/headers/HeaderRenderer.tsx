@@ -17,6 +17,8 @@ interface HeaderRendererProps {
   bucketStatus?: BucketStatus
   bucketMarkAsDoneChecked?: boolean
   onBucketMarkAsDoneChange?: (checked: boolean) => void
+  onBucketBack?: () => void
+  onBucketCommentsClick?: () => void
 }
 
 export function HeaderRenderer({
@@ -28,6 +30,8 @@ export function HeaderRenderer({
   bucketStatus,
   bucketMarkAsDoneChecked,
   onBucketMarkAsDoneChange,
+  onBucketBack,
+  onBucketCommentsClick,
 }: HeaderRendererProps) {
   const descriptor = descriptorProp ?? (ctx ? resolveHeader(ctx) : null)
 
@@ -71,6 +75,8 @@ export function HeaderRenderer({
           bucketStatus={bucketStatus}
           markAsDoneChecked={bucketMarkAsDoneChecked}
           onMarkAsDoneChange={onBucketMarkAsDoneChange}
+          onBack={onBucketBack}
+          onCommentsClick={onBucketCommentsClick}
         />
       )
   }

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
   Check,
@@ -14,6 +14,13 @@ import {
 import { Badge } from '@wts/ui'
 import { Button } from '@wts/ui'
 import { Separator } from '@wts/ui'
+import { Toast } from '@wts/ui'
+import { RequirementsProgressBar } from '@/components/body/RequirementsProgressBar'
+import {
+  useRequirementCategories,
+  useRequirementsStore,
+  requirementTotals,
+} from '@/store/useRequirementsStore'
 import { CitInReviewReconfirmBanner } from '@/components/body/CitInReviewReconfirmBanner'
 import { PackageBanner } from '@/components/body/PackageBanner'
 import {
@@ -36,10 +43,7 @@ import { CasePhaseStepper } from '@/components/body/CasePhaseStepper'
 import { DraftRequirementsSection } from '@/components/body/DraftRequirementsSection'
 import { VatDraftEmptyState } from '@/components/body/VatDraftEmptyState'
 import { WtsRequirementCategories } from '@/components/body/WtsRequirementCategories'
-import {
-  CLIENT_BUCKET_CARDS,
-  getRequirementCategory,
-} from '@/config/requirements'
+import { CLIENT_BUCKET_CARDS } from '@/config/requirements'
 import { SAMPLE_HR_REQUEST_IDS } from '@/config/sampleData'
 import { showDraftRequirementsToolbar } from '@/lib/draftRequirementsToolbar'
 import { cn } from '@wts/ui'
@@ -112,6 +116,9 @@ interface BodyPlaceholderProps {
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
+  /** Opens the shared CommentsDrawer placeholder — every "Comments" trigger the Client sees
+   *  (case bucket cards, opened category) reuses this same callback. */
+  onOpenComments?: () => void
   className?: string
 }
 
@@ -158,6 +165,7 @@ export function BodyPlaceholder({
   onOpenRequirementList,
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
+  onOpenComments,
   className,
 }: BodyPlaceholderProps) {
   const isWtsCase = headerType === 'case' && platform === 'wts'
@@ -317,6 +325,7 @@ export function BodyPlaceholder({
             submittedBannerOverride={submittedBannerOverride}
             creatorClientComment={creatorClientComment}
             onOpenBucket={onOpenRequirementBucket}
+            onOpenComments={onOpenComments}
           />
         ))}
 
@@ -329,6 +338,9 @@ export function BodyPlaceholder({
           <WtsRequirementCategories role={role} className="px-6 pt-6 pb-6" />
         ))}
 
+      {/* No Comments trigger needed inside this body — RequirementBucketHeader (rendered
+          whenever this page is, via onBucketCommentsClick in PlaygroundMain.tsx) already has
+          one, top-right, for every opened category. */}
       {headerType === 'requirementBucket' && (
         <BucketOpenedBody
           categoryId={selectedRequirementCategoryId}
@@ -687,6 +699,7 @@ function ClientBucketCardsBody({
   submittedBannerOverride,
   creatorClientComment,
   onOpenBucket,
+  onOpenComments,
 }: {
   process: Process
   role: Role
@@ -695,6 +708,7 @@ function ClientBucketCardsBody({
   submittedBannerOverride?: { title?: string; description?: string }
   creatorClientComment?: string | null
   onOpenBucket?: (categoryId: string) => void
+  onOpenComments?: () => void
 }) {
   const canOpenBucket = phase !== 'draft'
   const packageBanner = resolvePackageBanner(
@@ -724,6 +738,12 @@ function ClientBucketCardsBody({
         }
       : displayedPackageBanner
 
+  // Same shared source RequirementListAccordion (WTS) reads — checking an item in the opened
+  // bucket below, or the WTS side simulating a new one, moves this total too.
+  const categories = useRequirementCategories()
+  const { done, total } = requirementTotals(categories)
+  const [downloadedAll, setDownloadedAll] = useState(false)
+
   return (
     <div className="flex flex-col gap-6">
       {bannerWithCreatorComment && (
@@ -733,22 +753,41 @@ function ClientBucketCardsBody({
           hideVersionHistory
         />
       )}
+      <RequirementsProgressBar
+        done={done}
+        total={total}
+        onDownloadAll={() => setDownloadedAll(true)}
+      />
       <div className="flex flex-col gap-3">
         <SectionLabel>Requirement buckets</SectionLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {CLIENT_BUCKET_CARDS.map((bucket) => (
-            <BucketCard
-              key={bucket.categoryId}
-              {...bucket}
-              onOpen={
-                canOpenBucket
-                  ? () => onOpenBucket?.(bucket.categoryId)
-                  : undefined
-              }
-            />
-          ))}
+          {CLIENT_BUCKET_CARDS.map((bucket) => {
+            // Item count is reactive (simulate add/remove moves this), everything else about
+            // the card (files/status) stays the static demo value.
+            const liveItems =
+              categories.find((c) => c.id === bucket.categoryId)?.items.length ?? bucket.items
+            return (
+              <BucketCard
+                key={bucket.categoryId}
+                {...bucket}
+                items={liveItems}
+                onOpen={
+                  canOpenBucket
+                    ? () => onOpenBucket?.(bucket.categoryId)
+                    : undefined
+                }
+                onOpenComments={onOpenComments}
+              />
+            )
+          })}
         </div>
       </div>
+
+      <Toast
+        open={downloadedAll}
+        onOpenChange={setDownloadedAll}
+        title="All files downloaded successfully."
+      />
     </div>
   )
 }
@@ -761,16 +800,21 @@ function BucketOpenedBody({
   categoryId?: string
   phase: Phase
 }) {
+  // Reactive copy of the same category — same source RequirementListAccordion (WTS) and the
+  // bucket-grid progress bar above read, so checking an item here moves both, and the item
+  // count here always matches the "{items} items" label shown on that category's card
+  // (previously this always showed category-1's first 3 items regardless of which bucket was
+  // actually opened).
+  const categories = useRequirementCategories()
+  const toggleItem = useRequirementsStore((s) => s.toggleItem)
   const category =
-    (categoryId && getRequirementCategory(categoryId)) ??
-    getRequirementCategory('category-1')
-  const requiredCategory = getRequirementCategory('category-1')
+    categories.find((c) => c.id === categoryId) ?? categories.find((c) => c.id === 'category-1')
 
-  if (!category || !requiredCategory) {
+  if (!category) {
     return null
   }
 
-  const requiredItems = requiredCategory.items.slice(0, 3)
+  const requiredItems = category.items
   const bucketState: 'draft' | 'inPreparation' | 'postPreparation' =
     phase === 'draft'
       ? 'draft'
@@ -779,7 +823,6 @@ function BucketOpenedBody({
         : 'postPreparation'
   const isDisabledDraft = bucketState === 'draft'
   const hasFiles = bucketState === 'postPreparation'
-  const requirementsChecked = bucketState === 'postPreparation'
 
   const demoFiles = [
     { name: 'File name 1.xlsx', meta: '3.7MB' },
@@ -874,7 +917,9 @@ function BucketOpenedBody({
           </p>
         </div>
         <div className="flex flex-col">
-          {requiredItems.map((item, index) => (
+          {requiredItems.map((item, index) => {
+            const isDone = item.checkState === 'done'
+            return (
             <div
               key={item.id}
               className={cn(
@@ -884,9 +929,19 @@ function BucketOpenedBody({
             >
               <div className="flex shrink-0 items-center px-3 py-2">
                 <span
+                  role="checkbox"
+                  aria-checked={isDone}
+                  aria-label={`Mark ${item.title} as done`}
+                  tabIndex={0}
+                  onClick={() => toggleItem(item.id, isDone)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    toggleItem(item.id, isDone)
+                  }}
                   className={cn(
-                    'flex h-4 w-4 items-center justify-center rounded-sm border',
-                    requirementsChecked
+                    'flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm border',
+                    isDone
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-primary bg-background text-transparent',
                   )}
@@ -903,7 +958,8 @@ function BucketOpenedBody({
                 </p>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
     </div>
@@ -916,12 +972,14 @@ function BucketCard({
   files,
   status,
   onOpen,
+  onOpenComments,
 }: {
   title: string
   items: number
   files: number
   status: 'Done' | 'In Progress' | 'Not started'
   onOpen?: () => void
+  onOpenComments?: () => void
 }) {
   const tone =
     status === 'Done' ? 'green' : status === 'In Progress' ? 'sky' : 'gray'
@@ -941,10 +999,19 @@ function BucketCard({
         <Badge tone={tone}>
           {status}
         </Badge>
-        <MessageSquareText
-          className="h-5 w-5 text-muted-foreground"
-          aria-hidden
-        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 -m-1.5"
+          aria-label="Comments"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenComments?.()
+          }}
+        >
+          <MessageSquareText className="h-5 w-5 text-muted-foreground" aria-hidden />
+        </Button>
       </div>
       <div className="flex flex-1 flex-col gap-4">
         <div>

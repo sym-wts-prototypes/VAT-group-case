@@ -19,7 +19,13 @@ import { useDemoStore } from '@/store/useDemoStore'
 import type { CaseKind, GroupCaseVariant, GroupCaseView } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
-import { CheckboxField, Switch } from '@wts/ui'
+import { useState, type ReactNode } from 'react'
+import { Briefcase, Building, Minus, Plus, ShieldCheck, User } from 'lucide-react'
+import { Button, CheckboxField, cn } from '@wts/ui'
+import { useOrgStore } from '@/store/useOrgStore'
+import type { Role as OrgRole } from '@/components/role-switcher'
+import { REQUIREMENT_CATEGORIES } from '@/config/requirements'
+import { useRequirementsStore } from '@/store/useRequirementsStore'
 import { OptionPills } from './OptionPills'
 import { PhaseRadios } from './PhaseRadios'
 import { ProcessTabs } from './ProcessTabs'
@@ -41,6 +47,17 @@ const ROLE_LABELS: Record<Role, string> = {
 
 const ALL_PROCESSES: Process[] = ['cit', 'hr', 'vat']
 const ALL_ROLES: Role[] = ['creator', 'reviewer', 'partner', 'client']
+
+// Same 4 lenses/icons/copy as prototypes/organisations' own ControlPanel.tsx — replicated here
+// (not imported cross-prototype, these are separate Vite apps) so the Organisations entry point
+// this prototype already has (organisations-entry.tsx) gets a real, changeable acting role
+// instead of a hardcoded "Super Admin".
+const ORG_ROLES: { value: OrgRole; icon: ReactNode; description: string }[] = [
+  { value: 'Super Admin', icon: <ShieldCheck className="h-4 w-4" />, description: 'Platform — creates organisations and links admins. Full CRUD in the prototype.' },
+  { value: 'Organisation Admin', icon: <Building className="h-4 w-4" />, description: 'Creates legal entities, manages users at organisation and entity level.' },
+  { value: 'Engagement Admin', icon: <Briefcase className="h-4 w-4" />, description: 'Creates engagements, adds engagement users, connects engagements to entities.' },
+  { value: 'Contributor', icon: <User className="h-4 w-4" />, description: 'Works only on cases they are attached to. No structural changes.' },
+]
 
 const ALL_HEADER_TYPES: HeaderType[] = [
   'caseWrapper',
@@ -87,7 +104,7 @@ export function ControlPanel() {
     assessmentsState,
     protocolConfirmationChecked,
     packageReviewOutcome,
-    showCaseManagement,
+    showOrganisations,
     caseKind,
     groupCaseView,
     groupCaseVariant,
@@ -104,11 +121,20 @@ export function ControlPanel() {
     setAssessmentsState,
     setProtocolConfirmationChecked,
     setPackageReviewOutcome,
-    setShowCaseManagement,
     setCaseKind,
     setGroupCaseView,
     setChildCaseRequiresClientApproval,
   } = useDemoStore()
+  const orgRole = useOrgStore((state) => state.role)
+  const setOrgRole = useOrgStore((state) => state.setRole)
+  const orgRoleDescription = ORG_ROLES.find((r) => r.value === orgRole)?.description
+
+  // Client-only demo control — lets the Playground simulate a Creator/Reviewer adding or
+  // removing a requirement while viewing as Client, so the Requirement Bucket progress bar's
+  // percentage visibly moves without actually switching roles.
+  const [simulateCategoryId, setSimulateCategoryId] = useState(REQUIREMENT_CATEGORIES[0].id)
+  const addSimulatedRequirement = useRequirementsStore((s) => s.addSimulatedRequirement)
+  const removeSimulatedRequirement = useRequirementsStore((s) => s.removeSimulatedRequirement)
 
   const isGroupCase = caseKind === 'group'
   const isParentCaseView = isGroupCase && groupCaseView === 'parent'
@@ -150,25 +176,43 @@ export function ControlPanel() {
     isSubmissionProtocolGateActive(process, headerType, platform, phase)
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-4 shadow-header-sm">
-      <div className="flex flex-col gap-1.5 border-b border-border pb-4">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          View
-        </span>
-        <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-          <span className="text-[13px] font-medium text-foreground">Case Management page</span>
-          <Switch checked={showCaseManagement} onCheckedChange={setShowCaseManagement} />
-        </label>
-        <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-          Swaps in the full case list, independent of the CIT Assessment &amp; Closure demo below.
-        </p>
-      </div>
-
+      {/* Case Management vs Organisations is now the app shell sidebar's job (its
+          "Case Management"/"Organisations" nav items already toggle showCaseManagement/
+          showOrganisations — see PlaygroundView.tsx) — no need for a duplicate switch here. */}
+      {showOrganisations ? (
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-sm font-semibold text-foreground">Organisation role</h2>
+          <div className="flex flex-col gap-1.5">
+            {ORG_ROLES.map((r) => {
+              const active = orgRole === r.value
+              return (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setOrgRole(r.value)}
+                  aria-pressed={active}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-[13px] leading-[18px] transition-colors',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-foreground hover:bg-muted',
+                  )}
+                >
+                  <span className={active ? 'text-primary-foreground' : 'text-muted-foreground'}>{r.icon}</span>
+                  <span className="font-medium">{r.value}</span>
+                </button>
+              )
+            })}
+          </div>
+          {orgRoleDescription && (
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{orgRoleDescription}</p>
+          )}
+        </div>
+      ) : (
+      <>
       <div>
-        <h2 className="text-sm font-semibold text-foreground">Controls</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Role sets WTS vs Client. Client sees buckets on the case; opening a
-          bucket shows the requirement bucket header (items omitted here).
-        </p>
+        <h2 className="text-sm font-semibold text-foreground">Process flow</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Role sets WTS vs Client.</p>
       </div>
 
       <OptionPills
@@ -361,6 +405,48 @@ export function ControlPanel() {
           onChange={setGroupCaseVariant}
           options={GROUP_CASE_VARIANT_OPTIONS}
         />
+      )}
+
+      {role === 'client' && (
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 px-3 py-3">
+          <span className="text-[13px] font-medium text-foreground">
+            Simulate requirement adding or removing
+          </span>
+          <p className="text-xs text-muted-foreground">
+            Stands in for a Creator/Reviewer changing the requirement list — watch the
+            Requirement Bucket progress bar move.
+          </p>
+          <OptionPills
+            label="Category"
+            value={simulateCategoryId}
+            onChange={setSimulateCategoryId}
+            options={REQUIREMENT_CATEGORIES.map((cat) => ({ value: cat.id, label: cat.title }))}
+          />
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-full gap-2"
+              onClick={() => addSimulatedRequirement(simulateCategoryId)}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add requirement
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-full gap-2"
+              onClick={() => removeSimulatedRequirement(simulateCategoryId)}
+            >
+              <Minus className="h-4 w-4" aria-hidden />
+              Remove requirement
+            </Button>
+          </div>
+        </div>
+      )}
+      </>
       )}
     </div>
   )

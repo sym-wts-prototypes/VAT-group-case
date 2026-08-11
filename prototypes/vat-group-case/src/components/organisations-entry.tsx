@@ -4,6 +4,7 @@ import { getDataset } from '@/components/demo-data'
 import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
 import { OrgWorkspace } from '@/components/org-workspace'
 import { useDemoStore } from '@/store/useDemoStore'
+import { useOrgStore } from '@/store/useOrgStore'
 
 /** Feature 4 of the "upload modal & data-package visuals" ticket — the sidebar's Organisations
  * item now opens this instead of navigating out to the separate Organisations prototype. Lands
@@ -12,6 +13,7 @@ import { useDemoStore } from '@/store/useDemoStore'
  * because OrgWorkspace itself is an unmodified copy of that prototype's own component. */
 export function OrganisationsEntryPage() {
   const setShowOrganisations = useDemoStore((state) => state.setShowOrganisations)
+  const role = useOrgStore((state) => state.role)
 
   const dataset = useMemo(() => getDataset('mixed'), [])
   const org = INITIAL_ORGANIZATIONS.find((o) => o.id === 'europipe') ?? INITIAL_ORGANIZATIONS[0]
@@ -21,7 +23,7 @@ export function OrganisationsEntryPage() {
       key={org.id}
       org={org}
       onBack={() => setShowOrganisations(false)}
-      actingRole="Super Admin"
+      actingRole={role}
       data={dataset}
       initialTab="groups"
     />

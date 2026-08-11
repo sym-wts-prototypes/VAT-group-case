@@ -561,7 +561,7 @@ export function OrgWorkspace({
     const base: Engagement = {
       id, orgId: org.id, entityIds: [],
       contractRef: draft.contractRef, serviceLines: draft.serviceLines,
-      status: draft.status, startDate: fromInputDate(draft.startDate),
+      status: draft.status, startDate: draft.startDate ? fromInputDate(draft.startDate) : "",
       endDate: draft.endDate ? fromInputDate(draft.endDate) : null,
       createdBy: "super.admin@wts.de", lastUpdated: today(),
     };
@@ -579,7 +579,7 @@ export function OrgWorkspace({
       if (e.id !== editEngTarget.id) return e;
       const updated: Engagement = {
         ...e, contractRef: draft.contractRef, serviceLines: draft.serviceLines,
-        status: draft.status, startDate: fromInputDate(draft.startDate),
+        status: draft.status, startDate: draft.startDate ? fromInputDate(draft.startDate) : "",
         endDate: draft.endDate ? fromInputDate(draft.endDate) : null,
         lastUpdated: today(),
       };

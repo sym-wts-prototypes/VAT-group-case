@@ -13,6 +13,12 @@ interface RequirementBucketHeaderProps {
   bucketStatus?: BucketStatus
   markAsDoneChecked?: boolean
   onMarkAsDoneChange?: (checked: boolean) => void
+  /** The back link's href is just "#" (static demo copy) — this is what actually navigates,
+   *  back to the case view (the bucket-cards grid) instead of a no-op anchor click. */
+  onBack?: () => void
+  /** Opens the shared CommentsDrawer placeholder — the "Comments" secondary action is a no-op
+   *  otherwise (Actions never wires secondary actions up on its own). */
+  onCommentsClick?: () => void
 }
 
 /**
@@ -25,6 +31,8 @@ export function RequirementBucketHeader({
   bucketStatus,
   markAsDoneChecked = false,
   onMarkAsDoneChange,
+  onBack,
+  onCommentsClick,
 }: RequirementBucketHeaderProps) {
   const primary =
     descriptor.actions.primary?.label === 'Mark as done'
@@ -39,6 +47,7 @@ export function RequirementBucketHeader({
             <BackLink
               label={descriptor.backLink.label}
               href={descriptor.backLink.href}
+              onClick={onBack}
             />
           ) : (
             <span className="h-10" />
@@ -50,6 +59,7 @@ export function RequirementBucketHeader({
             allOutline
             markAsDoneChecked={markAsDoneChecked}
             onMarkAsDoneChange={onMarkAsDoneChange}
+            onCommentsClick={onCommentsClick}
           />
         </div>
 

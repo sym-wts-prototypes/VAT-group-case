@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowUpLeft } from 'lucide-react'
 
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
+import { CommentsDrawer } from '@/components/body/CommentsDrawer'
 import { SendPackageDialog, type SendPackageDetails } from '@/components/body/SendPackageDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { CaseManagementPage } from '@/components/case-management-page'
@@ -75,6 +76,9 @@ export function PlaygroundMain() {
   // this is a different component tree.
   const [sendApprovalOpen, setSendApprovalOpen] = useState(false)
   const [creatorClientComment, setCreatorClientComment] = useState<string | null>(null)
+  // Shared by every "Comments" trigger the Client sees (bucket header, bucket cards, opened
+  // category) — same placeholder drawer the Requirements List (WTS) uses.
+  const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false)
 
   if (showCaseManagement) {
     return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
@@ -368,6 +372,8 @@ export function PlaygroundMain() {
             ? setBucketMarkAsDoneChecked
             : () => undefined
         }
+        onBucketBack={() => setHeaderType('case')}
+        onBucketCommentsClick={() => setCommentsDrawerOpen(true)}
       />
 
       {openCorrectionChild && (
@@ -459,6 +465,7 @@ export function PlaygroundMain() {
           setSelectedRequirementCategoryId(categoryId)
           setHeaderType('requirementBucket')
         }}
+        onOpenComments={() => setCommentsDrawerOpen(true)}
       />
 
       {descriptor.note && (
@@ -489,6 +496,8 @@ export function PlaygroundMain() {
           setSendApprovalOpen(false)
         }}
       />
+
+      <CommentsDrawer open={commentsDrawerOpen} onOpenChange={setCommentsDrawerOpen} />
     </div>
   )
 }

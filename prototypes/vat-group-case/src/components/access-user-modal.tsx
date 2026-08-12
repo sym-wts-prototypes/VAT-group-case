@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, ChevronDown, Check, X } from "lucide-react";
+import { Tabs } from "@wts/ui";
 import {
   AccessScope, Engagement, LegalEntity, OrgUser, UserRole, UserType, VatRegistration,
   engagementsForEntity, engagementLabel, registrationsForEntity, registrationShortLabel, registrationById,
@@ -337,22 +338,16 @@ export function AccessUserModal({
       <div className="flex flex-col gap-4">
         {/* User Type — moved to the top: Roles, "May create cases", and Access Scope all
             depend on it (External locks Roles to Contributor and disables case-creation). */}
-        <div className="flex flex-col gap-1.5 min-w-0 max-w-[220px]">
+        <div className="flex flex-col gap-1.5 max-w-[220px]">
           <label className="text-[13px] leading-[18px] font-medium text-neutral-500">User Type</label>
-          <div className="flex grow rounded-lg border border-neutral-200 overflow-hidden w-full min-w-0">
-            {(["Internal", "External"] as UserType[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => handleTypeChange(t)}
-                className={`flex-1 min-w-0 px-2 py-2 text-[13px] leading-[20px] text-center border-r last:border-r-0 border-neutral-200 transition-colors ${
-                  userType === t ? "bg-primary text-white" : "bg-white text-neutral-600 hover:bg-neutral-50"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            value={userType}
+            onChange={handleTypeChange}
+            options={(["Internal", "External"] as UserType[]).map((t) => ({
+              value: t,
+              label: t,
+            }))}
+          />
         </div>
 
         <Field label="Email" required error={err && !emailValid}>

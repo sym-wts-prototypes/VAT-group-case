@@ -355,21 +355,21 @@ export function AccessUserModal({
           </div>
         </div>
 
-        <Field label="Name" required error={err && !nameValid}>
-          <input
-            className={inputCls(err && !nameValid)}
-            value={name}
-            onChange={(e) => { setName(e.target.value); setErr(false); }}
-            placeholder="e.g. Julia Hoffmann"
-          />
-        </Field>
-
         <Field label="Email" required error={err && !emailValid}>
           <input
             className={inputCls(err && !emailValid)}
             value={email}
             onChange={(e) => { setEmail(e.target.value); setErr(false); }}
             placeholder="name@company.com"
+          />
+        </Field>
+
+        <Field label="Name" required error={err && !nameValid}>
+          <input
+            className={inputCls(err && !nameValid)}
+            value={name}
+            onChange={(e) => { setName(e.target.value); setErr(false); }}
+            placeholder="e.g. Julia Hoffmann"
           />
         </Field>
 

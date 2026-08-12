@@ -189,7 +189,7 @@ export interface Engagement {
   contractRef: string;
   serviceLines: ServiceLineAssignment[];   // one or more service lines, each with its own case types
   status: EngagementStatus;
-  startDate: string;
+  startDate: string | null;
   endDate: string | null;
   entityIds: string[];
   createdBy?: string;

@@ -514,11 +514,12 @@ export function ParentVatGroupCasePage() {
   // Variant toggle (Segment 9) or by following the blue banner/link-back elements (Segments 5/7).
   const activeCase = groupCaseVariant === 'correction' ? CORRECTION_PARENT_CASE : PARENT_CASE
   const isCorrectionView = groupCaseVariant === 'correction'
-  // "Correction toggle & wiring" ticket, Segment 5 — the "Send for approval"/"Submit to tax
-  // authorities" primary actions no longer fire on a single click; each opens this dialog first,
-  // and only its own explicit Send confirms the transition `pendingSend` already knows to make.
+  // "Correction toggle & wiring" ticket, Segment 5 — the "Send for approval" primary action no
+  // longer fires on a single click; it opens this dialog first, and only its own explicit Send
+  // confirms the In Review → Client Approval transition. "Submit to tax authorities" (Client
+  // Approval → Submission) proceeds straight through without a confirmation dialog.
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
-  const [pendingSend, setPendingSend] = useState<'approval' | 'authorities' | null>(null)
+  const [pendingSend, setPendingSend] = useState<'approval' | null>(null)
   const [sendToastOpen, setSendToastOpen] = useState(false)
   const [correctionDrawerOpen, setCorrectionDrawerOpen] = useState(false)
   const [correctionSchedulerOpen, setCorrectionSchedulerOpen] = useState(false)
@@ -828,26 +829,26 @@ export function ParentVatGroupCasePage() {
           setPhase('inPreparation')
         }
       } else {
-        // Segment 5 — same dialog-first treatment as "Send for approval" above; the dialog's
-        // Send is what calls setPhase('submitted') now.
+        // "Submit to tax authorities" proceeds directly — no confirmation dialog.
         actions = { primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         primaryDisabled = creatorClientApprovalState !== 'approved'
         handlePrimaryClick = () => {
           if (creatorClientApprovalState === 'approved') {
-            setPendingSend('authorities')
-            setSendDialogOpen(true)
+            setPhase('submitted')
+            setSendToastOpen(true)
           }
         }
       }
     } else if (isReviewer) {
       // Segment 4 — once the client has Approved, the Reviewer sees "Submit to tax authorities"
-      // too, exactly like the Creator (same dialog). No button for any other state, same as the
-      // Creator's needChanges branch hands that back to the Creator alone.
+      // too, exactly like the Creator (same direct action, no confirmation dialog). No button for
+      // any other state, same as the Creator's needChanges branch hands that back to the Creator
+      // alone.
       if (reviewerClientApprovalState === 'approved') {
         actions = { primary: { label: 'Submit to tax authorities', icon: 'ArrowRight', iconSide: 'right', variant: 'default' } }
         handlePrimaryClick = () => {
-          setPendingSend('authorities')
-          setSendDialogOpen(true)
+          setPhase('submitted')
+          setSendToastOpen(true)
         }
       }
     } else if (isClient) {
@@ -1377,22 +1378,17 @@ export function ParentVatGroupCasePage() {
         onConfirmApprove={handleApproveFromModal}
       />
 
-      {/* "Correction toggle & wiring" ticket, Segment 5 — one dialog reused for both the In
-          Review → Client Approval and Client Approval → Submitted transitions; `pendingSend`
-          decides which copy/phase-change applies. */}
+      {/* "Correction toggle & wiring" ticket, Segment 5 — confirms the In Review → Client
+          Approval transition; Client Approval → Submission ("Submit to tax authorities") no
+          longer routes through this dialog. */}
       <SendPackageDialog
         open={sendDialogOpen}
-        title={pendingSend === 'authorities' ? 'Submit to tax authorities' : 'Send for approval'}
-        description={
-          pendingSend === 'authorities'
-            ? 'This sends the package to the tax authorities.'
-            : 'This sends the package to the client for approval.'
-        }
-        confirmLabel={pendingSend === 'authorities' ? 'Submit to tax authorities' : 'Send for approval'}
+        title="Send for approval"
+        description="This sends the package to the client for approval."
+        confirmLabel="Send for approval"
         onClose={() => setSendDialogOpen(false)}
         onConfirm={(details: SendPackageDetails) => {
-          if (pendingSend === 'authorities') setPhase('submitted')
-          else if (pendingSend === 'approval') {
+          if (pendingSend === 'approval') {
             setPhase('clientApproval')
             setCreatorClientComment(details.comment.trim() || null)
           }

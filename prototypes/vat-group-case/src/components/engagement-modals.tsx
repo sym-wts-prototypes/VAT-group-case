@@ -97,7 +97,7 @@ function EndDateField({ value, onChange }: { value: string; onChange: (v: string
       <DateField
         value={value}
         onChange={onChange}
-        placeholder={unlimited ? "Unlimited" : "Select a date"}
+        placeholder={unlimited ? "Unlimited" : "dd mm yyyy"}
         disabled={unlimited}
       />
       <label className="flex cursor-pointer items-center gap-2 select-none">
@@ -121,12 +121,48 @@ function EndDateField({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+// Start Date's "Optional" checkbox is unchecked by default — unlike End Date, emptiness alone
+// doesn't imply the checkbox state here, so the two are tracked independently: a user can leave
+// the date blank without opting into "Open", which the create-button validity gate below relies on.
+function StartDateField({
+  value, onChange, optional, onOptionalChange,
+}: { value: string; onChange: (v: string) => void; optional: boolean; onOptionalChange: (v: boolean) => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <DateField
+        value={optional ? "" : value}
+        onChange={onChange}
+        placeholder={optional ? "Open" : "dd mm yyyy"}
+        disabled={optional}
+      />
+      <label className="flex cursor-pointer items-center gap-2 select-none">
+        <span
+          role="checkbox"
+          aria-checked={optional}
+          tabIndex={0}
+          onClick={() => onOptionalChange(!optional)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            onOptionalChange(!optional);
+          }}
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${optional ? "border-primary bg-primary text-white" : "border-neutral-300"}`}
+        >
+          {optional && <Check className="h-3 w-3" />}
+        </span>
+        <span className="text-[13px] leading-[18px] text-neutral-600">Optional</span>
+      </label>
+    </div>
+  );
+}
+
 /* ─── Engagement draft ───────────────────────────────────────────────────── */
 export interface EngagementDraft {
   contractRef: string;
   serviceLines: ServiceLineAssignment[];
   status: EngagementStatus;
   startDate: string;
+  startOptional: boolean;
   endDate: string;
 }
 
@@ -210,10 +246,11 @@ export function ServiceLinesCell({ serviceLines }: { serviceLines: ServiceLineAs
 
 /* ─── Create Engagement Modal ────────────────────────────────────────────── */
 export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (d: EngagementDraft) => void }) {
-  const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }], status: "Active", startDate: "", endDate: "" });
+  const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }], status: "Active", startDate: "", startOptional: false, endDate: "" });
   const set = (k: keyof EngagementDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const startValid = draft.startOptional || draft.startDate !== "";
   // V8-A — case types were removed from the engagement form; a row is valid on its service line alone.
-  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine);
+  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine) && startValid;
 
   return (
     <Modal title="Create Engagement" onClose={onClose}>
@@ -226,8 +263,12 @@ export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => vo
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Start Date</Label>
-            <DateField value={draft.startDate} onChange={set("startDate")} placeholder="Not set" clearable />
-            <p className="mt-1.5 text-[12px] leading-[16px] text-neutral-400">Optional — can be set later.</p>
+            <StartDateField
+              value={draft.startDate}
+              onChange={set("startDate")}
+              optional={draft.startOptional}
+              onOptionalChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
+            />
           </div>
           <div>
             <Label>End Date</Label>
@@ -251,10 +292,13 @@ export function EditEngagementModal({
     contractRef: engagement.contractRef,
     serviceLines: engagement.serviceLines.map((s) => ({ serviceLine: s.serviceLine, caseTypes: [...s.caseTypes], frequency: s.frequency })),
     status: engagement.status,
-    startDate: toInputDate(engagement.startDate),
+    startDate: engagement.startDate ? toInputDate(engagement.startDate) : "",
+    startOptional: !engagement.startDate,
     endDate: engagement.endDate ? toInputDate(engagement.endDate) : "",
   });
   const set = (k: keyof EngagementDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const startValid = draft.startOptional || draft.startDate !== "";
+  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine) && startValid;
   const assignedEntities = entities.filter((e) => engagement.entityIds.includes(e.id));
 
   return (
@@ -268,8 +312,12 @@ export function EditEngagementModal({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Start Date</Label>
-            <DateField value={draft.startDate} onChange={set("startDate")} placeholder="Not set" clearable />
-            <p className="mt-1.5 text-[12px] leading-[16px] text-neutral-400">Optional — can be set later.</p>
+            <StartDateField
+              value={draft.startDate}
+              onChange={set("startDate")}
+              optional={draft.startOptional}
+              onOptionalChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
+            />
           </div>
           <div>
             <Label>End Date</Label>
@@ -299,7 +347,7 @@ export function EditEngagementModal({
       </div>
       <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 shrink-0">
         <button type="button" onClick={onClose} className="px-4 py-2 border border-neutral-200 text-neutral-700 font-medium text-[14px] leading-[20px] rounded-lg hover:bg-neutral-50">Cancel</button>
-        <button type="button" onClick={() => onSubmit(draft)} className="px-4 py-2 bg-primary text-white font-medium text-[14px] leading-[20px] rounded-lg hover:opacity-90">Save Changes</button>
+        <button type="button" disabled={!valid} onClick={() => valid && onSubmit(draft)} className="px-4 py-2 bg-primary text-white font-medium text-[14px] leading-[20px] rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">Save Changes</button>
       </div>
     </Modal>
   );
@@ -404,8 +452,8 @@ export function AssignEngagementModal({
                       <span className="text-neutral-900">{eng.contractRef}</span>
                     </td>
                     <td className="px-3 py-3"><EngagementStatusPill status={eng.status} /></td>
-                    <td className="px-3 py-3 text-neutral-700">{eng.startDate}</td>
-                    <td className="px-3 py-3 text-neutral-700">{eng.endDate ?? "—"}</td>
+                    <td className="px-3 py-3 text-neutral-700">{eng.startDate ?? "Open"}</td>
+                    <td className="px-3 py-3 text-neutral-700">{eng.endDate ?? "Unlimited"}</td>
                     <td className="px-3 py-3 text-neutral-700"><ServiceLinesCell serviceLines={eng.serviceLines} /></td>
                   </tr>
                 ))}

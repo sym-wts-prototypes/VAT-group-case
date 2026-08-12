@@ -148,17 +148,25 @@ export function PlaygroundMain() {
     withNeedChanges && isChildCaseView
       ? { ...withNeedChanges, dueDateLabel: 'Group Case Deadline' }
       : withNeedChanges
+  // Group Case Child Case flow: a non-interactive "Part of {parent-case-name}" indicator on the
+  // header, distinguishing it from a regular Single Case — same parent-case resolution
+  // (regular vs. correction) parent-vat-group-case-page.tsx already uses for `activeCase`.
+  const parentGroupCase = groupCaseVariant === 'correction' ? CORRECTION_PARENT_CASE : DUMMY_GROUP_CASES[0]
+  const withParentCaseName =
+    withDueDateLabel && isChildCaseView
+      ? { ...withDueDateLabel, parentCaseName: parentGroupCase.caseName }
+      : withDueDateLabel
   // Group Case Child Case flow: a representative example of a non-representative-entity Child
   // Case's real, org-sourced assignees (see vat-group-case-assignees.ts) instead of the generic
   // cross-process demo people — plus this component's own Creator/Reviewer-can-edit rule.
   const withChildAssignedPeople =
-    withDueDateLabel && isChildCaseView
+    withParentCaseName && isChildCaseView
       ? {
-          ...withDueDateLabel,
+          ...withParentCaseName,
           assignedPeople: CHILD_CASE_DEMO_ASSIGNEES,
           assignedPeopleEditable: role === 'creator' || role === 'reviewer',
         }
-      : withDueDateLabel
+      : withParentCaseName
   // Group Case Child Case flow: neither Consolidation nor a "Send to Consolidation"/"Submit to
   // tax authorities" step exists on a Child Case (those are Parent-Case-only) — so the
   // Creator's two case-progressing actions get child-specific labels instead. In Preparation's
@@ -489,6 +497,7 @@ export function PlaygroundMain() {
         title={isChildCaseView ? 'Send to approval' : 'Send for approval'}
         description="This sends the package to the client for approval."
         confirmLabel={isChildCaseView ? 'Send to approval' : 'Send for approval'}
+        showDeadline={process !== 'cit'}
         onClose={() => setSendApprovalOpen(false)}
         onConfirm={(details: SendPackageDetails) => {
           setPhase('clientApproval')

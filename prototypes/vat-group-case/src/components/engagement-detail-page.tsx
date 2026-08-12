@@ -141,8 +141,8 @@ export function EngagementDetailPage({
           <DetailCard title="Engagement Details">
             <DetailRow label="Contract Reference" value={engagement.contractRef} mono />
             <DetailRow label="Status" value={engagement.status} />
-            <DetailRow label="Start Date" value={engagement.startDate || "—"} />
-            <DetailRow label="End Date" value={engagement.endDate ?? "—"} />
+            <DetailRow label="Start Date" value={engagement.startDate ?? "Open"} />
+            <DetailRow label="End Date" value={engagement.endDate ?? "Unlimited"} />
             <DetailRow label="Created By" value={engagement.createdBy ?? "—"} />
             <DetailRow label="Last Updated" value={engagement.lastUpdated ?? "—"} last />
           </DetailCard>

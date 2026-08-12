@@ -561,7 +561,7 @@ export function OrgWorkspace({
     const base: Engagement = {
       id, orgId: org.id, entityIds: [],
       contractRef: draft.contractRef, serviceLines: draft.serviceLines,
-      status: draft.status, startDate: draft.startDate ? fromInputDate(draft.startDate) : "",
+      status: draft.status, startDate: draft.startOptional ? null : (draft.startDate ? fromInputDate(draft.startDate) : null),
       endDate: draft.endDate ? fromInputDate(draft.endDate) : null,
       createdBy: "super.admin@wts.de", lastUpdated: today(),
     };
@@ -579,7 +579,7 @@ export function OrgWorkspace({
       if (e.id !== editEngTarget.id) return e;
       const updated: Engagement = {
         ...e, contractRef: draft.contractRef, serviceLines: draft.serviceLines,
-        status: draft.status, startDate: draft.startDate ? fromInputDate(draft.startDate) : "",
+        status: draft.status, startDate: draft.startOptional ? null : (draft.startDate ? fromInputDate(draft.startDate) : null),
         endDate: draft.endDate ? fromInputDate(draft.endDate) : null,
         lastUpdated: today(),
       };
@@ -1452,8 +1452,8 @@ export function EntityEngagementsSection({
                     )}
                   </Td>
                   <Td><EngagementStatusPill status={eng.status} /></Td>
-                  <Td className="text-neutral-700">{eng.startDate}</Td>
-                  <Td className="text-neutral-700">{eng.endDate ?? "—"}</Td>
+                  <Td className="text-neutral-700">{eng.startDate ?? "Open"}</Td>
+                  <Td className="text-neutral-700">{eng.endDate ?? "Unlimited"}</Td>
                   <Td className="text-neutral-700"><ServiceLinesCell serviceLines={eng.serviceLines} /></Td>
                   <TdActions>
                     {canManage ? (
@@ -1682,8 +1682,8 @@ export function EngagementsTab({
                     <Button variant="link" type="button" onClick={() => onOpenEngagement(eng.id)} className="h-auto p-0">{eng.contractRef}</Button>
                   </Td>
                   <Td><EngagementStatusPill status={eng.status} /></Td>
-                  <Td className="text-neutral-700">{eng.startDate}</Td>
-                  <Td className="text-neutral-700">{eng.endDate ?? "—"}</Td>
+                  <Td className="text-neutral-700">{eng.startDate ?? "Open"}</Td>
+                  <Td className="text-neutral-700">{eng.endDate ?? "Unlimited"}</Td>
                   <Td className="text-neutral-700"><ServiceLinesCell serviceLines={eng.serviceLines} /></Td>
                   <Td>
                     <TruncatedCell

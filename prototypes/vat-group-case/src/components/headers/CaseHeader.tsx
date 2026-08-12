@@ -4,7 +4,7 @@ import { Actions } from './parts/Actions'
 import { Breadcrumb } from './parts/Breadcrumb'
 import { HeaderShell } from './parts/HeaderShell'
 import { NextDeadline } from './parts/NextDeadline'
-import { Title, TitleSubtitle } from './parts/Title'
+import { ParentCaseIndicator, Title, TitleSubtitle } from './parts/Title'
 import type { HeaderDescriptor } from '@/types'
 
 interface CaseHeaderProps {
@@ -49,7 +49,12 @@ export function CaseHeader({
               title={descriptor.title}
               size={compact ? 'slim' : 'case'}
             />
-            <TitleSubtitle title={descriptor.title} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <TitleSubtitle title={descriptor.title} />
+              {descriptor.parentCaseName && (
+                <ParentCaseIndicator name={descriptor.parentCaseName} />
+              )}
+            </div>
           </div>
         </div>
 

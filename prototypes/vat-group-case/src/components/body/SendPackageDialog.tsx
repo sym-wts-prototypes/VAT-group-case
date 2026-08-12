@@ -27,6 +27,8 @@ interface SendPackageDialogProps {
   title: string
   description: string
   confirmLabel: string
+  /** CIT has no deadline concept on this dialog — only VAT does. Defaults to shown. */
+  showDeadline?: boolean
   onClose: () => void
   onConfirm: (details: SendPackageDetails) => void
 }
@@ -40,6 +42,7 @@ export function SendPackageDialog({
   title,
   description,
   confirmLabel,
+  showDeadline = true,
   onClose,
   onConfirm,
 }: SendPackageDialogProps) {
@@ -69,15 +72,17 @@ export function SendPackageDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="send-package-deadline">Deadline (optional)</Label>
-          <Input
-            id="send-package-deadline"
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-          />
-        </div>
+        {showDeadline && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="send-package-deadline">Deadline (optional)</Label>
+            <Input
+              id="send-package-deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="send-package-comment">Comment (optional)</Label>

@@ -143,6 +143,8 @@ export interface HeaderDescriptor {
   /** Overrides the due-date pill's label — e.g. "Group Case Deadline" for VAT Group cases.
    * Defaults to "Due Date" (see DueDate.tsx) when omitted. */
   dueDateLabel?: string
+  /** Non-interactive "Part of {name}" indicator — Group Case Child Case only. No link. */
+  parentCaseName?: string
   editable?: boolean
   /** Tooltip shown on the PeopleRow's Edit action, when editable — e.g. to explain scope. */
   editTooltip?: string

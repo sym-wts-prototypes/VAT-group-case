@@ -1,3 +1,5 @@
+import { Layers } from 'lucide-react'
+
 import { cn } from '@wts/ui'
 import type { HeaderTitle } from '@/types'
 
@@ -62,6 +64,17 @@ export function TitleSubtitle({ title }: { title: HeaderTitle }) {
       {title.subtitle && <InfoPill>{title.subtitle}</InfoPill>}
       {title.subCode && <InfoPill>{title.subCode}</InfoPill>}
     </div>
+  )
+}
+
+/** Group Case Child Case only — distinguishes it from a regular Single Case. Plain, non-
+ * interactive: no href/onClick, so it never reads as a link back to the parent case. */
+export function ParentCaseIndicator({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-1.5 py-[3px] text-xs font-medium leading-none text-muted-foreground">
+      <Layers className="h-3 w-3" aria-hidden />
+      Part of {name}
+    </span>
   )
 }
 

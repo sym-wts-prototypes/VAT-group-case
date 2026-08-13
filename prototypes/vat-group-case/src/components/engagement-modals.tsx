@@ -194,7 +194,7 @@ export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => vo
               onChange={(date) => setDraft((d) => ({ ...d, startDate: date }))}
               toggled={draft.startOptional}
               onToggledChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
-              toggleLabel="Optional"
+              toggleLabel="Set as open"
               toggledPlaceholder="Open"
             />
           </div>
@@ -205,7 +205,7 @@ export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => vo
               onChange={(date) => setDraft((d) => ({ ...d, endDate: date }))}
               toggled={draft.endUnlimited}
               onToggledChange={(v) => setDraft((d) => ({ ...d, endUnlimited: v }))}
-              toggleLabel="Unlimited"
+              toggleLabel="Set as unlimited"
               toggledPlaceholder="Unlimited"
             />
           </div>
@@ -254,7 +254,7 @@ export function EditEngagementModal({
               onChange={(date) => setDraft((d) => ({ ...d, startDate: date }))}
               toggled={draft.startOptional}
               onToggledChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
-              toggleLabel="Optional"
+              toggleLabel="Set as open"
               toggledPlaceholder="Open"
             />
           </div>
@@ -265,7 +265,7 @@ export function EditEngagementModal({
               onChange={(date) => setDraft((d) => ({ ...d, endDate: date }))}
               toggled={draft.endUnlimited}
               onToggledChange={(v) => setDraft((d) => ({ ...d, endUnlimited: v }))}
-              toggleLabel="Unlimited"
+              toggleLabel="Set as unlimited"
               toggledPlaceholder="Unlimited"
             />
           </div>

@@ -47,8 +47,10 @@ const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
             )}
             {...props}
           >
-            <CalendarIcon className="size-4" />
-            {value ? (formatValue ? formatValue(value) : format(value, "PPP")) : placeholder}
+            <span className="flex-1 truncate text-left">
+              {value ? (formatValue ? formatValue(value) : format(value, "PPP")) : placeholder}
+            </span>
+            <CalendarIcon className="size-4 shrink-0" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

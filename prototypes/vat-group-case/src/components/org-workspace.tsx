@@ -561,8 +561,8 @@ export function OrgWorkspace({
     const base: Engagement = {
       id, orgId: org.id, entityIds: [],
       contractRef: draft.contractRef, serviceLines: draft.serviceLines,
-      status: draft.status, startDate: draft.startOptional ? null : (draft.startDate ? fromInputDate(draft.startDate) : null),
-      endDate: draft.endDate ? fromInputDate(draft.endDate) : null,
+      status: draft.status, startDate: draft.startOptional ? null : (draft.startDate ? dateToDDMMYYYY(draft.startDate) : null),
+      endDate: draft.endUnlimited ? null : (draft.endDate ? dateToDDMMYYYY(draft.endDate) : null),
       createdBy: "super.admin@wts.de", lastUpdated: today(),
     };
     setEngagements((prev) => [...prev, { ...base, status: computeEngagementStatus(base) }]);
@@ -579,8 +579,8 @@ export function OrgWorkspace({
       if (e.id !== editEngTarget.id) return e;
       const updated: Engagement = {
         ...e, contractRef: draft.contractRef, serviceLines: draft.serviceLines,
-        status: draft.status, startDate: draft.startOptional ? null : (draft.startDate ? fromInputDate(draft.startDate) : null),
-        endDate: draft.endDate ? fromInputDate(draft.endDate) : null,
+        status: draft.status, startDate: draft.startOptional ? null : (draft.startDate ? dateToDDMMYYYY(draft.startDate) : null),
+        endDate: draft.endUnlimited ? null : (draft.endDate ? dateToDDMMYYYY(draft.endDate) : null),
         lastUpdated: today(),
       };
       return { ...updated, status: computeEngagementStatus(updated) };
@@ -2315,8 +2315,8 @@ export function EmptyBlock({ icon, title, text, cta, onCta }: { icon: React.Reac
   );
 }
 
-export function fromInputDate(yyyy_mm_dd: string): string {
-  const parts = yyyy_mm_dd.split("-");
-  if (parts.length !== 3) return yyyy_mm_dd;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+export function dateToDDMMYYYY(date: Date): string {
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  return `${d}/${m}/${date.getFullYear()}`;
 }

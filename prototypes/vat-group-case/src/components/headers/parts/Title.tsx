@@ -71,8 +71,8 @@ export function TitleSubtitle({ title }: { title: HeaderTitle }) {
  * interactive: no href/onClick, so it never reads as a link back to the parent case. */
 export function ParentCaseIndicator({ name }: { name: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-1.5 py-[3px] text-xs font-medium leading-none text-muted-foreground">
-      <Layers className="h-3 w-3" aria-hidden />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-1.5 py-[3px] text-xs font-medium leading-none text-foreground">
+      <Layers className="h-3 w-3 shrink-0 text-blue-600" aria-hidden />
       Part of {name}
     </span>
   )

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 
-import { Button } from '@wts/ui'
+import { Button, DatePicker } from '@wts/ui'
 import {
   Select,
   SelectContent,
@@ -14,6 +14,12 @@ import { cn } from '@wts/ui'
 import { FileDropzone } from './FileDropzone'
 
 export type AssessmentLevel = 'Federal' | 'Municipal'
+
+function dateToIso(date: Date): string {
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${m}-${d}`
+}
 
 interface AddItemDialogProps {
   open: boolean
@@ -30,15 +36,14 @@ interface AddItemDialogProps {
 export function AddItemDialog({ open, onClose, onSubmit }: AddItemDialogProps) {
   const [level, setLevel] = useState<AssessmentLevel | ''>('')
   const [authority, setAuthority] = useState('')
-  const [dateReceived, setDateReceived] = useState('')
+  const [dateReceived, setDateReceived] = useState<Date | undefined>(undefined)
   const [fileName, setFileName] = useState<string | null>(null)
-  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
       setLevel('')
       setAuthority('')
-      setDateReceived('')
+      setDateReceived(undefined)
       setFileName(null)
     }
   }, [open])
@@ -55,20 +60,20 @@ export function AddItemDialog({ open, onClose, onSubmit }: AddItemDialogProps) {
   if (!open) return null
 
   const today = new Date()
-  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  today.setHours(0, 0, 0, 0)
 
   const canSubmit =
     level !== '' &&
     authority.trim() !== '' &&
-    dateReceived !== '' &&
+    dateReceived !== undefined &&
     fileName !== null
 
   const handleSubmit = () => {
-    if (!canSubmit) return
+    if (!canSubmit || !dateReceived) return
     onSubmit?.({
       level: level as AssessmentLevel,
       authority: authority.trim(),
-      dateReceived,
+      dateReceived: dateToIso(dateReceived),
       fileNames: fileName ? [fileName] : [],
     })
     onClose()
@@ -150,27 +155,13 @@ export function AddItemDialog({ open, onClose, onSubmit }: AddItemDialogProps) {
           >
             Date received
           </label>
-          <div
-            className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-header-sm focus-within:ring-2 focus-within:ring-ring"
-            onClick={() => dateInputRef.current?.showPicker?.()}
-          >
-            <CalendarDays
-              className="h-4 w-4 shrink-0 text-foreground"
-              aria-hidden
-            />
-            <input
-              ref={dateInputRef}
-              id="add-item-date"
-              type="date"
-              value={dateReceived}
-              max={todayIso}
-              onChange={(event) => {
-                const value = event.target.value
-                setDateReceived(value && value > todayIso ? todayIso : value)
-              }}
-              className="w-full bg-transparent text-foreground focus-visible:outline-none"
-            />
-          </div>
+          <DatePicker
+            id="add-item-date"
+            value={dateReceived}
+            onChange={(date) => setDateReceived(date && date > today ? today : date)}
+            placeholder="dd mm yyyy"
+            className="w-full text-foreground"
+          />
         </div>
 
         <FileDropzone

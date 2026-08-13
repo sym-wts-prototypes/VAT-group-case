@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import { ArrowUpLeft } from 'lucide-react'
 
+import type { AssignedPeopleData } from '@/components/assigned-people'
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
 import { CommentsDrawer } from '@/components/body/CommentsDrawer'
 import { SendPackageDialog, type SendPackageDetails } from '@/components/body/SendPackageDialog'
 import { BodyPlaceholder } from '@/components/body/BodyPlaceholder'
 import { CaseManagementPage } from '@/components/case-management-page'
 import { CORRECTION_PARENT_CASE, DUMMY_GROUP_CASES } from '@/components/case-management-data'
+import { CreateCaseDrawer } from '@/components/create-case-drawer'
 import { OrganisationsEntryPage } from '@/components/organisations-entry'
-import { GROUPS, LEGAL_ENTITIES } from '@/components/org-details-data'
+import { GROUPS, LEGAL_ENTITIES, vatRegistrationForJurisdiction } from '@/components/org-details-data'
 import { INITIAL_ORGANIZATIONS } from '@/components/organizations-data'
 import { ParentVatGroupCasePage } from '@/components/parent-vat-group-case-page'
-import { CHILD_CASE_DEMO_ASSIGNEES } from '@/components/vat-group-case-assignees'
+import type { EditCaseRolesContext } from '@/components/single-case-form'
+import { CHILD_CASE_DEMO_ASSIGNEES, REPRESENTATIVE_ASSIGNEES } from '@/components/vat-group-case-assignees'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
+import { SAMPLE_CASE, SAMPLE_CASE_TITLE } from '@/config/sampleData'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
 import {
@@ -79,6 +83,14 @@ export function PlaygroundMain() {
   // Shared by every "Comments" trigger the Client sees (bucket header, bucket cards, opened
   // category) — same placeholder drawer the Requirements List (WTS) uses.
   const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false)
+  // "Edit case" side drawer (CreateCaseDrawer's editContext) opened from the header's own
+  // AssignedPeople "Edit" action — same drawer the Parent Case's child-cases list already uses
+  // (parent-vat-group-case-page.tsx), reached here for whichever case is currently open (a
+  // Child Case, with its parent named, or a plain Single Case, with no parent reference).
+  // `undefined` override = show whatever the un-edited demo data already displays.
+  const [assigneesDrawerOpen, setAssigneesDrawerOpen] = useState(false)
+  const [childAssignedPeopleOverride, setChildAssignedPeopleOverride] = useState<AssignedPeopleData | undefined>(undefined)
+  const [singleCaseAssignedPeopleOverride, setSingleCaseAssignedPeopleOverride] = useState<AssignedPeopleData | undefined>(undefined)
 
   if (showCaseManagement) {
     return <CaseManagementPage organisations={INITIAL_ORGANIZATIONS} groups={GROUPS} entities={LEGAL_ENTITIES} />
@@ -152,21 +164,45 @@ export function PlaygroundMain() {
   // header, distinguishing it from a regular Single Case — same parent-case resolution
   // (regular vs. correction) parent-vat-group-case-page.tsx already uses for `activeCase`.
   const parentGroupCase = groupCaseVariant === 'correction' ? CORRECTION_PARENT_CASE : DUMMY_GROUP_CASES[0]
+  // A stand-in for "the Child Case currently open" — this generic view isn't bound to one
+  // specific child record, so it picks a non-representative member (see the assignees comment
+  // below) to name in the "Edit case" drawer opened from the header.
+  const demoChildCase = parentGroupCase.children.find((c) => c.client !== parentGroupCase.representativeEntity) ?? parentGroupCase.children[0]
   const withParentCaseName =
     withDueDateLabel && isChildCaseView
       ? { ...withDueDateLabel, parentCaseName: parentGroupCase.caseName }
       : withDueDateLabel
   // Group Case Child Case flow: a representative example of a non-representative-entity Child
   // Case's real, org-sourced assignees (see vat-group-case-assignees.ts) instead of the generic
-  // cross-process demo people — plus this component's own Creator/Reviewer-can-edit rule.
+  // cross-process demo people — plus this component's own Creator/Reviewer-can-edit rule. The
+  // header's own "Edit" action (inside the AssignedPeople popover) opens the same "Edit case"
+  // drawer the Parent Case's child-cases list uses; `childAssignedPeopleOverride` is what a
+  // simulated save writes back to, so the header's own people-count stays in sync.
   const withChildAssignedPeople =
     withParentCaseName && isChildCaseView
       ? {
           ...withParentCaseName,
-          assignedPeople: CHILD_CASE_DEMO_ASSIGNEES,
+          assignedPeople: childAssignedPeopleOverride ?? CHILD_CASE_DEMO_ASSIGNEES,
           assignedPeopleEditable: role === 'creator' || role === 'reviewer',
+          onEditAssignedPeople: () => setAssigneesDrawerOpen(true),
         }
       : withParentCaseName
+  // Single Case flow (mutually exclusive with the Child Case chain above) — the header's
+  // AssignedPeople "Edit" action was previously wired to nothing (no onEditAssignedPeople in the
+  // static header config); it now opens the same drawer, case-name only, since a Single Case has
+  // no parent case to name. Defaults to the same real, org-sourced people as the Child Case demo
+  // (not the generic cross-process SAMPLE_PEOPLE the static config falls back to) — the drawer's
+  // Creator/Reviewer/Partner/Client pickers resolve people by matching email against a specific
+  // org's real users (see single-case-form.tsx's idsFor/usersForOrg), and SAMPLE_PEOPLE's names
+  // don't exist in any org's user list, which would leave the pickers empty and Save disabled.
+  const withSingleCaseAssignedPeople =
+    withChildAssignedPeople && !isChildCaseView
+      ? {
+          ...withChildAssignedPeople,
+          assignedPeople: singleCaseAssignedPeopleOverride ?? REPRESENTATIVE_ASSIGNEES,
+          onEditAssignedPeople: () => setAssigneesDrawerOpen(true),
+        }
+      : withChildAssignedPeople
   // Group Case Child Case flow: neither Consolidation nor a "Send to Consolidation"/"Submit to
   // tax authorities" step exists on a Child Case (those are Parent-Case-only) — so the
   // Creator's two case-progressing actions get child-specific labels instead. In Preparation's
@@ -174,15 +210,15 @@ export function PlaygroundMain() {
   // reached directly or via the needChanges reset, which also uses this exact label — see
   // NEED_CHANGES_CREATOR_HEADER_ACTIONS).
   const withChildCreatorSubmitLabel =
-    withChildAssignedPeople && isChildCaseView && withChildAssignedPeople.actions.primary?.label === 'Send for review'
+    withSingleCaseAssignedPeople && isChildCaseView && withSingleCaseAssignedPeople.actions.primary?.label === 'Send for review'
       ? {
-          ...withChildAssignedPeople,
+          ...withSingleCaseAssignedPeople,
           actions: {
-            ...withChildAssignedPeople.actions,
-            primary: { ...withChildAssignedPeople.actions.primary, label: 'Submit for review' },
+            ...withSingleCaseAssignedPeople.actions,
+            primary: { ...withSingleCaseAssignedPeople.actions.primary, label: 'Submit for review' },
           },
         }
-      : withChildAssignedPeople
+      : withSingleCaseAssignedPeople
   // In Review's default label ("Send for approval") depends on whether this Child Case's
   // workflow includes Client Approval at all: relabelled to "Send to approval" when it does
   // (same next step, Client Approval, just worded for the child-case context) or straight to
@@ -293,6 +329,9 @@ export function PlaygroundMain() {
     (assessmentGateActive && hasPrimary && assessmentsState !== 'done') ||
     (submissionGateActive && hasPrimary && !protocolConfirmationChecked) ||
     childClientApprovalState === 'needChanges'
+
+  const handleSaveChildAssignedPeople = (people: AssignedPeopleData) => setChildAssignedPeopleOverride(people)
+  const handleSaveSingleCaseAssignedPeople = (people: AssignedPeopleData) => setSingleCaseAssignedPeopleOverride(people)
 
   const handlePrimaryClick = (label: string) => {
     if (
@@ -507,6 +546,50 @@ export function PlaygroundMain() {
       />
 
       <CommentsDrawer open={commentsDrawerOpen} onOpenChange={setCommentsDrawerOpen} />
+
+      {/* "Edit case" drawer opened from the header's own AssignedPeople "Edit" action — same
+          drawer/component the Parent Case's child-cases list uses (see CreateCaseDrawer's
+          editContext, parent-vat-group-case-page.tsx). entities/organisations/groups are
+          intentionally empty; edit mode never needs the real collections. */}
+      <CreateCaseDrawer
+        open={assigneesDrawerOpen}
+        onOpenChange={setAssigneesDrawerOpen}
+        entities={[]}
+        organisations={[]}
+        groups={[]}
+        editContext={
+          isChildCaseView
+            ? ({
+                kind: 'child',
+                caseName: demoChildCase.caseName,
+                parentCaseName: parentGroupCase.caseName,
+                legalEntityId: demoChildCase.client,
+                legalEntityName: demoChildCase.client,
+                groupId: parentGroupCase.id,
+                groupName: parentGroupCase.vatGroupName,
+                jurisdiction: demoChildCase.jurisdiction,
+                vatRegCountry: demoChildCase.jurisdiction,
+                vatRegistrationNumber: vatRegistrationForJurisdiction(demoChildCase.jurisdiction),
+                orgId: 'europipe',
+                assignees: childAssignedPeopleOverride ?? CHILD_CASE_DEMO_ASSIGNEES,
+                onSave: handleSaveChildAssignedPeople,
+              } satisfies EditCaseRolesContext)
+            : ({
+                kind: 'single',
+                caseName: `${SAMPLE_CASE.company} - ${SAMPLE_CASE_TITLE[process][2]}`,
+                legalEntityId: SAMPLE_CASE.company,
+                legalEntityName: SAMPLE_CASE.company,
+                groupId: '',
+                groupName: '',
+                jurisdiction: 'Germany',
+                vatRegCountry: 'Germany',
+                vatRegistrationNumber: SAMPLE_CASE.vatCode,
+                orgId: 'europipe',
+                assignees: singleCaseAssignedPeopleOverride ?? REPRESENTATIVE_ASSIGNEES,
+                onSave: handleSaveSingleCaseAssignedPeople,
+              } satisfies EditCaseRolesContext)
+        }
+      />
     </div>
   )
 }

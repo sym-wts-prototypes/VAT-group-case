@@ -4,6 +4,7 @@ import {
   Alert,
   Badge,
   Button,
+  DatePicker,
   Dialog,
   DialogClose,
   DialogContent,
@@ -40,6 +41,19 @@ function joinNames(names: string[]): string {
 function fmtDate(iso: string): string {
   const [y, m, d] = iso.split('-')
   return `${d}.${m}.${y}.`
+}
+
+// EntityDraft keeps yyyy-mm-dd strings (matching the wider validFrom/validTo period-status
+// model in org-details-data.ts) — these two only convert at the DatePicker UI boundary.
+function isoToDate(iso: string): Date | undefined {
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return undefined
+  return new Date(y, m - 1, d)
+}
+function dateToIso(date: Date): string {
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${m}-${d}`
 }
 
 interface EntityDraft {
@@ -134,20 +148,20 @@ function EntityAssignmentRow({
             <div className="flex shrink-0 items-center gap-2">
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[11px] text-neutral-500">Valid from</Label>
-                <Input
-                  type="date"
-                  className="h-8"
-                  value={draft.validFrom}
-                  onChange={(ev) => onUpdateDraft({ validFrom: ev.target.value })}
+                <DatePicker
+                  value={draft.validFrom ? isoToDate(draft.validFrom) : undefined}
+                  onChange={(date) => onUpdateDraft({ validFrom: date ? dateToIso(date) : '' })}
+                  placeholder="dd mm yyyy"
+                  className="h-8 w-[150px] text-foreground"
                 />
               </div>
               <div className="flex flex-col gap-0.5">
                 <Label className="text-[11px] text-neutral-500">Valid to (optional)</Label>
-                <Input
-                  type="date"
-                  className="h-8"
-                  value={draft.validTo}
-                  onChange={(ev) => onUpdateDraft({ validTo: ev.target.value })}
+                <DatePicker
+                  value={draft.validTo ? isoToDate(draft.validTo) : undefined}
+                  onChange={(date) => onUpdateDraft({ validTo: date ? dateToIso(date) : '' })}
+                  placeholder="dd mm yyyy"
+                  className="h-8 w-[150px] text-foreground"
                 />
               </div>
             </div>

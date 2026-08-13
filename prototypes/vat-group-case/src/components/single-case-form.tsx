@@ -84,9 +84,11 @@ const DEFAULT_REVIEWER_IDS = ['jordan-miller']
 // whatever it was when the group case was originally created. `caseName` is the one thing that
 // differs between editing the Parent Case and editing one of its Child Cases (see the Case name
 // preview below) — everything else (legal entity, group, jurisdiction, VAT registration) is the
-// same for both, since both stem from the same original group-creation form state.
+// same for both, since both stem from the same original group-creation form state. `kind:
+// 'single'` reuses the same drawer for a plain (non-group) Single Case's own assignees — it
+// just never has a `parentCaseName`, so the "Part of parent case" line never renders for it.
 export interface EditCaseRolesContext {
-  kind: 'parent' | 'child'
+  kind: 'parent' | 'child' | 'single'
   caseName: string
   /** `kind: 'child'` only — the Parent Case this Child Case belongs to, named right under the
    * Case name preview so it's unmistakable which group case the roles being edited feed into. */

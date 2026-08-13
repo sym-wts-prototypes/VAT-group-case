@@ -4,18 +4,24 @@ import { Send } from 'lucide-react'
 import {
   Button,
   Checkbox,
+  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   Label,
   Textarea,
 } from '@wts/ui'
 
 const COMMENT_MAX_LENGTH = 1000
+
+function dateToIso(date: Date): string {
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${m}-${d}`
+}
 
 export interface SendPackageDetails {
   deadline: string
@@ -46,13 +52,13 @@ export function SendPackageDialog({
   onClose,
   onConfirm,
 }: SendPackageDialogProps) {
-  const [deadline, setDeadline] = useState('')
+  const [deadline, setDeadline] = useState<Date | undefined>(undefined)
   const [comment, setComment] = useState('')
   const [confirmed, setConfirmed] = useState(false)
 
   useEffect(() => {
     if (open) {
-      setDeadline('')
+      setDeadline(undefined)
       setComment('')
       setConfirmed(false)
     }
@@ -60,7 +66,7 @@ export function SendPackageDialog({
 
   const handleConfirm = () => {
     if (!confirmed) return
-    onConfirm({ deadline, comment: comment.trim() })
+    onConfirm({ deadline: deadline ? dateToIso(deadline) : '', comment: comment.trim() })
     onClose()
   }
 
@@ -75,11 +81,12 @@ export function SendPackageDialog({
         {showDeadline && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="send-package-deadline">Deadline (optional)</Label>
-            <Input
+            <DatePicker
               id="send-package-deadline"
-              type="date"
               value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
+              onChange={setDeadline}
+              placeholder="dd mm yyyy"
+              className="w-full text-foreground"
             />
           </div>
         )}

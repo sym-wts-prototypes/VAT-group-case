@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { X, ExternalLink, Plus, Trash2, Check } from "lucide-react";
-import { Badge, ConfirmDialog } from "@wts/ui";
+import { X, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Badge, Checkbox, ConfirmDialog, DatePicker } from "@wts/ui";
 import { Engagement, EngagementStatus, LegalEntity, ServiceLineAssignment, ServiceFrequency, SERVICE_CATALOGUE, SERVICE_FREQUENCIES } from "./org-details-data";
 
 /* ─── Shared modal shell ─────────────────────────────────────────────────── */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-[760px] flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-200 shrink-0">
           <h2 className="text-primary text-[20px] leading-[28px]" style={{ fontFamily: '"Cera Pro", sans-serif', fontWeight: 700 }}>{title}</h2>
@@ -45,112 +45,36 @@ function Select({ value, onChange, children }: { value: string; onChange: (v: st
     </select>
   );
 }
-function formatDisplayDate(yyyy_mm_dd: string): string {
-  const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
-  if (!y || !m || !d) return yyyy_mm_dd;
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-// A native <input type="date"> with its own text hidden, overlaid with a styled label showing
-// either the formatted date or a placeholder ("Not set" / "Unlimited") — native date inputs
-// can't show custom placeholder text on their own. `clearable` adds an "X" to return the value
-// to empty (used by Start Date, which is allowed to stay unset).
-function DateField({
-  value, onChange, placeholder, disabled, clearable,
-}: { value: string; onChange: (v: string) => void; placeholder: string; disabled?: boolean; clearable?: boolean }) {
-  return (
-    <div className="relative">
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-[14px] leading-[20px] text-transparent bg-transparent focus:outline-none focus:ring-2 focus:ring-[oklch(0.55_0.22_25)] focus:border-transparent disabled:bg-neutral-50 disabled:cursor-not-allowed"
-      />
-      <div className="pointer-events-none absolute inset-0 flex items-center px-3">
-        <span className={`truncate text-[14px] leading-[20px] ${value ? "text-neutral-900" : "text-neutral-400"}`}>
-          {value ? formatDisplayDate(value) : placeholder}
-        </span>
-      </div>
-      {clearable && value && !disabled && (
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          aria-label="Clear date"
-          className="absolute right-8 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-function todayInputDate(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-// End Date is either "Unlimited" (empty) or a concrete date — never an in-between "unchecked but
-// no date yet" state: unchecking the box immediately seeds today's date so it's always resolved.
-function EndDateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const unlimited = value === "";
+// Shared by Start Date ("Optional" → "Open") and End Date ("Unlimited" → "Unlimited"): a
+// @wts/ui DatePicker plus a checkbox that, when ticked, disables the picker and shows a fixed
+// label instead of a date. The checkbox is tracked independently of the date value — leaving
+// the date unset without ticking the box is a real, distinguishable (invalid) state, which the
+// create-button validity gates below rely on. `text-foreground` overrides DatePicker's own
+// muted placeholder styling so the unset "dd mm yyyy" state reads as normal, inputable text
+// rather than a grayed-out hint.
+function EngagementDateField({
+  value, onChange, toggled, onToggledChange, toggleLabel, toggledPlaceholder,
+}: {
+  value: Date | undefined
+  onChange: (date: Date | undefined) => void
+  toggled: boolean
+  onToggledChange: (v: boolean) => void
+  toggleLabel: string
+  toggledPlaceholder: string
+}) {
   return (
     <div className="flex flex-col gap-2">
-      <DateField
-        value={value}
+      <DatePicker
+        value={toggled ? undefined : value}
         onChange={onChange}
-        placeholder={unlimited ? "Unlimited" : "dd mm yyyy"}
-        disabled={unlimited}
+        disabled={toggled}
+        placeholder={toggled ? toggledPlaceholder : "dd mm yyyy"}
+        formatValue={(d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+        className={toggled ? undefined : "text-foreground"}
       />
       <label className="flex cursor-pointer items-center gap-2 select-none">
-        <span
-          role="checkbox"
-          aria-checked={unlimited}
-          tabIndex={0}
-          onClick={() => onChange(unlimited ? todayInputDate() : "")}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            onChange(unlimited ? todayInputDate() : "");
-          }}
-          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${unlimited ? "border-primary bg-primary text-white" : "border-neutral-300"}`}
-        >
-          {unlimited && <Check className="h-3 w-3" />}
-        </span>
-        <span className="text-[13px] leading-[18px] text-neutral-600">Unlimited</span>
-      </label>
-    </div>
-  );
-}
-
-// Start Date's "Optional" checkbox is unchecked by default — unlike End Date, emptiness alone
-// doesn't imply the checkbox state here, so the two are tracked independently: a user can leave
-// the date blank without opting into "Open", which the create-button validity gate below relies on.
-function StartDateField({
-  value, onChange, optional, onOptionalChange,
-}: { value: string; onChange: (v: string) => void; optional: boolean; onOptionalChange: (v: boolean) => void }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <DateField
-        value={optional ? "" : value}
-        onChange={onChange}
-        placeholder={optional ? "Open" : "dd mm yyyy"}
-        disabled={optional}
-      />
-      <label className="flex cursor-pointer items-center gap-2 select-none">
-        <span
-          role="checkbox"
-          aria-checked={optional}
-          tabIndex={0}
-          onClick={() => onOptionalChange(!optional)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            onOptionalChange(!optional);
-          }}
-          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${optional ? "border-primary bg-primary text-white" : "border-neutral-300"}`}
-        >
-          {optional && <Check className="h-3 w-3" />}
-        </span>
-        <span className="text-[13px] leading-[18px] text-neutral-600">Optional</span>
+        <Checkbox checked={toggled} onCheckedChange={(c) => onToggledChange(c === true)} />
+        <span className="text-[13px] leading-[18px] text-neutral-600">{toggleLabel}</span>
       </label>
     </div>
   );
@@ -161,9 +85,10 @@ export interface EngagementDraft {
   contractRef: string;
   serviceLines: ServiceLineAssignment[];
   status: EngagementStatus;
-  startDate: string;
+  startDate: Date | undefined;
   startOptional: boolean;
-  endDate: string;
+  endDate: Date | undefined;
+  endUnlimited: boolean;
 }
 
 /* ─── Service Lines editor — add-row list (mirrors the Legal Entity TIN VAT add) ──
@@ -246,11 +171,12 @@ export function ServiceLinesCell({ serviceLines }: { serviceLines: ServiceLineAs
 
 /* ─── Create Engagement Modal ────────────────────────────────────────────── */
 export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (d: EngagementDraft) => void }) {
-  const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }], status: "Active", startDate: "", startOptional: false, endDate: "" });
-  const set = (k: keyof EngagementDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
-  const startValid = draft.startOptional || draft.startDate !== "";
+  const [draft, setDraft] = useState<EngagementDraft>({ contractRef: "", serviceLines: [{ serviceLine: SERVICE_CATALOGUE[0].key, caseTypes: [], frequency: "Yearly" }], status: "Active", startDate: undefined, startOptional: false, endDate: undefined, endUnlimited: false });
+  const set = (k: "contractRef") => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const startValid = draft.startOptional || !!draft.startDate;
+  const endValid = draft.endUnlimited || !!draft.endDate;
   // V8-A — case types were removed from the engagement form; a row is valid on its service line alone.
-  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine) && startValid;
+  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine) && startValid && endValid;
 
   return (
     <Modal title="Create Engagement" onClose={onClose}>
@@ -263,16 +189,25 @@ export function CreateEngagementModal({ onClose, onSubmit }: { onClose: () => vo
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Start Date</Label>
-            <StartDateField
+            <EngagementDateField
               value={draft.startDate}
-              onChange={set("startDate")}
-              optional={draft.startOptional}
-              onOptionalChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
+              onChange={(date) => setDraft((d) => ({ ...d, startDate: date }))}
+              toggled={draft.startOptional}
+              onToggledChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
+              toggleLabel="Optional"
+              toggledPlaceholder="Open"
             />
           </div>
           <div>
             <Label>End Date</Label>
-            <EndDateField value={draft.endDate} onChange={set("endDate")} />
+            <EngagementDateField
+              value={draft.endDate}
+              onChange={(date) => setDraft((d) => ({ ...d, endDate: date }))}
+              toggled={draft.endUnlimited}
+              onToggledChange={(v) => setDraft((d) => ({ ...d, endUnlimited: v }))}
+              toggleLabel="Unlimited"
+              toggledPlaceholder="Unlimited"
+            />
           </div>
         </div>
       </div>
@@ -292,13 +227,15 @@ export function EditEngagementModal({
     contractRef: engagement.contractRef,
     serviceLines: engagement.serviceLines.map((s) => ({ serviceLine: s.serviceLine, caseTypes: [...s.caseTypes], frequency: s.frequency })),
     status: engagement.status,
-    startDate: engagement.startDate ? toInputDate(engagement.startDate) : "",
+    startDate: engagement.startDate ? ddmmyyyyToDate(engagement.startDate) : undefined,
     startOptional: !engagement.startDate,
-    endDate: engagement.endDate ? toInputDate(engagement.endDate) : "",
+    endDate: engagement.endDate ? ddmmyyyyToDate(engagement.endDate) : undefined,
+    endUnlimited: !engagement.endDate,
   });
-  const set = (k: keyof EngagementDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
-  const startValid = draft.startOptional || draft.startDate !== "";
-  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine) && startValid;
+  const set = (k: "contractRef") => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const startValid = draft.startOptional || !!draft.startDate;
+  const endValid = draft.endUnlimited || !!draft.endDate;
+  const valid = draft.contractRef.trim() && draft.serviceLines.length > 0 && draft.serviceLines.every((s) => s.serviceLine) && startValid && endValid;
   const assignedEntities = entities.filter((e) => engagement.entityIds.includes(e.id));
 
   return (
@@ -312,16 +249,25 @@ export function EditEngagementModal({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Start Date</Label>
-            <StartDateField
+            <EngagementDateField
               value={draft.startDate}
-              onChange={set("startDate")}
-              optional={draft.startOptional}
-              onOptionalChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
+              onChange={(date) => setDraft((d) => ({ ...d, startDate: date }))}
+              toggled={draft.startOptional}
+              onToggledChange={(v) => setDraft((d) => ({ ...d, startOptional: v }))}
+              toggleLabel="Optional"
+              toggledPlaceholder="Open"
             />
           </div>
           <div>
             <Label>End Date</Label>
-            <EndDateField value={draft.endDate} onChange={set("endDate")} />
+            <EngagementDateField
+              value={draft.endDate}
+              onChange={(date) => setDraft((d) => ({ ...d, endDate: date }))}
+              toggled={draft.endUnlimited}
+              onToggledChange={(v) => setDraft((d) => ({ ...d, endUnlimited: v }))}
+              toggleLabel="Unlimited"
+              toggledPlaceholder="Unlimited"
+            />
           </div>
         </div>
         <div>
@@ -595,9 +541,8 @@ export function EngagementStatusPill({ status }: { status: EngagementStatus }) {
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-function toInputDate(ddmmyyyy: string): string {
-  // Convert dd/mm/yyyy → yyyy-mm-dd for <input type="date">
-  const parts = ddmmyyyy.split("/");
-  if (parts.length !== 3) return "";
-  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+function ddmmyyyyToDate(ddmmyyyy: string): Date | undefined {
+  const [d, m, y] = ddmmyyyy.split("/").map(Number);
+  if (!d || !m || !y) return undefined;
+  return new Date(y, m - 1, d);
 }

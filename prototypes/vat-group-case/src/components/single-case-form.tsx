@@ -50,6 +50,9 @@ const CUSTOM_VAT_FILING_CASE_TYPE = 'Custom VAT filing'
 // scheduler over to the existing two-step group-case modal (VatSchedulerModal) — see Segment 5
 // of the "VAT Group Case" ticket.
 const VAT_GROUP_CASE_TYPE = 'VAT Group Case'
+// `kind: 'single'` edit contexts (see EditCaseRolesContext) lock the drawer to this case type
+// instead — a plain Single Case is a "VAT return", never a "VAT Group Case".
+const SINGLE_CASE_VAT_RETURN_TYPE = 'VAT return'
 // Cross-border EU case types (see org-details-data.ts's VAT_CASE_TYPE_GROUPS) — the only case
 // types that restrict "Country (of VAT registration)" to EU countries only.
 const CROSS_BORDER_EU_CASE_TYPES = ['EC Sales (ECSL)', 'Intrastat arrival', 'Intrastat dispatch']
@@ -199,7 +202,11 @@ export function SingleCaseFormContent({
   useEffect(() => {
     if (!open || !editContext) return
     setServiceLineKey('VAT')
-    setCaseType(VAT_GROUP_CASE_TYPE)
+    // A Single Case ("VAT return") isn't a VAT Group Case — keeping `caseType` at the sentinel
+    // for it made `isVatGroupCase` true, which hid the whole rest of the form (Jurisdiction, VAT
+    // registration, and the Creator/Reviewer/Partner/Client pickers all sit behind that gate)
+    // and showed a "Select group" field with nothing real to show, since a Single Case has none.
+    setCaseType(editContext.kind === 'single' ? SINGLE_CASE_VAT_RETURN_TYPE : VAT_GROUP_CASE_TYPE)
     setLegalEntityId(editContext.legalEntityId)
     setSelectedGroupId(editContext.groupId)
     setJurisdiction(editContext.jurisdiction)

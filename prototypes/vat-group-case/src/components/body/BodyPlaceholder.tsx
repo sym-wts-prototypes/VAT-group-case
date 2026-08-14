@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import {
   ArrowRight,
   Check,
@@ -14,12 +14,9 @@ import {
 import { Badge } from '@wts/ui'
 import { Button } from '@wts/ui'
 import { Separator } from '@wts/ui'
-import { Toast } from '@wts/ui'
-import { RequirementsProgressBar } from '@/components/body/RequirementsProgressBar'
 import {
   useRequirementCategories,
   useRequirementsStore,
-  requirementTotals,
 } from '@/store/useRequirementsStore'
 import { CitInReviewReconfirmBanner } from '@/components/body/CitInReviewReconfirmBanner'
 import { PackageBanner } from '@/components/body/PackageBanner'
@@ -738,11 +735,10 @@ function ClientBucketCardsBody({
         }
       : displayedPackageBanner
 
-  // Same shared source RequirementListAccordion (WTS) reads — checking an item in the opened
-  // bucket below, or the WTS side simulating a new one, moves this total too.
+  // Reactive copy of the same category set RequirementListAccordion (WTS) reads — checking an
+  // item in the opened bucket below, or the WTS side simulating a new one, moves the per-card
+  // item counts below.
   const categories = useRequirementCategories()
-  const { done, total } = requirementTotals(categories)
-  const [downloadedAll, setDownloadedAll] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
@@ -753,11 +749,6 @@ function ClientBucketCardsBody({
           hideVersionHistory
         />
       )}
-      <RequirementsProgressBar
-        done={done}
-        total={total}
-        onDownloadAll={() => setDownloadedAll(true)}
-      />
       <div className="flex flex-col gap-3">
         <SectionLabel>Requirement buckets</SectionLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -782,12 +773,6 @@ function ClientBucketCardsBody({
           })}
         </div>
       </div>
-
-      <Toast
-        open={downloadedAll}
-        onOpenChange={setDownloadedAll}
-        title="All files downloaded successfully."
-      />
     </div>
   )
 }

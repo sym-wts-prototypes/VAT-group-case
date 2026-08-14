@@ -64,18 +64,20 @@ function categoryStatusTone(
   }
 }
 
-function categorySubtitle(
+/** Split, not a single string — each half doubles as a Requirements/Files view switcher (see
+ *  the header render below), same source of truth as the "..." dropdown's own switcher. */
+function categorySubtitleParts(
   itemCount: number,
   filesUploaded: number | undefined,
   variant: 'draft' | 'postDraft',
-) {
+): { itemLabel: string; fileLabel?: string } {
   const itemLabel = itemCount === 1 ? '1 requirement' : `${itemCount} requirements`
   if (variant === 'postDraft' && filesUploaded !== undefined) {
     const fileLabel =
       filesUploaded === 1 ? '1 file uploaded' : `${filesUploaded} files uploaded`
-    return `${itemLabel} · ${fileLabel}`
+    return { itemLabel, fileLabel }
   }
-  return itemLabel
+  return { itemLabel }
 }
 
 /** WTS requirement list — draft or in-preparation+ accordion. */
@@ -159,11 +161,43 @@ export function RequirementListAccordion({
                   {category.title}
                 </p>
                 <p className="text-sm leading-5 text-muted-foreground">
-                  {categorySubtitle(
-                    category.items.length,
-                    category.filesUploaded,
-                    variant,
-                  )}
+                  {(() => {
+                    const { itemLabel, fileLabel } = categorySubtitleParts(
+                      category.items.length,
+                      category.filesUploaded,
+                      variant,
+                    )
+                    const labelClassName =
+                      'h-auto p-0 text-sm font-normal text-muted-foreground hover:text-foreground'
+                    if (isDraft) {
+                      return itemLabel
+                    }
+                    return (
+                      <>
+                        <Button
+                          type="button"
+                          variant="link"
+                          className={labelClassName}
+                          onClick={() => setCategoryView(category.id, 'requirements')}
+                        >
+                          {itemLabel}
+                        </Button>
+                        {fileLabel && (
+                          <>
+                            {' · '}
+                            <Button
+                              type="button"
+                              variant="link"
+                              className={labelClassName}
+                              onClick={() => setCategoryView(category.id, 'files')}
+                            >
+                              {fileLabel}
+                            </Button>
+                          </>
+                        )}
+                      </>
+                    )
+                  })()}
                 </p>
               </div>
 
@@ -174,6 +208,18 @@ export function RequirementListAccordion({
               )}
 
               <div className="flex flex-wrap items-center gap-2.5">
+                {!isDraft && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 rounded-lg shadow-sm"
+                    aria-label="Comments"
+                    onClick={() => setCommentsDrawerOpen(true)}
+                  >
+                    <MessageSquareText className="h-4 w-4" />
+                  </Button>
+                )}
                 {!isDraft && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -205,20 +251,6 @@ export function RequirementListAccordion({
                       <DropdownMenuItem>
                         <Download className="h-4 w-4" />
                         Download as .zip
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="justify-between"
-                        onClick={() => setCommentsDrawerOpen(true)}
-                      >
-                        <span className="flex items-center gap-2">
-                          <MessageSquareText className="h-4 w-4" />
-                          Comments
-                        </span>
-                        {Boolean(category.commentsCount) && (
-                          <Badge tone="gray" size="sm">
-                            {category.commentsCount}
-                          </Badge>
-                        )}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

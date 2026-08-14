@@ -22,8 +22,6 @@ export type RequirementCategory = {
   items: RequirementItem[]
   /** Post-draft category header — files in subtitle. */
   filesUploaded?: number
-  /** Backs the "Comments" badge in the category's "..." dropdown. */
-  commentsCount?: number
   status?: RequirementCategoryStatus
 }
 
@@ -54,7 +52,6 @@ export const REQUIREMENT_CATEGORIES: RequirementCategory[] = [
       },
     ],
     filesUploaded: 2,
-    commentsCount: 2,
     status: 'In Progress',
   },
   {

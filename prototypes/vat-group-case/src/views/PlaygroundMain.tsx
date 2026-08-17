@@ -332,17 +332,32 @@ export function PlaygroundMain() {
     isChildCaseView && phase === 'clientApproval' && role === 'client'
       ? packageBannerStateFromOutcome('clientApproval', 'client', packageReviewOutcome)
       : undefined
+  // Feature 1 of the "requirements header enrichment" ticket — Requirement List/Bucket headers
+  // repurpose `title` for the page/category name (see baseDescriptor above and their own static
+  // config), so the underlying case's own identity is attached separately, resolved by forcing
+  // headerType to 'case' for the same process/platform/role/phase rather than duplicating that
+  // static config here. Applies to every role, including Client (requirementBucket).
+  const withCaseIdentity =
+    descriptorWithConsolidationLabel && (headerType === 'requirementList' || headerType === 'requirementBucket')
+      ? {
+          ...descriptorWithConsolidationLabel,
+          caseIdentity: {
+            title: resolveHeader({ ...ctx, headerType: 'case' })?.title ?? { plain: 'Case' },
+            parentCaseName: isChildCaseView ? parentGroupCase.caseName : undefined,
+          },
+        }
+      : descriptorWithConsolidationLabel
   const descriptor =
-    descriptorWithConsolidationLabel && childClientApprovalState === 'approved'
-      ? { ...descriptorWithConsolidationLabel, actions: {} }
-      : descriptorWithConsolidationLabel && childClientApprovalState === 'needChanges'
+    withCaseIdentity && childClientApprovalState === 'approved'
+      ? { ...withCaseIdentity, actions: {} }
+      : withCaseIdentity && childClientApprovalState === 'needChanges'
         ? {
-            ...descriptorWithConsolidationLabel,
+            ...withCaseIdentity,
             actions: {
               primary: { label: 'Submit changes', icon: 'Check' as const, iconSide: 'right' as const, variant: 'default' as const },
             },
           }
-        : descriptorWithConsolidationLabel
+        : withCaseIdentity
 
   const tasksGateActive = isCaseTasksGateActive(
     headerType,

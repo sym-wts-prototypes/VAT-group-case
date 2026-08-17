@@ -1,8 +1,20 @@
 /**
  * Demo controls store with two-way URL hash sync.
  *
- * Hash format: `#{process}/{role}/{headerType}/{phase}`
- *   e.g. `#cit/creator/case/inPreparation`
+ * Hash format ("readable URL" ticket) — `#key=value&...`, only the keys relevant to the
+ * current view ever appear, so switching views never leaves a stale segment (e.g. `phase`
+ * behind on Case Management) and Group Case state round-trips too (previously not encoded at
+ * all):
+ *   - Case Management: `#view=caseManagement`
+ *   - Organisations: `#view=organisations`
+ *   - Single Case: `#view=case&process=vat&page=case&role=creator&phase=inPreparation`
+ *   - Group Case Parent: `#view=group&groupView=parent&role=creator&phase=submitted`
+ *   - Group Case Child: `#view=group&groupView=child&page=requirementList&role=reviewer&phase=inReview`
+ *   - Either, viewing a correction's original side: `...&variant=correction&side=original`
+ * `page` (headerType) is omitted for Group Case Parent — it never varies there. `process` is
+ * omitted for Group Case — always `vat`. `variant`/`side` are omitted for the default
+ * Regular/correction-case state. See `toHash`/`parseHash` below; `parseLegacyPositionalHash`
+ * still reads the old `#process/role/headerType/phase` shape for any link saved before this.
  *
  * Platform is derived from role.
  */
@@ -332,11 +344,11 @@ const HEADER_TYPES: HeaderType[] = [
   'requirementBucket',
 ]
 
-function parseHash(): Partial<DemoState> {
-  if (typeof window === 'undefined') return {}
-  const raw = window.location.hash.replace(/^#\/?/, '')
-  if (!raw) return {}
-
+// Pre-"readable URL" ticket shape: `#process/role/headerType/phase` (optionally prefixed with
+// `playground/` or `matrix/`, and a 5-segment `process/platform/role/headerType/phase` form
+// predating that). Kept only so a link saved before this change still lands close to where it
+// used to, rather than silently resetting to the default view.
+function parseLegacyPositionalHash(raw: string): Partial<DemoState> {
   let parts = raw.split('/')
   if (parts[0] === 'playground' || parts[0] === 'matrix') {
     parts = parts.slice(1)
@@ -344,7 +356,7 @@ function parseHash(): Partial<DemoState> {
 
   const out: Partial<DemoState> = {}
 
-  if (parts.length >= 4) {
+  if (parts.length >= 4 && parts.length !== 5) {
     const [process, role, headerType, phase] = parts
     if (PROCESSES.includes(process as Process)) out.process = process as Process
     if (ROLES.includes(role as Role)) out.role = role as Role
@@ -363,7 +375,7 @@ function parseHash(): Partial<DemoState> {
     return out
   }
 
-  // Legacy: process / platform / role / headerType / phase
+  // process / platform / role / headerType / phase
   if (parts.length >= 5) {
     const [process, , role, headerType, phase] = parts
     if (PROCESSES.includes(process as Process)) out.process = process as Process
@@ -376,8 +388,81 @@ function parseHash(): Partial<DemoState> {
   return out
 }
 
+function parseHash(): Partial<DemoState> {
+  if (typeof window === 'undefined') return {}
+  const raw = window.location.hash.replace(/^#\/?/, '')
+  if (!raw) return {}
+  if (!raw.includes('=')) return parseLegacyPositionalHash(raw)
+
+  const params = new URLSearchParams(raw)
+  const view = params.get('view')
+  const out: Partial<DemoState> = {}
+
+  if (view === 'caseManagement') {
+    out.showCaseManagement = true
+    out.showOrganisations = false
+    return out
+  }
+  if (view === 'organisations') {
+    out.showOrganisations = true
+    out.showCaseManagement = false
+    return out
+  }
+  if (view !== 'case' && view !== 'group') return out
+
+  out.showCaseManagement = false
+  out.showOrganisations = false
+  out.caseKind = view === 'group' ? 'group' : 'single'
+
+  const role = params.get('role')
+  if (role && ROLES.includes(role as Role)) out.role = role as Role
+  const phase = params.get('phase')
+  if (phase && WORKFLOW_PHASE_SET.has(phase as Phase)) out.phase = phase as Phase
+
+  if (view === 'case') {
+    const process = params.get('process')
+    if (process && PROCESSES.includes(process as Process)) out.process = process as Process
+    const page = params.get('page')
+    if (page && HEADER_TYPES.includes(page as HeaderType)) out.headerType = page as HeaderType
+  } else {
+    out.process = 'vat'
+    const groupView = params.get('groupView')
+    out.groupCaseView = groupView === 'child' ? 'child' : 'parent'
+    if (out.groupCaseView === 'child') {
+      const page = params.get('page')
+      if (page && HEADER_TYPES.includes(page as HeaderType)) out.headerType = page as HeaderType
+    }
+  }
+
+  out.caseVariant = params.get('variant') === 'correction' ? 'correction' : 'regular'
+  if (out.caseVariant === 'correction') {
+    out.correctionViewSide = params.get('side') === 'original' ? 'originalCase' : 'correctionCase'
+  }
+
+  return out
+}
+
 function toHash(s: DemoState): string {
-  return `#${s.process}/${s.role}/${s.headerType}/${s.phase}`
+  if (s.showCaseManagement) return '#view=caseManagement'
+  if (s.showOrganisations) return '#view=organisations'
+
+  const isGroup = s.caseKind === 'group'
+  const params = new URLSearchParams()
+  params.set('view', isGroup ? 'group' : 'case')
+  if (isGroup) {
+    params.set('groupView', s.groupCaseView)
+    if (s.groupCaseView === 'child') params.set('page', s.headerType)
+  } else {
+    params.set('process', s.process)
+    params.set('page', s.headerType)
+  }
+  params.set('role', s.role)
+  params.set('phase', s.phase)
+  if (s.caseVariant === 'correction') {
+    params.set('variant', 'correction')
+    params.set('side', s.correctionViewSide === 'originalCase' ? 'original' : 'new')
+  }
+  return `#${params.toString()}`
 }
 
 const initialState = reconcile(parseHash(), {

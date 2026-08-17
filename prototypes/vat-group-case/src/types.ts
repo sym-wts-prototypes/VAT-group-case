@@ -145,6 +145,12 @@ export interface HeaderDescriptor {
   dueDateLabel?: string
   /** Non-interactive "Part of {name}" indicator — Group Case Child Case only. No link. */
   parentCaseName?: string
+  /** Feature 1 of the "requirements header enrichment" ticket — the underlying case's own name
+   * + company/VAT tags, shown beneath the "Back" link on the Requirement List/Bucket headers so
+   * the case stays identifiable there (those headers' own `title` is repurposed for the page/
+   * category name instead). Set only for `requirementList`/`requirementBucket` — every other
+   * header type already shows this as its own primary title. */
+  caseIdentity?: { title: HeaderTitle; parentCaseName?: string }
   editable?: boolean
   /** Tooltip shown on the PeopleRow's Edit action, when editable — e.g. to explain scope. */
   editTooltip?: string

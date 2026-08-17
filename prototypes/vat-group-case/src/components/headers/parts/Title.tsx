@@ -9,6 +9,11 @@ interface TitleProps {
   className?: string
 }
 
+const SIZE_CLASSES = {
+  case: 'text-[30px] leading-9',
+  slim: 'text-2xl leading-none',
+} as const
+
 /**
  * Case title: "CIT · Return · FY2026" — only the service (first segment) is muted.
  * Slim title: single line, 24px (Requirements, Requirement Category, etc.).
@@ -18,8 +23,8 @@ export function Title({ title, size = 'case', className }: TitleProps) {
     return (
       <h1
         className={cn(
-          'flex flex-wrap items-center gap-2 font-display font-medium leading-9 tracking-tight',
-          size === 'case' ? 'text-[30px]' : 'text-2xl leading-none',
+          'flex flex-wrap items-center gap-2 font-display font-medium tracking-tight',
+          SIZE_CLASSES[size],
           className,
         )}
       >
@@ -47,12 +52,29 @@ export function Title({ title, size = 'case', className }: TitleProps) {
     <h1
       className={cn(
         'font-display font-medium text-foreground tracking-tight',
-        size === 'case' ? 'text-[30px] leading-9' : 'text-2xl leading-none',
+        SIZE_CLASSES[size],
         className,
       )}
     >
       {title.plain}
     </h1>
+  )
+}
+
+/** Feature 1 of the "requirements header enrichment" ticket — the underlying case's own name +
+ * company/VAT tags (+ "Part of {parent}" for a Child Case), shown under the Requirement List/
+ * Bucket headers' "Back" link so the case stays identifiable there. Same building blocks, same
+ * "case" size, CaseHeader itself uses for its own title — matched on request rather than
+ * shrunk to fit, so the case name reads with the same weight it has on the Case page. */
+export function CaseIdentity({ title, parentCaseName }: { title: HeaderTitle; parentCaseName?: string }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Title title={title} size="case" />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <TitleSubtitle title={title} />
+        {parentCaseName && <ParentCaseIndicator name={parentCaseName} />}
+      </div>
+    </div>
   )
 }
 

@@ -59,7 +59,6 @@ import {
   SAMPLE_HR_CASE_ID,
   SAMPLE_HR_CASE_TITLE,
   SAMPLE_HR_REQUEST_ID,
-  SAMPLE_CLIENT_BUCKET_BACK,
   SAMPLE_CLIENT_BUCKET_TITLE,
   SAMPLE_PEOPLE,
   SAMPLE_REQUIREMENT_LIST_TITLE,
@@ -324,7 +323,11 @@ const CIT: ProcessConfig = {
   },
   requirementBucket: {
     base: {
-      backLink: { label: SAMPLE_CLIENT_BUCKET_BACK, href: '#' },
+      // Feature 1 of the "requirements header enrichment" ticket — was the long, static
+      // "Back to Kto. Sonstige Beratungsleistungen" copy; simplified to match the WTS
+      // Requirement List header's own back link, now that the underlying case's own name/tags
+      // (see `caseIdentity` below the back link) carry that context instead.
+      backLink: { label: 'Back', href: '#' },
       title: { plain: SAMPLE_CLIENT_BUCKET_TITLE },
       dueDate: SAMPLE_CASE.dueDate,
       people: undefined,

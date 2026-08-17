@@ -61,8 +61,6 @@ export const SAMPLE_REQUIREMENT_CATEGORY = 'Requirement Category'
 export const SAMPLE_BUCKET_TITLE = 'General'
 /** Client bucket header (Figma 5346:112616). */
 export const SAMPLE_CLIENT_BUCKET_TITLE = 'Auditor request'
-export const SAMPLE_CLIENT_BUCKET_BACK =
-  'Back to Kto. Sonstige Beratungsleistungen'
 export const SAMPLE_REQUIREMENT_LIST_TITLE = 'Requirements'
 export const SAMPLE_CASE_WRAPPER_TITLE = 'HR Engagement 2026'
 

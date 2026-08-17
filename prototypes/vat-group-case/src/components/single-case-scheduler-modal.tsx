@@ -3,6 +3,7 @@ import { UploadIcon } from 'lucide-react'
 import {
   Badge,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -142,12 +143,19 @@ export function SingleCaseSchedulerModal({
   const reviewerLabel = reviewerNames.join(', ')
   const partnerLabel = partnerNames.length > 0 ? partnerNames.join(', ') : ''
   const clientLabel = clientNames.length > 0 ? clientNames.join(', ') : ''
+  // Quarter start-month ticket — the extra 4th field (see FrequencyPeriodFields) needs a bit
+  // more room than the plain 3-column layout; only United Kingdom + Quarterly ever grows the
+  // modal, every other country/frequency keeps the original width.
+  const showQuarterStartMonth = !schedule.isMonthly && vatRegCountry === 'United Kingdom'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName="bg-background/40 backdrop-blur-sm"
-        className="flex max-h-[85vh] max-w-6xl flex-row gap-0 overflow-hidden p-0"
+        className={cn(
+          'flex max-h-[85vh] flex-row gap-0 overflow-hidden p-0',
+          showQuarterStartMonth ? 'max-w-7xl' : 'max-w-6xl',
+        )}
       >
         {/* Left sidebar: read-only summary of the Create Case drawer selections — fixed, never
             scrolls (it's always short static case info, unlike the scheduler form beside it). */}
@@ -184,7 +192,7 @@ export function SingleCaseSchedulerModal({
             }}
             className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6"
           >
-            <FrequencyPeriodFields s={schedule} />
+            <FrequencyPeriodFields s={schedule} country={vatRegCountry} />
             <StatutoryDeadlineFields s={schedule} />
             <CustomDeadlineSection s={schedule} />
             <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />

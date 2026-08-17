@@ -3,7 +3,7 @@ import { BackLink } from './parts/BackLink'
 import { BucketStatusBadge } from './parts/BucketStatusBadge'
 import { DueDate } from './parts/DueDate'
 import { HeaderShell } from './parts/HeaderShell'
-import { Title } from './parts/Title'
+import { CaseIdentity, Title } from './parts/Title'
 import { VerticalSeparator } from './parts/VerticalSeparator'
 import type { BucketStatus, HeaderDescriptor } from '@/types'
 
@@ -42,25 +42,35 @@ export function RequirementBucketHeader({
   return (
     <HeaderShell variant="slim" compact={compact}>
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between gap-4">
-          {descriptor.backLink ? (
-            <BackLink
-              label={descriptor.backLink.label}
-              href={descriptor.backLink.href}
-              onClick={onBack}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-4">
+            {descriptor.backLink ? (
+              <BackLink
+                label={descriptor.backLink.label}
+                href={descriptor.backLink.href}
+                onClick={onBack}
+              />
+            ) : (
+              <span className="h-10" />
+            )}
+            <Actions
+              primary={primary}
+              secondary={descriptor.actions.secondary}
+              size={compact ? 'sm' : 'lg'}
+              allOutline
+              markAsDoneChecked={markAsDoneChecked}
+              onMarkAsDoneChange={onMarkAsDoneChange}
+              onCommentsClick={onCommentsClick}
             />
-          ) : (
-            <span className="h-10" />
+          </div>
+          {/* Feature 1 of the "requirements header enrichment" ticket — same case name + tags
+              block RequirementListHeader shows, so the Client sees it too. */}
+          {descriptor.caseIdentity && (
+            <CaseIdentity
+              title={descriptor.caseIdentity.title}
+              parentCaseName={descriptor.caseIdentity.parentCaseName}
+            />
           )}
-          <Actions
-            primary={primary}
-            secondary={descriptor.actions.secondary}
-            size={compact ? 'sm' : 'lg'}
-            allOutline
-            markAsDoneChecked={markAsDoneChecked}
-            onMarkAsDoneChange={onMarkAsDoneChange}
-            onCommentsClick={onCommentsClick}
-          />
         </div>
 
         <div className="flex items-center gap-4">

@@ -101,15 +101,23 @@ export function periodLabel(frequency: Frequency, period: number, year: number):
 
 // The month `monthsAhead` after a period's end month — e.g. Q1 (Jan–Mar) → April for 1,
 // May for 2 (the "Deadline extension (+2 months)" checkbox).
+//
+// Quarter start-month ticket — `quarterStartMonth` (1-12, default January) shifts which
+// calendar month each quarter starts from: Q1 = that month + the next 2, Q2 = the following 3,
+// etc. Only the Single Case VAT Scheduler exposes a control for this, and only for United
+// Kingdom (see FrequencyPeriodFields' `country`); left at the January default, this is a
+// no-op, so every other country and the Group Case scheduler are unaffected.
 export function followingMonth(
   frequency: Frequency,
   period: number,
   year: number,
   monthsAhead: 1 | 2,
+  quarterStartMonth = 1,
 ): { monthIndex: number; year: number } {
-  const endMonthIndex = frequency === 'Monthly' ? period - 1 : period * 3 - 1
-  const total = endMonthIndex + monthsAhead
-  return { monthIndex: total % 12, year: year + Math.floor(total / 12) }
+  const endMonthOffset =
+    frequency === 'Monthly' ? period - 1 : (quarterStartMonth - 1) + period * 3 - 1
+  const total = endMonthOffset + monthsAhead
+  return { monthIndex: ((total % 12) + 12) % 12, year: year + Math.floor(total / 12) }
 }
 
 export function generatePeriods(
@@ -164,6 +172,12 @@ export interface DeadlineSchedule {
   setDeadlineExtension: (v: boolean) => void
   useCustomDeadlines: boolean
   setUseCustomDeadlines: (v: boolean) => void
+  /** Quarter start-month ticket — 1-12, only surfaced as a control on the Single Case VAT
+   * Scheduler, and only for United Kingdom (see FrequencyPeriodFields' `country`). Monthly
+   * frequency ignores this; left at 1 (January) it's a no-op, so every other country and the
+   * Group Case scheduler are unaffected. */
+  quarterStartMonth: number
+  setQuarterStartMonth: (v: number) => void
   cases: GeneratedCase[]
   setCustomDeadline: (key: string, date: Date | undefined) => void
   /** Period range + close date + deadline value all chosen — the shared slice of validity. */
@@ -188,6 +202,7 @@ export function useDeadlineSchedule(
   const [deadlineExtension, setDeadlineExtension] = useState(false)
   const [useCustomDeadlines, setUseCustomDeadlines] = useState(false)
   const [customDeadlines, setCustomDeadlines] = useState<Record<string, Date | undefined>>({})
+  const [quarterStartMonth, setQuarterStartMonth] = useState(1)
 
   const isMonthly = frequency === 'Monthly'
 
@@ -211,7 +226,13 @@ export function useDeadlineSchedule(
   const cases = useMemo(
     () =>
       periods.map((p) => {
-        const { monthIndex, year } = followingMonth(frequency, p.period, p.year, deadlineExtension ? 2 : 1)
+        const { monthIndex, year } = followingMonth(
+          frequency,
+          p.period,
+          p.year,
+          deadlineExtension ? 2 : 1,
+          quarterStartMonth,
+        )
         const defaultDeadline =
           deadlineMode === 'workingDays'
             ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue)
@@ -219,7 +240,7 @@ export function useDeadlineSchedule(
         return { ...p, name: caseNameFor(p, frequency), defaultDeadline, customDeadline: customDeadlines[p.key] }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [periods, frequency, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines],
+    [periods, frequency, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines, quarterStartMonth],
   )
 
   const setCustomDeadline = (key: string, date: Date | undefined) =>
@@ -241,6 +262,7 @@ export function useDeadlineSchedule(
     setDeadlineExtension(false)
     setUseCustomDeadlines(false)
     setCustomDeadlines({})
+    setQuarterStartMonth(1)
   }
 
   return {
@@ -272,6 +294,8 @@ export function useDeadlineSchedule(
     setDeadlineExtension,
     useCustomDeadlines,
     setUseCustomDeadlines,
+    quarterStartMonth,
+    setQuarterStartMonth,
     cases,
     setCustomDeadline,
     canSubmitSchedule,
@@ -279,9 +303,23 @@ export function useDeadlineSchedule(
   }
 }
 
-export function FrequencyPeriodFields({ s }: { s: DeadlineSchedule }) {
+export interface FrequencyPeriodFieldsProps {
+  s: DeadlineSchedule
+  /** Quarter start-month ticket — Single Case VAT Scheduler only, and only when this is
+   * "United Kingdom" (the one country a Single Case can freely pick as its own VAT
+   * registration country — see single-case-scheduler-modal.tsx's `vatRegCountry`): with
+   * Quarterly selected, adds a start-month field between Frequency and Scheduled period so Q1
+   * doesn't have to be Jan-Mar (see `quarterStartMonth` on `DeadlineSchedule`). Every other
+   * country, and the Group Case scheduler (which never passes this at all), keep the plain
+   * 3-column layout and January-start calculation unchanged. */
+  country?: string
+}
+
+export function FrequencyPeriodFields({ s, country }: FrequencyPeriodFieldsProps) {
+  const showQuarterStartMonth = !s.isMonthly && country === 'United Kingdom'
+
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className={cn('grid gap-3', showQuarterStartMonth ? 'grid-cols-4' : 'grid-cols-3')}>
       <div className="flex flex-col gap-2">
         <label htmlFor="frequency" className="font-medium text-foreground text-sm">
           Frequency
@@ -296,6 +334,29 @@ export function FrequencyPeriodFields({ s }: { s: DeadlineSchedule }) {
           </SelectContent>
         </Select>
       </div>
+
+      {showQuarterStartMonth && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="quarter-start-month" className="font-medium text-foreground text-sm">
+            Quarter start month
+          </label>
+          <Select
+            value={s.quarterStartMonth.toString()}
+            onValueChange={(v) => s.setQuarterStartMonth(Number(v))}
+          >
+            <SelectTrigger id="quarter-start-month" aria-label="Quarter start month">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTH_KEYS.map((k, i) => (
+                <SelectItem key={k} value={k}>
+                  {MONTH_NAMES[i]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="col-span-2 flex flex-col gap-2">
         <p className="font-medium text-foreground text-sm">Scheduled period</p>

@@ -3,7 +3,7 @@ import { BackLink } from './parts/BackLink'
 import { DueDate } from './parts/DueDate'
 import { HeaderShell } from './parts/HeaderShell'
 import { PeopleRow } from './parts/PeopleRow'
-import { Title } from './parts/Title'
+import { CaseIdentity, Title } from './parts/Title'
 import { VerticalSeparator } from './parts/VerticalSeparator'
 import type { HeaderDescriptor } from '@/types'
 
@@ -23,21 +23,31 @@ export function RequirementListHeader({
   return (
     <HeaderShell variant="slim" compact={compact}>
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between gap-4">
-          {descriptor.backLink ? (
-            <BackLink
-              label={descriptor.backLink.label}
-              href={descriptor.backLink.href}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-4">
+            {descriptor.backLink ? (
+              <BackLink
+                label={descriptor.backLink.label}
+                href={descriptor.backLink.href}
+              />
+            ) : (
+              <span className="h-10" />
+            )}
+            <Actions
+              primary={descriptor.actions.primary}
+              secondary={descriptor.actions.secondary}
+              size={compact ? 'sm' : 'lg'}
+              allOutline
             />
-          ) : (
-            <span className="h-10" />
+          </div>
+          {/* Feature 1 of the "requirements header enrichment" ticket — the case's own name +
+              tags, under the "Back" link (see PlaygroundMain.tsx's `caseIdentity`). */}
+          {descriptor.caseIdentity && (
+            <CaseIdentity
+              title={descriptor.caseIdentity.title}
+              parentCaseName={descriptor.caseIdentity.parentCaseName}
+            />
           )}
-          <Actions
-            primary={descriptor.actions.primary}
-            secondary={descriptor.actions.secondary}
-            size={compact ? 'sm' : 'lg'}
-            allOutline
-          />
         </div>
 
         <div className="flex items-center gap-4">

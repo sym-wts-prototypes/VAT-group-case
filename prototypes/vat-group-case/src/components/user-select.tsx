@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { Badge, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@wts/ui'
 
@@ -36,6 +36,7 @@ export function UserSelect(props: UserSelectProps) {
   const { id, users, placeholder = 'Search by name or email…', multiple } = props
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const selectedIds = multiple ? props.value : props.value ? [props.value] : []
   const selectedUsers = users.filter((u) => selectedIds.includes(u.id))
@@ -70,6 +71,17 @@ export function UserSelect(props: UserSelectProps) {
   return (
     <Popover
       open={open}
+      // `modal` — this Popover lives inside the Create Case Sheet (a Radix Dialog). @wts/ui
+      // pins `@radix-ui/react-dialog`/`@radix-ui/react-popover` as separate packages, which
+      // pnpm resolves to two independent copies of `dismissable-layer`/`focus-scope` (verified
+      // in pnpm-lock.yaml) — Dialog and Popover can't see each other's layer stack, so on the
+      // very first click the Popover misclassifies the trigger's own pointerdown as "outside"
+      // and immediately dismisses itself (the reported flicker/needs-two-clicks); the second
+      // click "works" only because the first click's fallout has already settled. `modal` runs
+      // this Popover's own self-contained layer/focus-trap instead of depending on that
+      // cross-package coordination — the documented fix for Popover-in-Dialog in Radix/shadcn
+      // (radix-ui/primitives#2121, #2348, #3079; shadcn-ui/ui#235).
+      modal
       onOpenChange={(next) => {
         setOpen(next)
         if (!next) setQuery('')
@@ -96,11 +108,25 @@ export function UserSelect(props: UserSelectProps) {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-2"
+        // This Popover opens from inside the Create Case Sheet (a modal Radix Dialog). Radix's
+        // own open-auto-focus and the Sheet's focus trap both try to claim focus the instant
+        // this mounts — portaled to <body>, it's a DOM sibling of the Sheet's content despite
+        // being visually nested, so the trap treats the focus move as "outside" and yanks it
+        // straight back, which is what actually read as the reported flicker/needs-two-clicks
+        // (the `autoFocus` this replaced was fighting the same trap). Focusing the input
+        // directly here, after telling Radix not to run its own focus step, sidesteps the fight.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          searchInputRef.current?.focus()
+        }}
+      >
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            autoFocus
+            ref={searchInputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}

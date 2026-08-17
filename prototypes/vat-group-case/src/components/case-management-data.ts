@@ -94,6 +94,14 @@ export const isGroupCase = (item: CaseListItem): item is VatGroupCase =>
 // larger dataset — every status (Draft, In Preparation, In Review, Client Approval, Submitted)
 // and all four roles stay reachable as a Playground launcher, including the only Submission
 // example (Reviewer), which the "don't remove the only example of a workflow" rule protects.
+// serviceLine is independent of that rule (case-management-page.tsx's row-click launchers only
+// ever read My role/Status), so Feature 1a rebalances it freely: entries 0-6 are what
+// case-management-page.tsx's `allItems` puts on page 1 (mostly VAT, exactly 2 CIT — Creator's
+// InPreparation case and Reviewer's ClientApproval case); entries 7-8 are extra CIT/VAT
+// variety that lands on page 2 instead. Dates are chosen (Feature 1d) so every Next
+// Deadline/Statutory Deadline pill tier shows up somewhere, and EUROPIPE GmbH's three cases
+// (VAT Q3 upcoming, VAT Q2 already filed, CIT yearly) read as one coherent entity across
+// quarters/service lines rather than random dates.
 export const DUMMY_CASES: Case[] = [
   {
     id: 'VAT-DE-2026-0142',
@@ -106,7 +114,7 @@ export const DUMMY_CASES: Case[] = [
     country: 'Germany',
     myRole: 'Creator',
     status: 'Draft',
-    statutoryDeadline: '2026-10-12',
+    statutoryDeadline: '2026-09-10', // green (>7d)
     nextDeadline: null,
     latestActivity: { actor: 'Maria Fischer', description: 'Reviewer assigned' },
   },
@@ -120,8 +128,8 @@ export const DUMMY_CASES: Case[] = [
     jurisdiction: 'Germany',
     myRole: 'Creator',
     status: 'InPreparation',
-    statutoryDeadline: '2026-11-07',
-    nextDeadline: '2026-07-26',
+    statutoryDeadline: '2026-11-07', // CIT — plain text, no pill (Feature 1c is VAT-only)
+    nextDeadline: '2026-08-21', // yellow (4-7d)
     latestActivity: { actor: 'Jordan Miller', description: 'Partner assigned' },
   },
   {
@@ -135,22 +143,27 @@ export const DUMMY_CASES: Case[] = [
     country: 'Germany',
     myRole: 'Reviewer',
     status: 'InReview',
-    statutoryDeadline: '2026-09-01',
-    nextDeadline: null,
+    statutoryDeadline: '2026-08-29', // yellow (4-14d)
+    nextDeadline: '2026-08-26', // green (>7d)
     latestActivity: { actor: 'Oscar Wilson', description: 'Client approval requested' },
   },
   {
-    id: 'CIT-DE-2026-0055',
+    // Feature 1a — was a CIT case; converted to VAT so page 1 stays "mostly VAT/VAT Group"
+    // (My role/Status are all that case-management-page.tsx's launcher reads, so the swap
+    // doesn't remove any role/status combination the "don't remove the only example" rule
+    // protects).
+    id: 'VAT-DE-2026-0155',
     client: 'Electronic Arts GmbH',
-    caseName: 'CIT - Return - FY2026',
-    serviceLine: 'CIT',
-    caseType: 'Return',
-    frequency: 'Yearly',
+    caseName: 'VAT - VAT return - Q3 2026',
+    serviceLine: 'VAT',
+    caseType: 'VAT return',
+    frequency: 'Quarterly',
     jurisdiction: 'Germany',
+    country: 'Germany',
     myRole: 'Partner',
     status: 'ClientApproval',
-    statutoryDeadline: '2026-08-15',
-    nextDeadline: '2026-07-15',
+    statutoryDeadline: '2026-08-19', // red (0-3d)
+    nextDeadline: '2026-08-20', // orange (2-3d)
     latestActivity: { actor: 'Emma Johnson', description: 'Awaiting client sign-off' },
   },
   {
@@ -164,7 +177,7 @@ export const DUMMY_CASES: Case[] = [
     country: 'Netherlands',
     myRole: 'Reviewer',
     status: 'Submission',
-    statutoryDeadline: '2026-07-20',
+    statutoryDeadline: '2026-07-20', // overdue (past) — already filed, consistent with Submission
     nextDeadline: null,
     latestActivity: { actor: 'Noah Davis', description: 'Filed with authority' },
   },
@@ -178,8 +191,8 @@ export const DUMMY_CASES: Case[] = [
     jurisdiction: 'Germany',
     myRole: 'Reviewer',
     status: 'ClientApproval',
-    statutoryDeadline: '2026-09-30',
-    nextDeadline: '2026-07-18',
+    statutoryDeadline: '2026-09-30', // CIT — plain text, no pill
+    nextDeadline: '2026-08-05', // overdue (past)
     latestActivity: { actor: 'Lucas Brown', description: 'Awaiting client sign-off' },
   },
   {
@@ -193,9 +206,43 @@ export const DUMMY_CASES: Case[] = [
     country: 'Germany',
     myRole: 'Client',
     status: 'ClientApproval',
-    statutoryDeadline: '2026-10-12',
-    nextDeadline: '2026-07-20',
+    statutoryDeadline: '2026-09-15', // green (>15d)
+    nextDeadline: '2026-08-18', // red (due tomorrow)
     latestActivity: { actor: 'Olivia Taylor', description: 'Client approval requested' },
+  },
+  // Feature 1a — extra CIT case (page 2, per allItems' interleaving in case-management-page.tsx)
+  // opening the CIT scenario from Case Management, same as every other CIT row.
+  {
+    id: 'CIT-DE-2026-0099',
+    client: 'Rheinmetall AG',
+    caseName: 'CIT - Return - FY2026',
+    serviceLine: 'CIT',
+    caseType: 'Return',
+    frequency: 'Yearly',
+    jurisdiction: 'Germany',
+    myRole: 'Reviewer',
+    status: 'InPreparation',
+    statutoryDeadline: '2026-11-30', // CIT — plain text, no pill
+    nextDeadline: '2026-08-17', // red — due today
+    latestActivity: { actor: 'Sophie Martin', description: 'Reviewer assigned' },
+  },
+  // Feature 1d — EUROPIPE GmbH's third case (alongside its Q3 VAT return above and its yearly
+  // CIT return): last quarter's VAT return, already filed — same entity, coherent quarter-over-
+  // quarter progression rather than an unrelated random date.
+  {
+    id: 'VAT-DE-2026-0130',
+    client: 'EUROPIPE GmbH',
+    caseName: 'VAT - VAT return - Q2 2026',
+    serviceLine: 'VAT',
+    caseType: 'VAT return',
+    frequency: 'Quarterly',
+    jurisdiction: 'Germany',
+    country: 'Germany',
+    myRole: 'Creator',
+    status: 'Submission',
+    statutoryDeadline: '2026-07-10', // overdue (past) — already filed
+    nextDeadline: null,
+    latestActivity: { actor: 'Maria Fischer', description: 'Filed with authority' },
   },
 ]
 
@@ -232,15 +279,26 @@ const DE_VAT_GROUP_MEMBERS: Array<{
 
 // Builds one reporting period's parent + children from DE_VAT_GROUP_MEMBERS. `allDraft` mirrors
 // the previous data's "second period is all still in Draft" scenario (nothing started yet).
+//
+// Feature 1d of the "deadline pills & comment notifications" ticket — `statutoryDeadline`/
+// `nextDeadline` are explicit args rather than derived from `period`/`year` (the old formula
+// always landed in early 2026, months before "today" regardless of when this is viewed) so the
+// Case Management table's deadline pills can show deliberate, non-stale tier variety while
+// `period`/`year` keep driving the case naming/id ("Jan 2026" etc.) untouched.
 function buildDeVatGroupCase(args: {
   idSuffix: string
   period: number
   year: number
   allDraft?: boolean
+  statutoryDeadline: string
+  nextDeadline: string | null
+  /** A second child (index 3, "always accessible" per the comment on DE_VAT_GROUP_MEMBERS) gets
+   * its own next deadline so the table shows more than one tier per group — defaults to the
+   * parent's own `nextDeadline` when omitted. */
+  secondChildNextDeadline?: string | null
 }): VatGroupCase {
-  const { idSuffix, period, year, allDraft } = args
+  const { idSuffix, period, year, allDraft, statutoryDeadline, nextDeadline, secondChildNextDeadline } = args
   const periodMarker = shortPeriodLabel('Monthly', period, year)
-  const statutoryDeadline = `${year}-${String(period + 1).padStart(2, '0')}-10`
   const representative = DE_VAT_GROUP_MEMBERS[0]
   // Parent id keeps the 2-digit "01"/"02" suffix; the child id's GRP segment drops the leading
   // zero ("GRP1"/"GRP2") — matches the original, pre-Feature-2 id convention exactly.
@@ -260,7 +318,7 @@ function buildDeVatGroupCase(args: {
     jurisdiction: 'Germany',
     status: allDraft ? 'Draft' : representative.status,
     statutoryDeadline,
-    nextDeadline: allDraft ? null : '2026-07-22',
+    nextDeadline: allDraft ? null : nextDeadline,
     children: DE_VAT_GROUP_MEMBERS.map((member, index) => ({
       id: `VAT-DE-${year}-GRP${groupNumber}-${String(index + 1).padStart(2, '0')}`,
       client: member.client,
@@ -271,8 +329,10 @@ function buildDeVatGroupCase(args: {
       jurisdiction: member.jurisdiction,
       myRole: member.myRole,
       status: allDraft ? 'Draft' : member.status,
+      // Children in the table share the parent's statutory deadline — same VAT group, same
+      // filing deadline for every legal entity in it (Feature 1d).
       statutoryDeadline,
-      nextDeadline: !allDraft && index === 0 ? '2026-07-22' : !allDraft && index === 3 ? '2026-07-25' : null,
+      nextDeadline: !allDraft && index === 0 ? nextDeadline : !allDraft && index === 3 ? secondChildNextDeadline ?? nextDeadline : null,
       latestActivity: allDraft
         ? { actor: member.actor, description: 'Case created' }
         : { actor: member.actor, description: member.description },
@@ -281,10 +341,25 @@ function buildDeVatGroupCase(args: {
 }
 
 // Two reporting periods for the same VAT group, demonstrating the repeat-per-period structure —
-// January already under way, February not yet started (every case still in Draft).
+// January already under way (statutory deadline in the yellow band, next deadline orange), and
+// February not yet started (every case still in Draft; statutory deadline further out, green).
 export const DUMMY_GROUP_CASES: VatGroupCase[] = [
-  buildDeVatGroupCase({ idSuffix: '01', period: 1, year: 2026 }),
-  buildDeVatGroupCase({ idSuffix: '02', period: 2, year: 2026, allDraft: true }),
+  buildDeVatGroupCase({
+    idSuffix: '01',
+    period: 1,
+    year: 2026,
+    statutoryDeadline: '2026-08-27',
+    nextDeadline: '2026-08-20',
+    secondChildNextDeadline: '2026-08-22',
+  }),
+  buildDeVatGroupCase({
+    idSuffix: '02',
+    period: 2,
+    year: 2026,
+    allDraft: true,
+    statutoryDeadline: '2026-09-06',
+    nextDeadline: null,
+  }),
 ]
 
 // "Correction Case" ticket, Segment 3 — builds a new parent case that re-references every one

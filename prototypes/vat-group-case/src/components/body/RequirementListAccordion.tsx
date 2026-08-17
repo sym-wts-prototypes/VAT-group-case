@@ -36,7 +36,7 @@ import {
   TooltipTrigger,
 } from '@wts/ui'
 import { REQUIREMENT_CATEGORIES } from '@/config/requirements'
-import type { RequirementCategoryStatus } from '@/config/requirements'
+import type { RequirementCategoryStatus, RequirementComment } from '@/config/requirements'
 import { useRequirementCategories, requirementTotals } from '@/store/useRequirementsStore'
 import { RequirementsProgressBar } from '@/components/body/RequirementsProgressBar'
 import { CommentsDrawer } from '@/components/body/CommentsDrawer'
@@ -104,9 +104,42 @@ export function RequirementListAccordion({
   // Files view) — same controlled Toast pattern as parent-vat-group-case-page.tsx's send/
   // correction toasts.
   const [downloadedFileName, setDownloadedFileName] = useState<string | null>(null)
-  // "Comments" (dropdown item) opens this — placeholder shell only, no real comment
-  // communication wired up yet (no persisted thread, Send is always inert).
+  // "Comments" (dropdown item) opens this, scoped to whichever category was clicked — see
+  // openComments below and CommentsDrawer's own title/comments/hasUnseen/onRead/onSend props.
   const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false)
+  const [activeCommentsCategoryId, setActiveCommentsCategoryId] = useState<string | null>(null)
+  // Requirements List comment notifications ticket — categories whose unseen comment has been
+  // shown at least once (see CommentsDrawer's onRead, fired after the drawer's first paint with
+  // an unseen comment) — clears that category's new-comment badge and flips it to the read
+  // state.
+  const [seenCategoryIds, setSeenCategoryIds] = useState<Set<string>>(new Set())
+  // In-memory only (per the "chat composer" ticket) — a comment typed in the drawer is appended
+  // here and lives only as long as this component does; nothing is persisted, so a reload (or
+  // navigating away from Requirements List and back, which remounts this component) loses it,
+  // same as every other Playground demo state.
+  const [categoryComments, setCategoryComments] = useState<Record<string, RequirementComment[]>>(() =>
+    Object.fromEntries(REQUIREMENT_CATEGORIES.map((cat) => [cat.id, cat.comments ?? []])),
+  )
+
+  const activeCommentsCategory = REQUIREMENT_CATEGORIES.find((cat) => cat.id === activeCommentsCategoryId)
+  const openComments = (categoryId: string) => {
+    setActiveCommentsCategoryId(categoryId)
+    setCommentsDrawerOpen(true)
+  }
+  const sendComment = (categoryId: string, text: string) => {
+    setCategoryComments((prev) => ({
+      ...prev,
+      [categoryId]: [
+        ...(prev[categoryId] ?? []),
+        { id: `local-${categoryId}-${prev[categoryId]?.length ?? 0}`, author: 'You', timestamp: 'Just now', text, isOwn: true },
+      ],
+    }))
+  }
+  // A category's own new-comment state, read off `categoryComments` (mutable) rather than the
+  // static `REQUIREMENT_CATEGORIES` config — drives both the row's Comments button badge and,
+  // for whichever category is currently open, the drawer's own badge.
+  const hasUnseenComment = (categoryId: string) =>
+    !seenCategoryIds.has(categoryId) && (categoryComments[categoryId]?.some((c) => c.isNew) ?? false)
 
   // Shared with the Client's Requirement Bucket view (useRequirementsStore) — checking an item
   // there, or the Playground's own "Simulate requirement adding or removing" control, moves
@@ -208,18 +241,33 @@ export function RequirementListAccordion({
               )}
 
               <div className="flex flex-wrap items-center gap-2.5">
-                {!isDraft && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 rounded-lg shadow-sm"
-                    aria-label="Comments"
-                    onClick={() => setCommentsDrawerOpen(true)}
-                  >
-                    <MessageSquareText className="h-4 w-4" />
-                  </Button>
-                )}
+                {!isDraft &&
+                  (() => {
+                    const categoryTotal = categoryComments[category.id]?.length ?? 0
+                    const categoryUnseen = hasUnseenComment(category.id)
+                    return (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="relative h-9 w-9 rounded-lg shadow-sm"
+                        aria-label={categoryUnseen ? 'Comments (new)' : 'Comments'}
+                        onClick={() => openComments(category.id)}
+                      >
+                        <MessageSquareText className="h-4 w-4" />
+                        {/* Feature 2c's badge, mirrored here instead of a plain dot — gray with
+                            the total count by default, red "new" while unseen; clears once this
+                            category's drawer has been opened (see CommentsDrawer's onRead). */}
+                        <Badge
+                          variant="fill"
+                          tone={categoryUnseen ? 'red' : 'gray'}
+                          className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[8px] leading-none"
+                        >
+                          {categoryUnseen ? 'new' : categoryTotal > 9 ? '9+' : categoryTotal}
+                        </Badge>
+                      </Button>
+                    )
+                  })()}
                 {!isDraft && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -448,7 +496,18 @@ export function RequirementListAccordion({
         title={`${downloadedFileName} downloaded successfully.`}
       />
 
-      <CommentsDrawer open={commentsDrawerOpen} onOpenChange={setCommentsDrawerOpen} />
+      <CommentsDrawer
+        open={commentsDrawerOpen}
+        onOpenChange={setCommentsDrawerOpen}
+        title={activeCommentsCategory?.title}
+        comments={activeCommentsCategoryId ? categoryComments[activeCommentsCategoryId] : undefined}
+        hasUnseen={Boolean(activeCommentsCategoryId) && hasUnseenComment(activeCommentsCategoryId ?? '')}
+        onRead={() =>
+          activeCommentsCategoryId &&
+          setSeenCategoryIds((prev) => new Set(prev).add(activeCommentsCategoryId))
+        }
+        onSend={(text) => activeCommentsCategoryId && sendComment(activeCommentsCategoryId, text)}
+      />
     </div>
   )
 }

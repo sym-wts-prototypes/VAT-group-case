@@ -20,7 +20,7 @@ Each component is tagged with its source and whether it has a Code Connect mappi
 | AspectRatio | shadcn | `aspect-ratio.figma.tsx` | |
 | Avatar | shadcn | `avatar.figma.tsx` | |
 | AvatarGroup | WTS custom | — | Overlapping avatar stack (`-space-x-2` + background ring); `AvatarGroupCount` for "+N" overflow disc |
-| Badge | shadcn + customized | — | Tones (gray/blue/green/amber/red); `size` (sm/md) + icon |
+| Badge | shadcn + customized | — | Tones (default/gray/red/sky/orange/yellow/green/violet/blue); `variant` (fill/soft); `size` (sm/md/lg) + icon |
 | Button | shadcn + customized | `button.figma.tsx` | 7 variants, 4 sizes; `loading` prop; `brand` variant |
 | Calendar | shadcn (v10) | `calendar.figma.tsx` | react-day-picker v10 |
 | Card | shadcn | `card.figma.tsx` | |

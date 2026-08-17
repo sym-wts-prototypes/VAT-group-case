@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Layers, MoreHorizontal, Plus, Search, X } from 'lucide-react'
+import { Clock, Layers, MoreHorizontal, Plus, Search, TriangleAlert, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   Accordion,
   AccordionContent,
@@ -18,11 +19,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
   cn,
+  type BadgeTone,
 } from '@wts/ui'
 
 import { useDemoStore } from '@/store/useDemoStore'
 import { useGeneratedCasesStore } from '@/store/useGeneratedCasesStore'
-import type { Role } from '@/types'
+import type { Process, Role } from '@/types'
 
 import {
   Case,
@@ -57,6 +59,14 @@ export const ROLE_TO_PLAYGROUND_ROLE: Record<Case['myRole'], Role> = {
   Reviewer: 'reviewer',
   Partner: 'partner',
   Client: 'client',
+}
+// Feature 1a of the "deadline pills & comment notifications" ticket — a Single Case row now
+// opens the Playground scenario matching its own service line instead of always leaving
+// `process` untouched (previously any case type opened whatever process was last selected).
+const SERVICE_LINE_TO_PROCESS: Record<Case['serviceLine'], Process> = {
+  VAT: 'vat',
+  CIT: 'cit',
+  'HR Tax': 'hr',
 }
 const dateFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 const formatDate = (iso: string) => dateFormatter.format(new Date(iso))
@@ -133,19 +143,77 @@ function TruncatedText({ text, className }: { text: string; className?: string }
   )
 }
 
+// Calendar-day difference — both dates are normalized to midnight first, so a deadline later
+// today doesn't drift between "0 days" and "1 day" depending on what time this happens to
+// render (a plain ms-division, what this replaced, has exactly that bug).
+function daysUntil(iso: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(iso)
+  target.setHours(0, 0, 0, 0)
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+interface DeadlineTier {
+  tone: BadgeTone
+  icon?: LucideIcon
+  label: string
+}
+
+// Feature 1b of the "deadline pills & comment notifications" ticket — Next Deadline traffic
+// light: >7d green (plenty of runway), 4-7d yellow+clock (coming up), 0-3d red+exclamation
+// (urgent — "Due today" once inside the last day), past overdue (red+exclamation too — still
+// needs attention, so it stays red rather than fading to a neutral gray once missed).
+function nextDeadlineTier(daysLeft: number): DeadlineTier {
+  if (daysLeft < 0) return { tone: 'red', icon: TriangleAlert, label: 'Overdue' }
+  if (daysLeft <= 3) return { tone: 'red', icon: TriangleAlert, label: daysLeft <= 1 ? 'Due today' : `${daysLeft}d left` }
+  if (daysLeft <= 7) return { tone: 'yellow', icon: Clock, label: `${daysLeft}d left` }
+  return { tone: 'green', label: `${daysLeft}d left` }
+}
+
+// Feature 1c — Statutory Deadline traffic light (VAT only): wider thresholds since a statutory
+// deadline sits further out than the working "next deadline". ≥15d green, 4-14d yellow+clock,
+// 0-3d red+exclamation, past overdue (red+exclamation).
+function statutoryDeadlineTier(daysLeft: number): DeadlineTier {
+  if (daysLeft < 0) return { tone: 'red', icon: TriangleAlert, label: 'Overdue' }
+  if (daysLeft <= 3) return { tone: 'red', icon: TriangleAlert, label: daysLeft <= 1 ? 'Due today' : `${daysLeft}d left` }
+  if (daysLeft <= 14) return { tone: 'yellow', icon: Clock, label: `${daysLeft}d left` }
+  return { tone: 'green', label: `${daysLeft}d left` }
+}
+
+function DeadlinePill({ tier }: { tier: DeadlineTier }) {
+  const Icon = tier.icon
+  return (
+    <Badge variant="soft" tone={tier.tone} size="sm" className="w-fit gap-1">
+      {Icon && <Icon className="size-3" aria-hidden />}
+      {tier.label}
+    </Badge>
+  )
+}
+
 function NextDeadlineCell({ value }: { value: string | null }) {
   if (!value) return <span className="text-muted-foreground">—</span>
-
-  const daysLeft = Math.ceil((new Date(value).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-  const tone = daysLeft <= 7 ? 'red' : daysLeft <= 21 ? 'orange' : 'green'
-  const label = daysLeft < 0 ? 'Overdue' : `${daysLeft}d left`
 
   return (
     <div className="flex flex-col gap-1">
       <span>{formatDate(value)}</span>
-      <Badge variant="soft" tone={tone} size="sm" className="w-fit">
-        {label}
-      </Badge>
+      <DeadlinePill tier={nextDeadlineTier(daysUntil(value))} />
+    </div>
+  )
+}
+
+// Feature 1c — only VAT cases (including every VAT Group Case, which is always VAT) get the
+// traffic-light treatment on Statutory Deadline; CIT/HR cases keep the plain date text they
+// already had.
+function StatutoryDeadlineCell({ value, serviceLine }: { value: string; serviceLine: Case['serviceLine'] }) {
+  if (serviceLine !== 'VAT') {
+    return <span className="whitespace-nowrap">{formatDate(value)}</span>
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="whitespace-nowrap">{formatDate(value)}</span>
+      <DeadlinePill tier={statutoryDeadlineTier(daysUntil(value))} />
     </div>
   )
 }
@@ -229,8 +297,8 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
           {CASE_STATUS_LABEL[item.status]}
         </Badge>
       </div>
-      <div role="cell" className="whitespace-nowrap p-2 text-sm">
-        {formatDate(item.statutoryDeadline)}
+      <div role="cell" className="p-2 text-sm">
+        <StatutoryDeadlineCell value={item.statutoryDeadline} serviceLine={item.serviceLine} />
       </div>
       <div role="cell" className="p-2 text-sm">
         <NextDeadlineCell value={item.nextDeadline} />
@@ -332,8 +400,8 @@ function GroupCaseRow({
               {CASE_STATUS_LABEL[group.status]}
             </Badge>
           </div>
-          <div role="cell" className="whitespace-nowrap p-2 text-sm">
-            {formatDate(group.statutoryDeadline)}
+          <div role="cell" className="p-2 text-sm">
+            <StatutoryDeadlineCell value={group.statutoryDeadline} serviceLine={group.serviceLine} />
           </div>
           <div role="cell" className="p-2 text-sm">
             <NextDeadlineCell value={group.nextDeadline} />
@@ -373,6 +441,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const [search, setSearch] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const setRole = useDemoStore((state) => state.setRole)
+  const setProcess = useDemoStore((state) => state.setProcess)
   const setPhase = useDemoStore((state) => state.setPhase)
   const setShowCaseManagement = useDemoStore((state) => state.setShowCaseManagement)
   const setCaseKind = useDemoStore((state) => state.setCaseKind)
@@ -388,8 +457,9 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   // self-contained (sets caseKind/groupCaseView itself) rather than relying on setCaseKind's own
   // reconcile side effects, so the resulting Playground state doesn't depend on whatever it was
   // before this click.
-  const openScenarioForCase = (_c: Case) => {
+  const openScenarioForCase = (c: Case) => {
     setCaseKind('single')
+    setProcess(SERVICE_LINE_TO_PROCESS[c.serviceLine])
     setRole('creator')
     setPhase('inPreparation')
     setShowCaseManagement(false)
@@ -443,8 +513,20 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
     setShowCaseManagement(true)
   }
 
+  // Feature 1a of the "deadline pills & comment notifications" ticket — interleaves the January
+  // VAT Group Case after the first 6 individual cases (rather than after every `DUMMY_CASES`
+  // entry) so it stays on page 1 (`PAGE_SIZE = 8`) regardless of how many extra individual cases
+  // `DUMMY_CASES` grows to for diversity — those land on page 2+ instead of bumping the group
+  // case off page 1. February's group case and the correction still follow after every
+  // individual case, same as before.
   const allItems: CaseListItem[] = useMemo(
-    () => [...generatedCases, ...DUMMY_CASES, ...DUMMY_GROUP_CASES],
+    () => [
+      ...generatedCases,
+      ...DUMMY_CASES.slice(0, 6),
+      DUMMY_GROUP_CASES[0],
+      ...DUMMY_CASES.slice(6),
+      ...DUMMY_GROUP_CASES.slice(1),
+    ],
     [generatedCases],
   )
 

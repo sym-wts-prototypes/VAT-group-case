@@ -16,7 +16,7 @@ import {
   isPhaseDisabledInControls,
 } from '@/lib/controlHeaderTypes'
 import { useDemoStore } from '@/store/useDemoStore'
-import type { CaseKind, GroupCaseVariant, GroupCaseView } from '@/store/useDemoStore'
+import type { CaseKind, CaseVariant, CorrectionViewSide, GroupCaseView } from '@/store/useDemoStore'
 import type { HeaderType, Phase, Process, Role } from '@/types'
 
 import { useState, type ReactNode } from 'react'
@@ -83,12 +83,18 @@ const CHILD_CASE_VARIANT_OPTIONS: { value: 'withApproval' | 'withoutApproval'; l
   { value: 'withApproval', label: 'With Client Approval (4 steps)' },
 ]
 
-// "Correction Case" ticket, Segment 9 — chosen last, after every other context selector, since
-// it's an overlay on top of whichever Group Case view (Parent or Child) is already selected
-// rather than a new branch of its own.
-const GROUP_CASE_VARIANT_OPTIONS: { value: GroupCaseVariant; label: string }[] = [
+// Feature 3 of the "playground navigation" ticket — chosen last, after every other context
+// selector, since it's an overlay on top of whichever case is already selected (Single Case,
+// Group Case Parent Case, or Group Case Child Case) rather than a new branch of its own.
+const CASE_VARIANT_OPTIONS: { value: CaseVariant; label: string }[] = [
   { value: 'regular', label: 'Regular' },
   { value: 'correction', label: 'Correction' },
+]
+// Feature 4 — only shown once Correction is selected above: which side of the correction
+// relationship the case screens render (see useDemoStore's CorrectionViewSide).
+const CORRECTION_VIEW_SIDE_OPTIONS: { value: CorrectionViewSide; label: string }[] = [
+  { value: 'correctionCase', label: 'Correction Case' },
+  { value: 'originalCase', label: 'Original Case' },
 ]
 
 export function ControlPanel() {
@@ -107,10 +113,12 @@ export function ControlPanel() {
     showOrganisations,
     caseKind,
     groupCaseView,
-    groupCaseVariant,
+    caseVariant,
+    correctionViewSide,
     childCaseRequiresClientApproval,
     reopenedChildCaseIds,
-    setGroupCaseVariant,
+    setCaseVariant,
+    setCorrectionViewSide,
     setProcess,
     setRole,
     setHeaderType,
@@ -139,6 +147,7 @@ export function ControlPanel() {
   const isGroupCase = caseKind === 'group'
   const isParentCaseView = isGroupCase && groupCaseView === 'parent'
   const isChildCaseView = isGroupCase && groupCaseView === 'child'
+  const isViewingOriginalWithinCorrection = caseVariant === 'correction' && correctionViewSide === 'originalCase'
 
   const showTasksDoneControl = isCaseTasksGateActive(
     headerType,
@@ -299,7 +308,12 @@ export function ControlPanel() {
           label: isChildCaseView && p === 'submitted' ? 'Ready for Consolidation' : PHASE_LABELS[p as Phase],
           disabled:
             (!isParentCaseView && isPhaseDisabledInControls(p, role)) ||
-            (isChildCaseView && !childCaseRequiresClientApproval && p === 'clientApproval'),
+            (isChildCaseView && !childCaseRequiresClientApproval && p === 'clientApproval') ||
+            // Feature 4 — State B ("the case the correction was created from") only ever shows
+            // anything at Submission (its banner); every other phase would just look like a
+            // plain, un-corrected case, so only Submission stays selectable there. State A has
+            // no such restriction — a correction case progresses through every phase normally.
+            (isViewingOriginalWithinCorrection && p !== 'submitted'),
         }))}
       />
 
@@ -395,19 +409,27 @@ export function ControlPanel() {
         />
       )}
 
-      {/* "Correction Case" ticket, Segment 9 — last, after every other selector: set the usual
-          context (Group Case → Parent/Child Case → phase/role/etc.) first, then pick Regular or
-          Correction to view that variant of whichever case is currently selected. */}
-      {isGroupCase && (
+      {/* Features 3/4 of the "playground navigation" ticket — last, after every other selector:
+          set the usual context (Case Type → Group Case View → phase/role/etc.) first, then pick
+          Regular or Correction to view that variant of whichever case is currently selected.
+          Applies to Single Case, Group Case Parent Case, and Group Case Child Case alike. */}
+      <OptionPills
+        label="Case Variant"
+        value={caseVariant}
+        onChange={setCaseVariant}
+        options={CASE_VARIANT_OPTIONS}
+      />
+
+      {caseVariant === 'correction' && (
         <OptionPills
-          label="Group Case Variant"
-          value={groupCaseVariant}
-          onChange={setGroupCaseVariant}
-          options={GROUP_CASE_VARIANT_OPTIONS}
+          label="Viewing"
+          value={correctionViewSide}
+          onChange={setCorrectionViewSide}
+          options={CORRECTION_VIEW_SIDE_OPTIONS}
         />
       )}
 
-      {role === 'client' && (
+      {role === 'client' && headerType === 'requirementBucket' && (
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 px-3 py-3">
           <span className="text-[13px] font-medium text-foreground">
             Simulate requirement adding or removing

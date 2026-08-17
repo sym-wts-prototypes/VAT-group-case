@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { ArrowUpLeft } from 'lucide-react'
+import { ArrowUpLeft, ArrowUpRight } from 'lucide-react'
+
+import { Alert, Button } from '@wts/ui'
 
 import type { AssignedPeopleData } from '@/components/assigned-people'
 import { CloseCaseDialog } from '@/components/body/CloseCaseDialog'
@@ -38,6 +40,14 @@ import { resolveHeader } from '@/lib/resolveHeader'
 import { useDemoStore } from '@/store/useDemoStore'
 import type { BucketStatus } from '@/types'
 
+// Feature 4 of the "playground navigation" ticket — Single Case has no persistent named
+// dataset to suffix like the Group Case correction data does, so State A's " / Correction 1"
+// title suffix and the correction link/banner's case names read the header's own resolved
+// title text instead.
+function titleToPlainString(title: { parts?: string[]; plain?: string } | undefined): string {
+  return title?.parts?.join(' · ') ?? title?.plain ?? 'this case'
+}
+
 /** Header + page body rendered inside the WTS app shell (Figma page content). */
 export function PlaygroundMain() {
   const {
@@ -58,8 +68,10 @@ export function PlaygroundMain() {
     showOrganisations,
     caseKind,
     groupCaseView,
-    groupCaseVariant,
-    setGroupCaseVariant,
+    caseVariant,
+    correctionViewSide,
+    setCaseVariant,
+    setCorrectionViewSide,
     setGroupCaseView,
     childCaseRequiresClientApproval,
     openChildCaseId,
@@ -107,18 +119,34 @@ export function PlaygroundMain() {
   }
   const isChildCaseView = caseKind === 'group' && groupCaseView === 'child'
   const skipClientApproval = isChildCaseView && !childCaseRequiresClientApproval
-  // "Correction toggle & wiring" ticket, Segment 1 — every correction Child Case carries a link
-  // back to the original (non-correction) Child Case it was made from, same element the
-  // correction Parent Case shows (see parent-vat-group-case-page.tsx) — not just the reopened
-  // ones (this used to only resolve for those; every correction child has `correctionOfCaseId`
-  // set regardless of whether it was reopened, so the lookup no longer needs that restriction).
-  const isChildCorrectionView = isChildCaseView && groupCaseVariant === 'correction'
-  const openCorrectionChild = isChildCorrectionView
-    ? CORRECTION_PARENT_CASE.children.find((c) => c.id === openChildCaseId)
-    : undefined
-  const originalChildForCorrection = openCorrectionChild
-    ? DUMMY_GROUP_CASES[0].children.find((c) => c.id === openCorrectionChild.correctionOfCaseId)
-    : undefined
+  // Feature 3/4 of the "playground navigation" ticket — Single Case and Group Case Child Case
+  // share the same Regular/Correction + correction-side state matrix the Group Case Parent Case
+  // already uses (see parent-vat-group-case-page.tsx's activeCase/isViewingCorrectionCase/
+  // isViewingOriginalWithinCorrection). State A ("the correction case") shows a link back to the
+  // original, no Submission banner; State B ("the case the correction was created from") shows
+  // the banner forward to the correction only at Submission, no link; Regular shows neither.
+  const isCorrectionMode = caseVariant === 'correction'
+  const isViewingCorrectionCase = isCorrectionMode && correctionViewSide === 'correctionCase'
+  const isViewingOriginalWithinCorrection = isCorrectionMode && correctionViewSide === 'originalCase'
+  // "Correction toggle & wiring" ticket, Segment 1 — resolves whichever specific Child Case is
+  // open (see case-management-page.tsx's openChildCaseFromManagement) to its correction/original
+  // pair, regardless of which of the two ids was actually stored — every correction child has
+  // `correctionOfCaseId` set back to its original counterpart, so either id normalizes to the
+  // same pair. Lets the second (correction-side) switcher flip between the two without needing
+  // to touch `openChildCaseId` itself.
+  const childCorrectionAnchorId = openChildCaseId ?? DUMMY_GROUP_CASES[0].children[0].id
+  const anchorAsCorrectionChild = CORRECTION_PARENT_CASE.children.find((c) => c.id === childCorrectionAnchorId)
+  const originalChildForCorrection =
+    isChildCaseView && isCorrectionMode
+      ? DUMMY_GROUP_CASES[0].children.find((c) => c.id === childCorrectionAnchorId) ??
+        DUMMY_GROUP_CASES[0].children.find((c) => c.id === anchorAsCorrectionChild?.correctionOfCaseId)
+      : undefined
+  const correctionChildForOriginal =
+    originalChildForCorrection
+      ? anchorAsCorrectionChild ??
+        CORRECTION_PARENT_CASE.children.find((c) => c.correctionOfCaseId === originalChildForCorrection.id)
+      : undefined
+  const openCorrectionChild = isViewingCorrectionCase ? correctionChildForOriginal : undefined
   // Feature 6 of the "button states & child-case comments" ticket — this specific Child Case's
   // own reopen comment (see needs-changes-reopen-modal.tsx / parent-vat-group-case-page.tsx),
   // looked up by whichever Child Case was last opened. Undefined outside the Child Case view so
@@ -153,17 +181,48 @@ export function PlaygroundMain() {
     baseDescriptor && needChangesCreator
       ? { ...baseDescriptor, actions: NEED_CHANGES_CREATOR_HEADER_ACTIONS }
       : baseDescriptor
+  // Feature 4 — Single Case's correction-case names (State A/B link + banner text) and, for a
+  // Child Case, its resolved original/correction pair (see originalChildForCorrection/
+  // correctionChildForOriginal above). Undefined when a Child Case's pair couldn't resolve
+  // (shouldn't happen — childCorrectionAnchorId always falls back to a real child).
+  const isSingleCaseView = !isChildCaseView
+  const correctionCaseNames = isChildCaseView
+    ? originalChildForCorrection && correctionChildForOriginal
+      ? { original: originalChildForCorrection.caseName, correction: correctionChildForOriginal.caseName }
+      : undefined
+    : { original: titleToPlainString(withNeedChanges?.title), correction: `${titleToPlainString(withNeedChanges?.title)} / Correction 1` }
+  // Feature 4 — State A ("the correction case") gets its case name suffixed, same convention
+  // as the Group Case correction data (case-management-data.ts's buildCorrectionCase's
+  // " / Correction N"). State B and Regular never touch the title.
+  const withCaseVariantTitle =
+    withNeedChanges && isSingleCaseView && isViewingCorrectionCase
+      ? {
+          ...withNeedChanges,
+          title: {
+            ...withNeedChanges.title,
+            parts: withNeedChanges.title.parts
+              ? [
+                  ...withNeedChanges.title.parts.slice(0, -1),
+                  `${withNeedChanges.title.parts[withNeedChanges.title.parts.length - 1]} / Correction 1`,
+                ]
+              : withNeedChanges.title.parts,
+            plain: withNeedChanges.title.plain ? `${withNeedChanges.title.plain} / Correction 1` : withNeedChanges.title.plain,
+          },
+        }
+      : withNeedChanges
   // Same Next Deadline chip, same position (bottom right of the header) — just relabeled for
   // the Group Case's Child Case context, matching the Parent Case header's own "Group Case
   // Deadline" chip (see parent-vat-group-case-page.tsx).
   const withDueDateLabel =
-    withNeedChanges && isChildCaseView
-      ? { ...withNeedChanges, dueDateLabel: 'Group Case Deadline' }
-      : withNeedChanges
+    withCaseVariantTitle && isChildCaseView
+      ? { ...withCaseVariantTitle, dueDateLabel: 'Group Case Deadline' }
+      : withCaseVariantTitle
   // Group Case Child Case flow: a non-interactive "Part of {parent-case-name}" indicator on the
   // header, distinguishing it from a regular Single Case — same parent-case resolution
-  // (regular vs. correction) parent-vat-group-case-page.tsx already uses for `activeCase`.
-  const parentGroupCase = groupCaseVariant === 'correction' ? CORRECTION_PARENT_CASE : DUMMY_GROUP_CASES[0]
+  // (regular vs. correction) parent-vat-group-case-page.tsx already uses for `activeCase`, keyed
+  // off State A specifically (isViewingCorrectionCase) since State B still names the original
+  // parent, not the correction one.
+  const parentGroupCase = isViewingCorrectionCase ? CORRECTION_PARENT_CASE : DUMMY_GROUP_CASES[0]
   // A stand-in for "the Child Case currently open" — this generic view isn't bound to one
   // specific child record, so it picks a non-representative member (see the assignees comment
   // below) to name in the "Edit case" drawer opened from the header.
@@ -423,47 +482,53 @@ export function PlaygroundMain() {
         onBucketCommentsClick={() => setCommentsDrawerOpen(true)}
       />
 
-      {openCorrectionChild && (
-        <div className="flex flex-col gap-2 border-b border-border bg-background px-6 py-3">
-          {/* "Correction banner placement" ticket, Features 4/5 — the generic Child Case header
-              above is a static Playground demo title (see resolveHeader.ts), never bound to any
-              specific child's real data, so this is the only place a correction Child Case's own
-              name shows at all — already carrying " / Correction 1" straight from
-              case-management-data.ts's buildCorrectionCase, no extra formatting needed here. */}
-          <span className="text-sm font-medium text-foreground">{openCorrectionChild.caseName}</span>
+      {/* Feature 3/4 of the "playground navigation" ticket — Single Case and Group Case Child
+          Case share the Group Case Parent Case's exact correction state matrix (see
+          parent-vat-group-case-page.tsx): State A ("the correction case") shows the link below,
+          never the banner; State B ("the case the correction was created from") shows the
+          banner only at Submission, never the link; Regular shows neither. */}
+      {isViewingCorrectionCase && correctionCaseNames && (
+        <div className="flex flex-col gap-2 border-b border-border bg-primary-foreground px-6 py-3">
+          {/* The generic Child Case header above is a static Playground demo title (see
+              resolveHeader.ts), never bound to any specific child's real data, so this is the
+              only place a correction Child Case's own name shows at all — already carrying
+              " / Correction 1" straight from case-management-data.ts's buildCorrectionCase. */}
+          {isChildCaseView && openCorrectionChild && (
+            <span className="text-sm font-medium text-foreground">{openCorrectionChild.caseName}</span>
+          )}
           <div className="flex flex-wrap items-center gap-4">
-            {originalChildForCorrection && (
+            <button
+              type="button"
+              // Second (correction-side) switcher, State A → State B — setCorrectionViewSide
+              // itself lands State B on Submission, the only phase its banner shows on.
+              onClick={() => setCorrectionViewSide('originalCase')}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowUpLeft className="size-4" />
+              {/* Reference design labels this "Parent case:" for a plain Single Case — a Child
+                  Case keeps "Correction case:" instead, since "Parent case" already means the
+                  Group's own Parent Case in that context. */}
+              {isSingleCaseView ? 'Parent case:' : 'Correction case:'}{' '}
+              <span className="font-medium text-foreground underline">{correctionCaseNames.original}</span>
+            </button>
+            {/* Feature 5/6 (pre-existing) — the same "Parent correction case" pointer the Parent
+                Case page shows, reused here so a correction Child Case can jump straight back to
+                the plain (regular) Parent Case too. Orthogonal to the State A/B switch above. */}
+            {isChildCaseView && (
               <button
                 type="button"
                 onClick={() => {
-                  setGroupCaseVariant('regular')
-                  // Same simplification the Parent Case's own back-link uses (Segment 1): the
-                  // original stayed in Submission the whole time this correction existed.
+                  setGroupCaseView('parent')
+                  setCaseVariant('regular')
                   setPhase('submitted')
                 }}
                 className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
               >
                 <ArrowUpLeft className="size-4" />
-                Original case: <span className="font-medium text-foreground underline">{originalChildForCorrection.caseName}</span>
+                Parent correction case:{' '}
+                <span className="font-medium text-foreground underline">{DUMMY_GROUP_CASES[0].caseName}</span>
               </button>
             )}
-            {/* Feature 5/6 — the same "Parent correction case" pointer the Parent Case page shows
-                (see parent-vat-group-case-page.tsx), reused here so a correction Child Case can
-                jump straight back to the original Parent Case too. No phase gate, so it's present
-                across every step of the correction Child Case view. */}
-            <button
-              type="button"
-              onClick={() => {
-                setGroupCaseView('parent')
-                setGroupCaseVariant('regular')
-                setPhase('submitted')
-              }}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowUpLeft className="size-4" />
-              Parent correction case:{' '}
-              <span className="font-medium text-foreground underline">{DUMMY_GROUP_CASES[0].caseName}</span>
-            </button>
           </div>
         </div>
       )}
@@ -506,6 +571,32 @@ export function PlaygroundMain() {
         }
         childCommentOverride={childCommentOverride}
         creatorClientComment={creatorClientComment}
+        // Feature 4 — State B's Submission banner: shares its section with BodyPlaceholder's own
+        // "submitted" PackageBanner (no border/margin of its own — see correctionBanner on
+        // BodyPlaceholder), instead of a standalone box before the case stepper like State A's
+        // link.
+        correctionBanner={
+          isViewingOriginalWithinCorrection && phase === 'submitted' && correctionCaseNames ? (
+            <Alert
+              variant="info"
+              title="A correction has been opened for this case."
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Second (correction-side) switcher, State B → State A.
+                    setCorrectionViewSide('correctionCase')
+                    setPhase('inPreparation')
+                  }}
+                >
+                  {correctionCaseNames.correction}
+                  <ArrowUpRight className="size-4" />
+                </Button>
+              }
+            />
+          ) : undefined
+        }
         selectedRequirementCategoryId={selectedRequirementCategoryId}
         onOpenRequirementList={() => setHeaderType('requirementList')}
         onOpenRequirementBucket={(categoryId) => {

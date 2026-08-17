@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUpLeft, Check, Download, Search } from 'lucide-react'
+import { ArrowUpLeft, ArrowUpRight, Check, Download, Search } from 'lucide-react'
 
 import {
   Alert,
@@ -506,14 +506,23 @@ export function ParentVatGroupCasePage() {
   const setOpenChildCaseId = useDemoStore((state) => state.setOpenChildCaseId)
   const addChildCaseComments = useDemoStore((state) => state.addChildCaseComments)
   const childCaseComments = useDemoStore((state) => state.childCaseComments)
-  const groupCaseVariant = useDemoStore((state) => state.groupCaseVariant)
-  const setGroupCaseVariant = useDemoStore((state) => state.setGroupCaseVariant)
-  // "Correction Case" ticket — which of the two static datasets this render shows. Regular is
-  // PARENT_CASE (the original January group case); Correction is the one seeded correction
-  // (case-management-data.ts's CORRECTION_PARENT_CASE) reached via the Playground's Group Case
-  // Variant toggle (Segment 9) or by following the blue banner/link-back elements (Segments 5/7).
-  const activeCase = groupCaseVariant === 'correction' ? CORRECTION_PARENT_CASE : PARENT_CASE
-  const isCorrectionView = groupCaseVariant === 'correction'
+  const caseVariant = useDemoStore((state) => state.caseVariant)
+  const setCaseVariant = useDemoStore((state) => state.setCaseVariant)
+  const correctionViewSide = useDemoStore((state) => state.correctionViewSide)
+  const setCorrectionViewSide = useDemoStore((state) => state.setCorrectionViewSide)
+  // "Playground navigation, Simulate control & correction switchers" ticket — which of the two
+  // static datasets this render shows. Regular is PARENT_CASE (the original January group
+  // case); Correction is the one seeded correction (case-management-data.ts's
+  // CORRECTION_PARENT_CASE) — only actually shown while the second (correction-side) switcher
+  // is on "correction case" (State A). Correction + "original case" (State B) still shows
+  // PARENT_CASE, same as Regular, just with the Submission banner below turned on.
+  const activeCase = caseVariant === 'correction' && correctionViewSide === 'correctionCase' ? CORRECTION_PARENT_CASE : PARENT_CASE
+  // State A — viewing the correction case itself: shows the "Correction case: {original}" link,
+  // no Submission banner.
+  const isViewingCorrectionCase = caseVariant === 'correction' && correctionViewSide === 'correctionCase'
+  // State B — viewing the case the correction was made from: Submission-step banner pointing
+  // forward to the correction, no link. Regular never sets this (only reachable via Correction).
+  const isViewingOriginalWithinCorrection = caseVariant === 'correction' && correctionViewSide === 'originalCase'
   // "Correction toggle & wiring" ticket, Segment 5 — the "Send for approval" primary action no
   // longer fires on a single click; it opens this dialog first, and only its own explicit Send
   // confirms the In Review → Client Approval transition. "Submit to tax authorities" (Client
@@ -687,7 +696,7 @@ export function ParentVatGroupCasePage() {
       return true
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [childSearch, hideReadyChildren, forcedChildStatus, tasksDoneChecked, groupCaseVariant])
+  }, [childSearch, hideReadyChildren, forcedChildStatus, tasksDoneChecked, caseVariant, correctionViewSide])
 
   // Progress bar (Segment 6) — always reflects the WHOLE group, independent of the search/hide
   // filters above (those only narrow what's rendered in the list below).
@@ -861,7 +870,7 @@ export function ParentVatGroupCasePage() {
         handlePrimaryClick = () => setReopenModalOpen(true)
       }
     }
-  } else if (parentPhase === 'submitted' && isCreator && !isCorrectionView) {
+  } else if (parentPhase === 'submitted' && isCreator && !isViewingCorrectionCase) {
     // "Correction Case" ticket, Segment 1 — previously a no-op placeholder; now opens the
     // locked/prefilled creation drawer. Not shown while already viewing the correction itself —
     // this prototype doesn't model correcting a correction.
@@ -961,27 +970,6 @@ export function ParentVatGroupCasePage() {
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
       <HeaderRenderer descriptor={descriptor} primaryDisabled={primaryDisabled} onPrimaryClick={handlePrimaryClick} />
 
-      {/* "Correction Case" ticket, Segment 7 — the one extra element a correction case carries
-          that a normal case doesn't: a link back to the original (non-correction) case it was
-          made from. Sits right below the header, above the stepper, matching the reference
-          screenshot's placement. */}
-      {isCorrectionView && (
-        <div className="border-b border-border bg-background px-6 py-3">
-          <button
-            type="button"
-            onClick={() => {
-              setGroupCaseVariant('regular')
-              // The original stayed in Submission the whole time this correction existed.
-              setPhase('submitted')
-            }}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowUpLeft className="size-4" />
-            Parent correction case: <span className="font-medium text-foreground underline">{PARENT_CASE.caseName}</span>
-          </button>
-        </div>
-      )}
-
       {/* Client never sees the step-by-step progress bar (Feature 11.3) — In Preparation and In
           Review are the same child-list view for Client; only Client Approval and Submission
           have distinct Client-facing content. */}
@@ -994,6 +982,25 @@ export function ParentVatGroupCasePage() {
               displayedParentPhase === 'draft' ? 'inPreparation' : displayedParentPhase,
             )}
           />
+        </div>
+      )}
+
+      {/* "Correction Case" ticket, Segment 7 — the one extra element a correction case carries
+          that a normal case doesn't: a link back to the original (non-correction) case it was
+          made from. Sits right below the header/stepper, matching the reference screenshot's
+          placement. */}
+      {isViewingCorrectionCase && (
+        <div className="border-b border-border bg-primary-foreground px-6 py-3">
+          <button
+            type="button"
+            // Second (correction-side) switcher, State A → State B — setCorrectionViewSide
+            // itself lands State B on Submission, the only phase its banner shows on.
+            onClick={() => setCorrectionViewSide('originalCase')}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowUpLeft className="size-4" />
+            Correction case: <span className="font-medium text-foreground underline">{PARENT_CASE.caseName}</span>
+          </button>
         </div>
       )}
 
@@ -1097,28 +1104,28 @@ export function ParentVatGroupCasePage() {
 
       {parentPhase === 'submitted' && (
         <div className="border-b border-border bg-background px-6 py-6">
-          {/* "Correction banner placement" ticket, Features 1/3 — this blue banner used to sit on
-              the REGULAR/original case (pointing forward to the correction) once Submitted; it now
-              only shows while viewing the CORRECTION itself, right above — same div as — the
-              "Group Case submitted" banner below, pointing back at the original instead. The
-              Regular view no longer shows any correction-related banner at all. */}
-          {isCorrectionView && (
+          {/* Feature 4 of the "playground navigation" ticket — State B ("the case the correction
+              was created from"): this blue banner shows only here, only at Submission, and only
+              while the second switcher is on "original case" — pointing FORWARD to the newly
+              created correction. State A (viewing the correction itself) shows the "Correction
+              case: …" link above instead and never this banner; Regular shows neither. */}
+          {isViewingOriginalWithinCorrection && (
             <div className="mb-4">
               <Alert
                 variant="info"
-                title={`This is a correction of ${PARENT_CASE.caseName}.`}
+                title={`A correction case was created from ${PARENT_CASE.caseName}.`}
                 action={
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setGroupCaseVariant('regular')
-                      // The original stayed in Submission the whole time this correction existed.
-                      setPhase('submitted')
+                      // Second (correction-side) switcher, State B → State A.
+                      setCorrectionViewSide('correctionCase')
+                      setPhase('inPreparation')
                     }}
                   >
-                    {PARENT_CASE.caseName}
-                    <ArrowUpLeft className="size-4" />
+                    {CORRECTION_PARENT_CASE.caseName}
+                    <ArrowUpRight className="size-4" />
                   </Button>
                 }
               />
@@ -1441,7 +1448,7 @@ export function ParentVatGroupCasePage() {
         groupOrgId={PARENT_CASE_ORG_ID}
         isCorrection
         onCorrectionSubmit={() => {
-          setGroupCaseVariant('correction')
+          setCaseVariant('correction')
           setPhase('inPreparation')
           setCorrectionToastOpen(true)
         }}

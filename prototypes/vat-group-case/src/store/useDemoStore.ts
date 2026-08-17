@@ -37,11 +37,18 @@ export type AssessmentsState = 'empty' | 'arrived' | 'mixed' | 'done'
 /** Playground case-type hierarchy — see `caseKind`/`groupCaseView` below. */
 export type CaseKind = 'single' | 'group'
 export type GroupCaseView = 'parent' | 'child'
-/** "Correction Case" ticket, Segment 9 — which of the two parallel case datasets a Group Case
- * view (parent or child) renders: the normal one, or the seeded correction (see
- * case-management-data.ts's CORRECTION_PARENT_CASE). Orthogonal to `groupCaseView` — applies to
- * both Parent Case and Child Case views. */
-export type GroupCaseVariant = 'regular' | 'correction'
+/** "Playground navigation, Simulate control & correction switchers" ticket — which of the two
+ * parallel case datasets a case view renders: the normal one, or a seeded correction (see
+ * case-management-data.ts's CORRECTION_PARENT_CASE). Orthogonal to `groupCaseView`/`caseKind` —
+ * applies to the Single Case, Group Case Parent Case, and Group Case Child Case views alike
+ * (originally Group-Case-only, hence the case-agnostic rename from `groupCaseVariant`). */
+export type CaseVariant = 'regular' | 'correction'
+/** Which side of the correction relationship a `caseVariant: 'correction'` view shows — only
+ * meaningful while `caseVariant === 'correction'`. `correctionCase` is the newly created case
+ * (shows the "Correction case: {original}" link back); `originalCase` is the case the
+ * correction was made from (shows the Submission-step banner forward to the correction, no
+ * link). Reset to `correctionCase` whenever `caseVariant` toggles (see setCaseVariant). */
+export type CorrectionViewSide = 'correctionCase' | 'originalCase'
 
 interface DemoState {
   process: Process
@@ -81,7 +88,8 @@ interface DemoState {
   // no separate rendering path needed for it.
   caseKind: CaseKind
   groupCaseView: GroupCaseView
-  groupCaseVariant: GroupCaseVariant
+  caseVariant: CaseVariant
+  correctionViewSide: CorrectionViewSide
   // Whether the Child Case currently being viewed (Group + Child) requires a Client Approval
   // step — set by the Parent Case page when a specific Child Case is opened (see
   // parent-vat-group-case-page.tsx's openChildCase). Defaults to true (today's behaviour, full
@@ -124,7 +132,8 @@ interface DemoState {
   setShowOrganisations: (show: boolean) => void
   setCaseKind: (kind: CaseKind) => void
   setGroupCaseView: (view: GroupCaseView) => void
-  setGroupCaseVariant: (variant: GroupCaseVariant) => void
+  setCaseVariant: (variant: CaseVariant) => void
+  setCorrectionViewSide: (side: CorrectionViewSide) => void
   setChildCaseRequiresClientApproval: (requires: boolean) => void
   setReopenedChildCaseIds: (ids: string[]) => void
   setOpenChildCaseId: (id: string | null) => void
@@ -149,7 +158,8 @@ const DEFAULTS = {
   showOrganisations: false,
   caseKind: 'single' as CaseKind,
   groupCaseView: 'parent' as GroupCaseView,
-  groupCaseVariant: 'regular' as GroupCaseVariant,
+  caseVariant: 'regular' as CaseVariant,
+  correctionViewSide: 'correctionCase' as CorrectionViewSide,
   // Defaults to the Child Case that skips Client Approval (3 steps) — see the "Child-Case
   // Default Opening & Step-Dependent Behaviour" ticket: opening Group + Child by default, or
   // toggling into it from the Playground controls, should land on the simpler workflow variant
@@ -388,20 +398,28 @@ const initialState = reconcile(parseHash(), {
   setShowOrganisations: () => {},
   setCaseKind: () => {},
   setGroupCaseView: () => {},
-  setGroupCaseVariant: () => {},
+  setCaseVariant: () => {},
+  setCorrectionViewSide: () => {},
   setChildCaseRequiresClientApproval: () => {},
   setReopenedChildCaseIds: () => {},
   setOpenChildCaseId: () => {},
   addChildCaseComments: () => {},
 })
 
+// Left-menu controls that pick WHICH scenario is shown (as opposed to demo checkboxes/gates
+// within a scenario) always carry this — see setCaseKind/setGroupCaseView/etc. below. Ensures
+// clicking any of them switches straight to the matching case screen even while Case Management
+// or Organisations is still showing, instead of leaving the control panel to silently update
+// selections nobody can see (Feature 1 of the "playground navigation" ticket).
+const EXIT_OVERVIEW_PAGES = { showCaseManagement: false, showOrganisations: false } as const
+
 export const useDemoStore = create<DemoState>((set) => ({
   ...initialState,
-  setProcess: (process) => set((prev) => reconcile({ process }, prev)),
-  setRole: (role) => set((prev) => reconcile({ role }, prev)),
+  setProcess: (process) => set((prev) => reconcile({ process, ...EXIT_OVERVIEW_PAGES }, prev)),
+  setRole: (role) => set((prev) => reconcile({ role, ...EXIT_OVERVIEW_PAGES }, prev)),
   setHeaderType: (headerType) =>
-    set((prev) => reconcile({ headerType }, prev)),
-  setPhase: (phase) => set((prev) => reconcile({ phase }, prev)),
+    set((prev) => reconcile({ headerType, ...EXIT_OVERVIEW_PAGES }, prev)),
+  setPhase: (phase) => set((prev) => reconcile({ phase, ...EXIT_OVERVIEW_PAGES }, prev)),
   setTasksDoneChecked: (tasksDoneChecked) =>
     set((prev) => ({
       ...prev,
@@ -453,10 +471,10 @@ export const useDemoStore = create<DemoState>((set) => ({
               // keeps that true even if a stale non-'case' value was selected before switching.
               headerType: 'case',
               phase: prev.groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
-              showCaseManagement: false,
               childCaseRequiresClientApproval: false,
+              ...EXIT_OVERVIEW_PAGES,
             }
-          : { caseKind, childCaseRequiresClientApproval: false },
+          : { caseKind, childCaseRequiresClientApproval: false, ...EXIT_OVERVIEW_PAGES },
         prev,
       ),
     ),
@@ -467,17 +485,36 @@ export const useDemoStore = create<DemoState>((set) => ({
           groupCaseView,
           phase: groupCaseView === 'parent' ? 'inPreparation' : prev.phase,
           childCaseRequiresClientApproval: false,
+          ...EXIT_OVERVIEW_PAGES,
         },
         prev,
       ),
     ),
-  // "Correction toggle & wiring" ticket, Segment 1/3 — always lands on In Preparation, whichever
-  // direction the switch goes: Correction always opens there (Segment 3), and Regular resets to
-  // the same clean starting step so a stale phase (e.g. still Submitted) never carries over and
-  // shows a correction-only element on the wrong side of the toggle. This is the one thing that
-  // makes a single switch reliably return to a clean state both ways.
-  setGroupCaseVariant: (groupCaseVariant) =>
-    set((prev) => ({ ...prev, groupCaseVariant, phase: 'inPreparation' })),
+  // "Correction toggle & wiring" ticket, Segment 1/3 — Correction always opens on the
+  // correction case (State A) at Submission, since that's the phase the reference design shows
+  // right after creating one; Regular resets to In Preparation, the same clean starting step as
+  // before, so a stale phase never carries over and shows a correction-only element on the
+  // wrong side of the toggle.
+  setCaseVariant: (caseVariant) =>
+    set((prev) => ({
+      ...prev,
+      caseVariant,
+      correctionViewSide: 'correctionCase',
+      phase: caseVariant === 'correction' ? 'submitted' : 'inPreparation',
+      ...EXIT_OVERVIEW_PAGES,
+    })),
+  // State B ("original case") only ever shows its correction banner at Submission, and the
+  // Phase radios disable every other option while it's selected (see ControlPanel.tsx) — so
+  // switching to it always lands on Submission too, whether via this pill or the inline
+  // banner/link buttons that call it directly. State A has no such restriction, so switching to
+  // it leaves `phase` exactly where it was.
+  setCorrectionViewSide: (correctionViewSide) =>
+    set((prev) => ({
+      ...prev,
+      correctionViewSide,
+      phase: correctionViewSide === 'originalCase' ? 'submitted' : prev.phase,
+      ...EXIT_OVERVIEW_PAGES,
+    })),
   // Feature 3 of the "button states & child-case comments" ticket — switching to the
   // no-Client-Approval (3-step) variant while already sitting on the Client Approval phase
   // would otherwise leave `phase` pointing at a step this variant doesn't have (the Phase
@@ -490,6 +527,7 @@ export const useDemoStore = create<DemoState>((set) => ({
         {
           childCaseRequiresClientApproval,
           phase: !childCaseRequiresClientApproval && prev.phase === 'clientApproval' ? 'inPreparation' : prev.phase,
+          ...EXIT_OVERVIEW_PAGES,
         },
         prev,
       ),

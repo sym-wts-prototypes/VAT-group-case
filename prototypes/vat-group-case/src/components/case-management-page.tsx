@@ -378,7 +378,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
   const setCaseKind = useDemoStore((state) => state.setCaseKind)
   const setGroupCaseView = useDemoStore((state) => state.setGroupCaseView)
   const setOpenChildCaseId = useDemoStore((state) => state.setOpenChildCaseId)
-  const setGroupCaseVariant = useDemoStore((state) => state.setGroupCaseVariant)
+  const setCaseVariant = useDemoStore((state) => state.setCaseVariant)
   const generatedCases = useGeneratedCasesStore((state) => state.cases)
   const addGeneratedCases = useGeneratedCasesStore((state) => state.addCases)
 
@@ -409,7 +409,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
     setRole('creator')
     setPhase('inPreparation')
     setShowCaseManagement(false)
-    setGroupCaseVariant(child.correctionOfCaseId ? 'correction' : 'regular')
+    setCaseVariant(child.correctionOfCaseId ? 'correction' : 'regular')
     // Feature 6 of the "button states & child-case comments" ticket — records which Child Case
     // this is, so if it has a reopen comment on file (see childCaseComments), its own Needs
     // Changes banner shows it verbatim instead of the generic dummy copy.
@@ -431,7 +431,7 @@ export function CaseManagementPage({ organisations, groups, entities }: CaseMana
     setRole('creator')
     setPhase('inPreparation')
     setShowCaseManagement(false)
-    setGroupCaseVariant(group.id === CORRECTION_PARENT_CASE.id ? 'correction' : 'regular')
+    setCaseVariant(group.id === CORRECTION_PARENT_CASE.id ? 'correction' : 'regular')
   }
 
   // Newly created cases (see create-case-drawer.tsx's scheduler modals) show up here

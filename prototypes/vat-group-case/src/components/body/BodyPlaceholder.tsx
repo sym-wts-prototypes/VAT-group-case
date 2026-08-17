@@ -99,6 +99,12 @@ interface BodyPlaceholderProps {
   /** Group Case Child Cases: a bigger "Preparation tasks" heading + description above the task
    * list instead of the small "Tasks" section label. */
   sectionHeadingOverride?: { title: string; description: string }
+  /** Feature 4 of the "playground navigation" ticket — Single Case / Group Case Child Case's
+   * correction Submission banner (see PlaygroundMain.tsx's State B). Threaded into whichever
+   * body variant is showing (WTS task body or the Client's bucket cards) and rendered right
+   * above that variant's own "submitted" PackageBanner, sharing its section — no banner of its
+   * own. */
+  correctionBanner?: ReactNode
   /** Feature 6 of the "button states & child-case comments" ticket — this specific Child Case's
    * own comment, written per-entity in the Reviewer/Client reopen modal
    * (needs-changes-reopen-modal.tsx), verbatim. Only ever applied when the resolved banner state
@@ -163,6 +169,7 @@ export function BodyPlaceholder({
   onOpenRequirementBucket,
   selectedRequirementCategoryId,
   onOpenComments,
+  correctionBanner,
   className,
 }: BodyPlaceholderProps) {
   const isWtsCase = headerType === 'case' && platform === 'wts'
@@ -226,6 +233,7 @@ export function BodyPlaceholder({
         sectionHeadingOverride={sectionHeadingOverride}
         childCommentOverride={childCommentOverride}
         creatorClientComment={creatorClientComment}
+        correctionBanner={correctionBanner}
       />
     )
   }
@@ -321,6 +329,7 @@ export function BodyPlaceholder({
             packageBannerState={packageBannerState}
             submittedBannerOverride={submittedBannerOverride}
             creatorClientComment={creatorClientComment}
+            correctionBanner={correctionBanner}
             onOpenBucket={onOpenRequirementBucket}
             onOpenComments={onOpenComments}
           />
@@ -390,6 +399,7 @@ export function CaseWtsTasksBody({
   sectionHeadingOverride,
   childCommentOverride,
   creatorClientComment,
+  correctionBanner,
 }: {
   process: Process
   role: Role
@@ -424,6 +434,10 @@ export function CaseWtsTasksBody({
    * sent). Client's copy of the same comment is handled separately in ClientBucketCardsBody
    * below. */
   creatorClientComment?: string | null
+  /** Feature 4 of the "playground navigation" ticket — State B's correction Submission banner
+   * (see PlaygroundMain.tsx), rendered right above this component's own "submitted"
+   * PackageBanner so the two share one section — no separate border/margin of its own. */
+  correctionBanner?: ReactNode
 }) {
   const statuses = taskStatusesForDemo(phase, tasksDoneChecked, {
     process,
@@ -533,6 +547,7 @@ export function CaseWtsTasksBody({
 
   return (
     <div className="flex flex-col gap-3">
+      {correctionBanner}
       {showReconfirmBanner && <CitInReviewReconfirmBanner />}
       {displayedPackageBanner && (
         <PackageBanner
@@ -695,6 +710,7 @@ function ClientBucketCardsBody({
   packageBannerState,
   submittedBannerOverride,
   creatorClientComment,
+  correctionBanner,
   onOpenBucket,
   onOpenComments,
 }: {
@@ -704,6 +720,9 @@ function ClientBucketCardsBody({
   packageBannerState: PackageBannerState
   submittedBannerOverride?: { title?: string; description?: string }
   creatorClientComment?: string | null
+  /** Feature 4 of the "playground navigation" ticket — the Client also sees State B's
+   * correction Submission banner, right above their own "submitted" PackageBanner below. */
+  correctionBanner?: ReactNode
   onOpenBucket?: (categoryId: string) => void
   onOpenComments?: () => void
 }) {
@@ -742,6 +761,7 @@ function ClientBucketCardsBody({
 
   return (
     <div className="flex flex-col gap-6">
+      {correctionBanner}
       {bannerWithCreatorComment && (
         <PackageBanner
           descriptor={bannerWithCreatorComment.descriptor}

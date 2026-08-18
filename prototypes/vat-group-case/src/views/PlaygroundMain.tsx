@@ -38,6 +38,7 @@ import {
 } from '@/config/packageBanners'
 import { resolveHeader } from '@/lib/resolveHeader'
 import { useDemoStore } from '@/store/useDemoStore'
+import { useRequirementsStore } from '@/store/useRequirementsStore'
 import type { BucketStatus } from '@/types'
 
 // Feature 4 of the "playground navigation" ticket — Single Case has no persistent named
@@ -93,8 +94,21 @@ export function PlaygroundMain() {
   const [sendApprovalOpen, setSendApprovalOpen] = useState(false)
   const [creatorClientComment, setCreatorClientComment] = useState<string | null>(null)
   // Shared by every "Comments" trigger the Client sees (bucket header, bucket cards, opened
-  // category) — same placeholder drawer the Requirements List (WTS) uses.
+  // category) — same CommentsDrawer the Requirements List (WTS) uses, backed by the same
+  // useRequirementsStore comment thread (see RequirementListAccordion.tsx), so reading a
+  // category's new comment from either side clears it for both.
   const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false)
+  const [activeClientCommentsCategoryId, setActiveClientCommentsCategoryId] = useState<string | null>(null)
+  const openClientComments = (categoryId: string) => {
+    setActiveClientCommentsCategoryId(categoryId)
+    setCommentsDrawerOpen(true)
+  }
+  const clientCategoryComments = useRequirementsStore((s) => s.categoryComments)
+  const seenClientCategoryIds = useRequirementsStore((s) => s.seenCategoryIds)
+  const sendComment = useRequirementsStore((s) => s.sendComment)
+  const markCategorySeen = useRequirementsStore((s) => s.markCategorySeen)
+  const hasUnseenClientComment = (categoryId: string) =>
+    !seenClientCategoryIds[categoryId] && (clientCategoryComments[categoryId]?.some((c) => c.isNew) ?? false)
   // "Edit case" side drawer (CreateCaseDrawer's editContext) opened from the header's own
   // AssignedPeople "Edit" action — same drawer the Parent Case's child-cases list already uses
   // (parent-vat-group-case-page.tsx), reached here for whichever case is currently open (a
@@ -494,7 +508,7 @@ export function PlaygroundMain() {
             : () => undefined
         }
         onBucketBack={() => setHeaderType('case')}
-        onBucketCommentsClick={() => setCommentsDrawerOpen(true)}
+        onBucketCommentsClick={() => openClientComments(selectedRequirementCategoryId)}
       />
 
       {/* Feature 3/4 of the "playground navigation" ticket — Single Case and Group Case Child
@@ -618,7 +632,7 @@ export function PlaygroundMain() {
           setSelectedRequirementCategoryId(categoryId)
           setHeaderType('requirementBucket')
         }}
-        onOpenComments={() => setCommentsDrawerOpen(true)}
+        onOpenComments={openClientComments}
       />
 
       {descriptor.note && (
@@ -651,7 +665,15 @@ export function PlaygroundMain() {
         }}
       />
 
-      <CommentsDrawer open={commentsDrawerOpen} onOpenChange={setCommentsDrawerOpen} />
+      <CommentsDrawer
+        open={commentsDrawerOpen}
+        onOpenChange={setCommentsDrawerOpen}
+        title={activeClientCommentsCategoryId ? getRequirementCategory(activeClientCommentsCategoryId)?.title : undefined}
+        comments={activeClientCommentsCategoryId ? clientCategoryComments[activeClientCommentsCategoryId] : undefined}
+        hasUnseen={Boolean(activeClientCommentsCategoryId) && hasUnseenClientComment(activeClientCommentsCategoryId ?? '')}
+        onRead={() => activeClientCommentsCategoryId && markCategorySeen(activeClientCommentsCategoryId)}
+        onSend={(text) => activeClientCommentsCategoryId && sendComment(activeClientCommentsCategoryId, 'You', text)}
+      />
 
       {/* "Edit case" drawer opened from the header's own AssignedPeople "Edit" action — same
           drawer/component the Parent Case's child-cases list uses (see CreateCaseDrawer's

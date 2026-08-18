@@ -15,6 +15,7 @@ import { Badge } from '@wts/ui'
 import { Button } from '@wts/ui'
 import { Separator } from '@wts/ui'
 import {
+  useCommentsForCategory,
   useRequirementCategories,
   useRequirementsStore,
 } from '@/store/useRequirementsStore'
@@ -119,9 +120,9 @@ interface BodyPlaceholderProps {
   onOpenRequirementList?: () => void
   onOpenRequirementBucket?: (categoryId: string) => void
   selectedRequirementCategoryId?: string
-  /** Opens the shared CommentsDrawer placeholder — every "Comments" trigger the Client sees
-   *  (case bucket cards, opened category) reuses this same callback. */
-  onOpenComments?: () => void
+  /** Opens the shared CommentsDrawer, scoped to the given category — every per-category
+   *  "Comments" trigger the Client sees on the bucket cards reuses this same callback. */
+  onOpenComments?: (categoryId: string) => void
   className?: string
 }
 
@@ -724,7 +725,7 @@ function ClientBucketCardsBody({
    * correction Submission banner, right above their own "submitted" PackageBanner below. */
   correctionBanner?: ReactNode
   onOpenBucket?: (categoryId: string) => void
-  onOpenComments?: () => void
+  onOpenComments?: (categoryId: string) => void
 }) {
   const canOpenBucket = phase !== 'draft'
   const packageBanner = resolvePackageBanner(
@@ -972,6 +973,7 @@ function BucketOpenedBody({
 }
 
 function BucketCard({
+  categoryId,
   title,
   items,
   files,
@@ -979,17 +981,23 @@ function BucketCard({
   onOpen,
   onOpenComments,
 }: {
+  categoryId: string
   title: string
   items: number
   files: number
   status: 'Done' | 'In Progress' | 'Not started'
   onOpen?: () => void
-  onOpenComments?: () => void
+  onOpenComments?: (categoryId: string) => void
 }) {
   const tone =
     status === 'Done' ? 'green' : status === 'In Progress' ? 'sky' : 'gray'
 
   const CardWrapper = onOpen ? 'button' : 'div'
+  // Requirements comment notifications ticket — same gray-total/red-"new" badge the WTS
+  // Requirements List shows on its own Comments button (see RequirementListAccordion.tsx),
+  // backed by the same shared useRequirementsStore thread.
+  const { comments, hasUnseen } = useCommentsForCategory(categoryId)
+  const commentTotal = comments.length
 
   return (
     <CardWrapper
@@ -1008,14 +1016,21 @@ function BucketCard({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 -m-1.5"
-          aria-label="Comments"
+          className="relative h-8 w-8 -m-1.5"
+          aria-label={hasUnseen ? 'Comments (new)' : 'Comments'}
           onClick={(e) => {
             e.stopPropagation()
-            onOpenComments?.()
+            onOpenComments?.(categoryId)
           }}
         >
           <MessageSquareText className="h-5 w-5 text-muted-foreground" aria-hidden />
+          <Badge
+            variant="fill"
+            tone={hasUnseen ? 'red' : 'gray'}
+            className="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-[8px] leading-none"
+          >
+            {hasUnseen ? 'new' : commentTotal > 9 ? '9+' : commentTotal}
+          </Badge>
         </Button>
       </div>
       <div className="flex flex-1 flex-col gap-4">

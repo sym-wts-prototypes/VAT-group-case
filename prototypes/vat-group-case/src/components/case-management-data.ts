@@ -115,7 +115,7 @@ export const DUMMY_CASES: Case[] = [
     myRole: 'Creator',
     status: 'Draft',
     statutoryDeadline: '2026-09-10', // green (>7d)
-    nextDeadline: null,
+    nextDeadline: '2026-08-25', // yellow (4-7d)
     latestActivity: { actor: 'Maria Fischer', description: 'Reviewer assigned' },
   },
   {

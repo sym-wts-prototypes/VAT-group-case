@@ -11,6 +11,7 @@ import { create } from 'zustand'
 import {
   REQUIREMENT_CATEGORIES,
   type RequirementCategory,
+  type RequirementComment,
   type RequirementItem,
 } from '@/config/requirements'
 
@@ -28,6 +29,17 @@ interface RequirementsState {
   /** Symmetric with add: undoes the most recently simulated addition first; once none remain,
    *  hides the category's own last original item instead. No-op once nothing is left to remove. */
   removeSimulatedRequirement: (categoryId: string) => void
+  /** Requirements comment notifications ticket — lives here (not in either view's own local
+   *  state) so the WTS Requirements List and the Client's Requirement Bucket cards share one
+   *  comment thread per category: reading a new comment from either side clears it for both,
+   *  same reasoning as `checkedOverrides` above. In-memory only, per the "temporary for the
+   *  session" ask — a typed comment doesn't survive a reload. */
+  categoryComments: Record<string, RequirementComment[]>
+  /** Categories whose unseen comment has been shown at least once (see CommentsDrawer's
+   *  onRead) — clears that category's red "new" badge in both views. */
+  seenCategoryIds: Record<string, true>
+  sendComment: (categoryId: string, author: string, text: string) => void
+  markCategorySeen: (categoryId: string) => void
 }
 
 let simulatedItemCount = 0
@@ -36,6 +48,8 @@ export const useRequirementsStore = create<RequirementsState>((set) => ({
   checkedOverrides: {},
   addedItems: {},
   removedCount: {},
+  categoryComments: Object.fromEntries(REQUIREMENT_CATEGORIES.map((c) => [c.id, c.comments ?? []])),
+  seenCategoryIds: {},
   toggleItem: (itemId, defaultDone) =>
     set((state) => {
       const current = state.checkedOverrides[itemId] ?? defaultDone
@@ -70,7 +84,31 @@ export const useRequirementsStore = create<RequirementsState>((set) => ({
       if (!base || hidden >= base.items.length) return {}
       return { removedCount: { ...state.removedCount, [categoryId]: hidden + 1 } }
     }),
+  sendComment: (categoryId, author, text) =>
+    set((state) => ({
+      categoryComments: {
+        ...state.categoryComments,
+        [categoryId]: [
+          ...(state.categoryComments[categoryId] ?? []),
+          { id: `local-${categoryId}-${(state.categoryComments[categoryId] ?? []).length}`, author, timestamp: 'Just now', text, isOwn: true },
+        ],
+      },
+    })),
+  markCategorySeen: (categoryId) =>
+    set((state) => ({ seenCategoryIds: { ...state.seenCategoryIds, [categoryId]: true } })),
 }))
+
+/** Requirements comment notifications ticket — a category's comment thread + whether it still
+ *  has an unseen new one, reactive and shared between the WTS Requirements List and the
+ *  Client's Requirement Bucket cards (see `categoryComments`/`seenCategoryIds` above). */
+export function useCommentsForCategory(categoryId: string): {
+  comments: RequirementComment[]
+  hasUnseen: boolean
+} {
+  const comments = useRequirementsStore((s) => s.categoryComments[categoryId] ?? [])
+  const seen = useRequirementsStore((s) => Boolean(s.seenCategoryIds[categoryId]))
+  return { comments, hasUnseen: !seen && comments.some((c) => c.isNew) }
+}
 
 /** The single source both the WTS and Client views render from — base demo data plus any
  *  simulated additions/removals, with each item's effective checkState resolved against

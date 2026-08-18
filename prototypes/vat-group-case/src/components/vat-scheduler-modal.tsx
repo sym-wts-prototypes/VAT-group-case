@@ -20,7 +20,9 @@ import { generateCaseId, shortPeriodLabel, toIsoDate } from './case-generation'
 import type { Case, CaseListItem, VatGroupCase } from './case-management-data'
 import { usersForOrg } from './org-details-data'
 import {
+  addDays,
   FrequencyPeriodFields,
+  NEXT_DEADLINE_LEAD_DAYS,
   periodLabel,
   ScheduleSummaryBox,
   StatutoryDeadlineFields,
@@ -232,7 +234,9 @@ export function VatSchedulerModal({
     const representative = groupMembers.find((m) => m.isRepresentative) ?? groupMembers[0]
 
     const generated: VatGroupCase[] = schedule.cases.map((c) => {
-      const deadline = toIsoDate(c.customDeadline ?? c.defaultDeadline)
+      const statutoryDeadline = c.customDeadline ?? c.defaultDeadline
+      const deadline = toIsoDate(statutoryDeadline)
+      const nextDeadline = toIsoDate(addDays(statutoryDeadline, -NEXT_DEADLINE_LEAD_DAYS))
       const children: Case[] = groupMembers.map((m) => ({
         id: generateCaseId('VAT', jurisdiction),
         client: m.name,
@@ -244,7 +248,7 @@ export function VatSchedulerModal({
         myRole: 'Creator',
         status: 'Draft',
         statutoryDeadline: deadline,
-        nextDeadline: null,
+        nextDeadline,
         latestActivity: {
           actor: creatorNames[0] ?? 'System',
           description: 'Case created',
@@ -265,7 +269,7 @@ export function VatSchedulerModal({
         jurisdiction,
         status: 'Draft',
         statutoryDeadline: deadline,
-        nextDeadline: null,
+        nextDeadline,
         children,
       }
     })

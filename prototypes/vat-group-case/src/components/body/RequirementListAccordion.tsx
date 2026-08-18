@@ -36,8 +36,12 @@ import {
   TooltipTrigger,
 } from '@wts/ui'
 import { REQUIREMENT_CATEGORIES } from '@/config/requirements'
-import type { RequirementCategoryStatus, RequirementComment } from '@/config/requirements'
-import { useRequirementCategories, requirementTotals } from '@/store/useRequirementsStore'
+import type { RequirementCategoryStatus } from '@/config/requirements'
+import {
+  useRequirementCategories,
+  useRequirementsStore,
+  requirementTotals,
+} from '@/store/useRequirementsStore'
 import { RequirementsProgressBar } from '@/components/body/RequirementsProgressBar'
 import { CommentsDrawer } from '@/components/body/CommentsDrawer'
 import type { Role } from '@/types'
@@ -106,40 +110,25 @@ export function RequirementListAccordion({
   const [downloadedFileName, setDownloadedFileName] = useState<string | null>(null)
   // "Comments" (dropdown item) opens this, scoped to whichever category was clicked — see
   // openComments below and CommentsDrawer's own title/comments/hasUnseen/onRead/onSend props.
+  // The comment thread/seen state itself lives in useRequirementsStore (shared with the
+  // Client's Requirement Bucket cards — see BodyPlaceholder.tsx's ClientBucketCardsBody), so
+  // reading a new comment from either side clears it for both.
   const [commentsDrawerOpen, setCommentsDrawerOpen] = useState(false)
   const [activeCommentsCategoryId, setActiveCommentsCategoryId] = useState<string | null>(null)
-  // Requirements List comment notifications ticket — categories whose unseen comment has been
-  // shown at least once (see CommentsDrawer's onRead, fired after the drawer's first paint with
-  // an unseen comment) — clears that category's new-comment badge and flips it to the read
-  // state.
-  const [seenCategoryIds, setSeenCategoryIds] = useState<Set<string>>(new Set())
-  // In-memory only (per the "chat composer" ticket) — a comment typed in the drawer is appended
-  // here and lives only as long as this component does; nothing is persisted, so a reload (or
-  // navigating away from Requirements List and back, which remounts this component) loses it,
-  // same as every other Playground demo state.
-  const [categoryComments, setCategoryComments] = useState<Record<string, RequirementComment[]>>(() =>
-    Object.fromEntries(REQUIREMENT_CATEGORIES.map((cat) => [cat.id, cat.comments ?? []])),
-  )
+  const categoryComments = useRequirementsStore((s) => s.categoryComments)
+  const seenCategoryIds = useRequirementsStore((s) => s.seenCategoryIds)
+  const sendComment = useRequirementsStore((s) => s.sendComment)
+  const markCategorySeen = useRequirementsStore((s) => s.markCategorySeen)
+  // A category's own new-comment state — drives both the row's Comments button badge and, for
+  // whichever category is currently open, the drawer's own badge.
+  const hasUnseenComment = (categoryId: string) =>
+    !seenCategoryIds[categoryId] && (categoryComments[categoryId]?.some((c) => c.isNew) ?? false)
 
   const activeCommentsCategory = REQUIREMENT_CATEGORIES.find((cat) => cat.id === activeCommentsCategoryId)
   const openComments = (categoryId: string) => {
     setActiveCommentsCategoryId(categoryId)
     setCommentsDrawerOpen(true)
   }
-  const sendComment = (categoryId: string, text: string) => {
-    setCategoryComments((prev) => ({
-      ...prev,
-      [categoryId]: [
-        ...(prev[categoryId] ?? []),
-        { id: `local-${categoryId}-${prev[categoryId]?.length ?? 0}`, author: 'You', timestamp: 'Just now', text, isOwn: true },
-      ],
-    }))
-  }
-  // A category's own new-comment state, read off `categoryComments` (mutable) rather than the
-  // static `REQUIREMENT_CATEGORIES` config — drives both the row's Comments button badge and,
-  // for whichever category is currently open, the drawer's own badge.
-  const hasUnseenComment = (categoryId: string) =>
-    !seenCategoryIds.has(categoryId) && (categoryComments[categoryId]?.some((c) => c.isNew) ?? false)
 
   // Shared with the Client's Requirement Bucket view (useRequirementsStore) — checking an item
   // there, or the Playground's own "Simulate requirement adding or removing" control, moves
@@ -502,11 +491,8 @@ export function RequirementListAccordion({
         title={activeCommentsCategory?.title}
         comments={activeCommentsCategoryId ? categoryComments[activeCommentsCategoryId] : undefined}
         hasUnseen={Boolean(activeCommentsCategoryId) && hasUnseenComment(activeCommentsCategoryId ?? '')}
-        onRead={() =>
-          activeCommentsCategoryId &&
-          setSeenCategoryIds((prev) => new Set(prev).add(activeCommentsCategoryId))
-        }
-        onSend={(text) => activeCommentsCategoryId && sendComment(activeCommentsCategoryId, text)}
+        onRead={() => activeCommentsCategoryId && markCategorySeen(activeCommentsCategoryId)}
+        onSend={(text) => activeCommentsCategoryId && sendComment(activeCommentsCategoryId, 'You', text)}
       />
     </div>
   )

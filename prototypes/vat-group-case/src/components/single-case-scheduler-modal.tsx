@@ -15,8 +15,10 @@ import {
 import { generateCaseId, toIsoDate } from './case-generation'
 import type { Case, CaseListItem } from './case-management-data'
 import {
+  addDays,
   CustomDeadlineSection,
   FrequencyPeriodFields,
+  NEXT_DEADLINE_LEAD_DAYS,
   periodLabel,
   ScheduleSummaryBox,
   StatutoryDeadlineFields,
@@ -108,21 +110,24 @@ export function SingleCaseSchedulerModal({
     // No backend yet — mirrors the group scheduler's placeholder submit.
     console.log('VAT single-case schedule payload', schedulePayload)
 
-    const generated: Case[] = schedule.cases.map((c) => ({
-      id: generateCaseId('VAT', jurisdiction),
-      client: legalEntityName,
-      caseName: c.name,
-      serviceLine: 'VAT',
-      caseType: caseTypeLabel,
-      frequency: schedule.frequency,
-      jurisdiction,
-      country: vatRegCountry,
-      myRole: 'Creator',
-      status: 'Draft',
-      statutoryDeadline: toIsoDate(c.customDeadline ?? c.defaultDeadline),
-      nextDeadline: null,
-      latestActivity: { actor: creatorNames[0] ?? 'System', description: 'Case created' },
-    }))
+    const generated: Case[] = schedule.cases.map((c) => {
+      const statutoryDeadline = c.customDeadline ?? c.defaultDeadline
+      return {
+        id: generateCaseId('VAT', jurisdiction),
+        client: legalEntityName,
+        caseName: c.name,
+        serviceLine: 'VAT',
+        caseType: caseTypeLabel,
+        frequency: schedule.frequency,
+        jurisdiction,
+        country: vatRegCountry,
+        myRole: 'Creator',
+        status: 'Draft',
+        statutoryDeadline: toIsoDate(statutoryDeadline),
+        nextDeadline: toIsoDate(addDays(statutoryDeadline, -NEXT_DEADLINE_LEAD_DAYS)),
+        latestActivity: { actor: creatorNames[0] ?? 'System', description: 'Case created' },
+      }
+    })
     onCasesGenerated?.(generated)
 
     onOpenChange(false)

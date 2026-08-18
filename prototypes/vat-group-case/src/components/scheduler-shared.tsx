@@ -77,6 +77,20 @@ export function dateForDayOfMonth(year: number, monthIndex: number, day: number)
   return new Date(year, monthIndex, Math.min(day, daysInMonth))
 }
 
+// Case Management table's "Next deadline" column ticket — a freshly scheduled/generated case
+// previously always got `nextDeadline: null` (permanently "—" in the table, with no traffic-
+// light pill). This gives it a real, nearer-term milestone ahead of its own statutory deadline
+// instead. This prototype doesn't model a distinct "data provision" calendar date, so a flat
+// lead time stands in for it — good enough for the table to show real dates/pills once cases
+// are scheduled, without inventing business logic nobody specified.
+export const NEXT_DEADLINE_LEAD_DAYS = 10
+
+export function addDays(date: Date, days: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
 export function ordinalSuffix(n: number): string {
   const j = n % 10
   const k = n % 100

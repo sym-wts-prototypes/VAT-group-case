@@ -160,23 +160,13 @@ interface DeadlineTier {
   label: string
 }
 
-// Feature 1b of the "deadline pills & comment notifications" ticket — Next Deadline traffic
-// light: >7d green (plenty of runway), 4-7d yellow+clock (coming up), 0-3d red+exclamation
-// (urgent — "Due today" once inside the last day), past overdue (red+exclamation too — still
-// needs attention, so it stays red rather than fading to a neutral gray once missed).
-function nextDeadlineTier(daysLeft: number): DeadlineTier {
+// Case Management badge rework ticket — one shared traffic light for both Next Deadline and
+// Statutory Deadline: >14d green, 14-4d yellow+clock, 3-1d red+exclamation, due today
+// red+exclamation ("Due date" instead of "0d left"), past red+exclamation ("Overdue").
+function deadlineTier(daysLeft: number): DeadlineTier {
   if (daysLeft < 0) return { tone: 'red', icon: TriangleAlert, label: 'Overdue' }
-  if (daysLeft <= 3) return { tone: 'red', icon: TriangleAlert, label: daysLeft <= 1 ? 'Due today' : `${daysLeft}d left` }
-  if (daysLeft <= 7) return { tone: 'yellow', icon: Clock, label: `${daysLeft}d left` }
-  return { tone: 'green', label: `${daysLeft}d left` }
-}
-
-// Feature 1c — Statutory Deadline traffic light (VAT only): wider thresholds since a statutory
-// deadline sits further out than the working "next deadline". ≥15d green, 4-14d yellow+clock,
-// 0-3d red+exclamation, past overdue (red+exclamation).
-function statutoryDeadlineTier(daysLeft: number): DeadlineTier {
-  if (daysLeft < 0) return { tone: 'red', icon: TriangleAlert, label: 'Overdue' }
-  if (daysLeft <= 3) return { tone: 'red', icon: TriangleAlert, label: daysLeft <= 1 ? 'Due today' : `${daysLeft}d left` }
+  if (daysLeft === 0) return { tone: 'red', icon: TriangleAlert, label: 'Due date' }
+  if (daysLeft <= 3) return { tone: 'red', icon: TriangleAlert, label: `${daysLeft}d left` }
   if (daysLeft <= 14) return { tone: 'yellow', icon: Clock, label: `${daysLeft}d left` }
   return { tone: 'green', label: `${daysLeft}d left` }
 }
@@ -197,7 +187,7 @@ function NextDeadlineCell({ value }: { value: string | null }) {
   return (
     <div className="flex flex-col gap-1">
       <span>{formatDate(value)}</span>
-      <DeadlinePill tier={nextDeadlineTier(daysUntil(value))} />
+      <DeadlinePill tier={deadlineTier(daysUntil(value))} />
     </div>
   )
 }
@@ -213,7 +203,7 @@ function StatutoryDeadlineCell({ value, serviceLine }: { value: string; serviceL
   return (
     <div className="flex flex-col gap-1">
       <span className="whitespace-nowrap">{formatDate(value)}</span>
-      <DeadlinePill tier={statutoryDeadlineTier(daysUntil(value))} />
+      <DeadlinePill tier={deadlineTier(daysUntil(value))} />
     </div>
   )
 }

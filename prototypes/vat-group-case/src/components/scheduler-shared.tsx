@@ -1,4 +1,4 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { InfoIcon, Minus, Plus } from 'lucide-react'
 import {
   Button,
@@ -41,6 +41,10 @@ export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
+export const MONTH_NAMES_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+]
 
 export type Frequency = 'Monthly' | 'Quarterly'
 export type DeadlineMode = 'workingDays' | 'dayOfMonth'
@@ -49,6 +53,11 @@ export interface Period {
   key: string
   period: number
   year: number
+  /** Flexible month-based quarters ticket (Single Case VAT Scheduler only) — the concrete
+   *  calendar month (1-12) this specific quarter block starts on, when it was derived from an
+   *  arbitrary month-range selection rather than a fixed Jan-start calendar quarter. Absent for
+   *  Monthly periods and for the Group Case scheduler's plain Quarter Q1-4 periods. */
+  startMonth?: number
 }
 
 export interface GeneratedCase extends Period {
@@ -113,14 +122,77 @@ export function periodLabel(frequency: Frequency, period: number, year: number):
   return frequency === 'Monthly' ? `${MONTH_NAMES[period - 1]} ${year}` : `Q${period} ${year}`
 }
 
+// Flexible month-based quarters ticket (Single Case VAT Scheduler only) — a quarter block's own
+// label, e.g. "Feb - Apr 2026", used instead of the fixed "Q1 2026" style once the block was
+// derived from an arbitrary start month rather than a standard Jan-start calendar quarter.
+export function monthRangeLabel(startMonth: number, year: number): string {
+  const endAbs = year * 12 + (startMonth - 1) + 2
+  const endYear = Math.floor(endAbs / 12)
+  const endMonthIndex = ((endAbs % 12) + 12) % 12
+  const startLabel = `${MONTH_NAMES_SHORT[startMonth - 1]}${endYear !== year ? ` ${year}` : ''}`
+  return `${startLabel} - ${MONTH_NAMES_SHORT[endMonthIndex]} ${endYear}`
+}
+
+// Total number of calendar months from start to end, inclusive — the shared span calculation
+// behind both countMonthBasedQuarters and isQuarterBoundaryMonth below.
+function monthSpan(startMonth: number, startYear: number, endMonth: number, endYear: number): number {
+  return (endYear * 12 + (endMonth - 1)) - (startYear * 12 + (startMonth - 1)) + 1
+}
+
+// Flexible month-based quarters ticket — groups an arbitrary selected month range into 3-month
+// quarter blocks. Only full 3-month blocks become a case; a trailing partial quarter doesn't get
+// one of its own, so a 5-month Jan-May span still yields exactly one quarter case (Jan-Mar), same
+// as a plain 3-month Feb-Apr span. A span under 3 months (e.g. Jan-Feb) yields 0 — not enough for
+// even a single quarter — which callers treat as invalid rather than rounding up to one.
+export function countMonthBasedQuarters(
+  startMonth: number,
+  startYear: number,
+  endMonth: number,
+  endYear: number,
+): number {
+  const span = monthSpan(startMonth, startYear, endMonth, endYear)
+  if (span <= 0) return 0
+  return Math.floor(span / 3)
+}
+
+// Flexible month-based quarters ticket — true for exactly the end months that complete another
+// full quarter (every 3rd month out from the start: e.g. start = January → March, June,
+// September, December), so the end-month dropdown can flag which choices actually add a case vs
+// which ones (like April, still within Q1) don't change the count.
+export function isQuarterBoundaryMonth(
+  startMonth: number,
+  startYear: number,
+  endMonth: number,
+  endYear: number,
+): boolean {
+  const span = monthSpan(startMonth, startYear, endMonth, endYear)
+  return span > 0 && span % 3 === 0
+}
+
+export function generateMonthBasedQuarterPeriods(
+  startMonth: number,
+  startYear: number,
+  endMonth: number,
+  endYear: number,
+): Period[] {
+  const count = countMonthBasedQuarters(startMonth, startYear, endMonth, endYear)
+  const startAbs = startYear * 12 + (startMonth - 1)
+  return Array.from({ length: count }, (_, i) => {
+    const abs = startAbs + i * 3
+    const year = Math.floor(abs / 12)
+    const blockStartMonth = (abs % 12) + 1
+    return { key: `${year}-${blockStartMonth}`, period: 1, year, startMonth: blockStartMonth }
+  })
+}
+
 // The month `monthsAhead` after a period's end month — e.g. Q1 (Jan–Mar) → April for 1,
 // May for 2 (the "Deadline extension (+2 months)" checkbox).
 //
-// Quarter start-month ticket — `quarterStartMonth` (1-12, default January) shifts which
-// calendar month each quarter starts from: Q1 = that month + the next 2, Q2 = the following 3,
-// etc. Only the Single Case VAT Scheduler exposes a control for this, and only for United
-// Kingdom (see FrequencyPeriodFields' `country`); left at the January default, this is a
-// no-op, so every other country and the Group Case scheduler are unaffected.
+// `quarterStartMonth` (1-12, default January) shifts which calendar month a quarter's own
+// 3-month span starts from. The Group Case scheduler always calls this with the default
+// (standard Jan-start calendar quarters); the Single Case VAT Scheduler's month-based quarters
+// (see generateMonthBasedQuarterPeriods above) pass each block's own concrete `startMonth` here
+// instead, together with `period` forced to 1 (each block is "quarter 1" of its own span).
 export function followingMonth(
   frequency: Frequency,
   period: number,
@@ -186,12 +258,6 @@ export interface DeadlineSchedule {
   setDeadlineExtension: (v: boolean) => void
   useCustomDeadlines: boolean
   setUseCustomDeadlines: (v: boolean) => void
-  /** Quarter start-month ticket — 1-12, only surfaced as a control on the Single Case VAT
-   * Scheduler, and only for United Kingdom (see FrequencyPeriodFields' `country`). Monthly
-   * frequency ignores this; left at 1 (January) it's a no-op, so every other country and the
-   * Group Case scheduler are unaffected. */
-  quarterStartMonth: number
-  setQuarterStartMonth: (v: number) => void
   cases: GeneratedCase[]
   setCustomDeadline: (key: string, date: Date | undefined) => void
   /** Period range + close date + deadline value all chosen — the shared slice of validity. */
@@ -202,7 +268,16 @@ export interface DeadlineSchedule {
 
 export function useDeadlineSchedule(
   caseNameFor: (p: Period, frequency: Frequency) => string,
+  options?: {
+    /** Flexible month-based quarters ticket — Single Case VAT Scheduler only (see
+     *  FrequencyPeriodFields' own `monthBasedQuarters`). When true and Quarterly is selected,
+     *  `startPeriod`/`endPeriod` are calendar months (1-12) rather than Quarter numbers (1-4),
+     *  and periods are derived by grouping that month range into 3-month blocks instead of the
+     *  Group Case scheduler's fixed Jan-start calendar quarters. */
+    monthBasedQuarters?: boolean
+  },
 ): DeadlineSchedule {
+  const monthBasedQuarters = options?.monthBasedQuarters ?? false
   const [frequency, setFrequency] = useState<Frequency>('Quarterly')
   const [startPeriod, setStartPeriod] = useState<number | undefined>(undefined)
   const [startYear, setStartYear] = useState(CURRENT_YEAR)
@@ -216,9 +291,9 @@ export function useDeadlineSchedule(
   const [deadlineExtension, setDeadlineExtension] = useState(false)
   const [useCustomDeadlines, setUseCustomDeadlines] = useState(false)
   const [customDeadlines, setCustomDeadlines] = useState<Record<string, Date | undefined>>({})
-  const [quarterStartMonth, setQuarterStartMonth] = useState(1)
 
   const isMonthly = frequency === 'Monthly'
+  const useMonthBasedQuarters = monthBasedQuarters && !isMonthly
 
   const handleFrequencyChange = (value: string) => {
     setFrequency(value as Frequency)
@@ -230,22 +305,35 @@ export function useDeadlineSchedule(
   const endMonthKeys = startYear === endYear && startPeriod ? MONTH_KEYS.filter((k) => Number(k) >= startPeriod) : MONTH_KEYS
   const endQuarterOptions = startYear === endYear && startPeriod ? QUARTER_OPTIONS.filter((q) => q >= startPeriod) : QUARTER_OPTIONS
 
+  // Flexible month-based quarters ticket — if a start-month change (or the end month/year
+  // themselves) leaves the previously chosen end month no longer forming a full 3-month
+  // quarter with the start, clear it instead of silently keeping a now-invalid selection
+  // (FrequencyPeriodFields' own month list already stops offering it, but a stale value chosen
+  // before the start changed wouldn't otherwise be cleared).
+  useEffect(() => {
+    if (!useMonthBasedQuarters || !startPeriod || endPeriod === undefined) return
+    if (countMonthBasedQuarters(startPeriod, startYear, endPeriod, endYear) === 0) setEndPeriod(undefined)
+  }, [useMonthBasedQuarters, startPeriod, startYear, endPeriod, endYear])
+
   const deadlineValueChosen = deadlineMode === 'workingDays' ? !!workingDaysValue : !!dayOfMonthValue
 
   const periods = useMemo(() => {
     if (!startPeriod || !endPeriod || !deadlineValueChosen) return []
+    if (useMonthBasedQuarters) {
+      return generateMonthBasedQuarterPeriods(startPeriod, startYear, endPeriod, endYear)
+    }
     return generatePeriods(frequency, startPeriod, startYear, endPeriod, endYear)
-  }, [frequency, startPeriod, startYear, endPeriod, endYear, deadlineValueChosen])
+  }, [frequency, startPeriod, startYear, endPeriod, endYear, deadlineValueChosen, useMonthBasedQuarters])
 
   const cases = useMemo(
     () =>
       periods.map((p) => {
         const { monthIndex, year } = followingMonth(
           frequency,
-          p.period,
+          p.startMonth !== undefined ? 1 : p.period,
           p.year,
           deadlineExtension ? 2 : 1,
-          quarterStartMonth,
+          p.startMonth ?? 1,
         )
         const defaultDeadline =
           deadlineMode === 'workingDays'
@@ -254,13 +342,17 @@ export function useDeadlineSchedule(
         return { ...p, name: caseNameFor(p, frequency), defaultDeadline, customDeadline: customDeadlines[p.key] }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [periods, frequency, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines, quarterStartMonth],
+    [periods, frequency, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines],
   )
 
   const setCustomDeadline = (key: string, date: Date | undefined) =>
     setCustomDeadlines((prev) => ({ ...prev, [key]: date }))
 
-  const canSubmitSchedule = !!startPeriod && !!endPeriod && !!periodCloseDay && deadlineValueChosen
+  // `cases.length > 0` guards against a selected range that's technically "complete" (both
+  // periods, close day, and deadline value chosen) but produces no actual quarter case — e.g. a
+  // month-based-quarters span under 3 months; without this, submitting would silently create
+  // zero cases instead of visibly doing nothing.
+  const canSubmitSchedule = !!startPeriod && !!endPeriod && !!periodCloseDay && deadlineValueChosen && cases.length > 0
 
   const reset = () => {
     setFrequency('Quarterly')
@@ -276,7 +368,6 @@ export function useDeadlineSchedule(
     setDeadlineExtension(false)
     setUseCustomDeadlines(false)
     setCustomDeadlines({})
-    setQuarterStartMonth(1)
   }
 
   return {
@@ -308,8 +399,6 @@ export function useDeadlineSchedule(
     setDeadlineExtension,
     useCustomDeadlines,
     setUseCustomDeadlines,
-    quarterStartMonth,
-    setQuarterStartMonth,
     cases,
     setCustomDeadline,
     canSubmitSchedule,
@@ -319,21 +408,34 @@ export function useDeadlineSchedule(
 
 export interface FrequencyPeriodFieldsProps {
   s: DeadlineSchedule
-  /** Quarter start-month ticket — Single Case VAT Scheduler only, and only when this is
-   * "United Kingdom" (the one country a Single Case can freely pick as its own VAT
-   * registration country — see single-case-scheduler-modal.tsx's `vatRegCountry`): with
-   * Quarterly selected, adds a start-month field between Frequency and Scheduled period so Q1
-   * doesn't have to be Jan-Mar (see `quarterStartMonth` on `DeadlineSchedule`). Every other
-   * country, and the Group Case scheduler (which never passes this at all), keep the plain
-   * 3-column layout and January-start calculation unchanged. */
-  country?: string
+  /** Flexible month-based quarters ticket — Single Case VAT Scheduler only. When true and
+   * Quarterly is selected, the period Start/End selects show short month names (Jan, Feb, …)
+   * instead of Quarter numbers, and the chosen month range is grouped into 3-month quarter
+   * cases (see countMonthBasedQuarters) instead of the Group Case scheduler's fixed Jan-start
+   * calendar quarters. The Group Case scheduler never passes this, so it's unaffected. */
+  monthBasedQuarters?: boolean
 }
 
-export function FrequencyPeriodFields({ s, country }: FrequencyPeriodFieldsProps) {
-  const showQuarterStartMonth = !s.isMonthly && country === 'United Kingdom'
+export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: FrequencyPeriodFieldsProps) {
+  const useMonthPickerForQuarters = monthBasedQuarters && !s.isMonthly
+  const quarterCaseCount =
+    useMonthPickerForQuarters && s.startPeriod && s.endPeriod
+      ? countMonthBasedQuarters(s.startPeriod, s.startYear, s.endPeriod, s.endYear)
+      : 0
+  // Flexible month-based quarters ticket — an end month only offered once it forms at least one
+  // full 3-month quarter with the chosen start (e.g. start = January → February is not
+  // selectable, March is the earliest); reuses the exact same grouping math as the case count
+  // and the "not enough months" message below, so the three always agree.
+  const quarterEndMonthKeys = s.startPeriod
+    ? MONTH_KEYS.filter((k) => countMonthBasedQuarters(s.startPeriod!, s.startYear, Number(k), s.endYear) > 0)
+    : MONTH_KEYS
+  // No month in the currently selected end year can complete a quarter (e.g. start = November,
+  // end year still the same year — even December is only 2 months out) — rather than opening an
+  // empty dropdown, disable it and point at the fix (a later end year) instead.
+  const noValidEndMonthForYear = useMonthPickerForQuarters && !!s.startPeriod && quarterEndMonthKeys.length === 0
 
   return (
-    <div className={cn('grid gap-3', showQuarterStartMonth ? 'grid-cols-4' : 'grid-cols-3')}>
+    <div className="grid grid-cols-3 gap-3">
       <div className="flex flex-col gap-2">
         <label htmlFor="frequency" className="font-medium text-foreground text-sm">
           Frequency
@@ -349,42 +451,47 @@ export function FrequencyPeriodFields({ s, country }: FrequencyPeriodFieldsProps
         </Select>
       </div>
 
-      {showQuarterStartMonth && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor="quarter-start-month" className="font-medium text-foreground text-sm">
-            Quarter start month
-          </label>
-          <Select
-            value={s.quarterStartMonth.toString()}
-            onValueChange={(v) => s.setQuarterStartMonth(Number(v))}
-          >
-            <SelectTrigger id="quarter-start-month" aria-label="Quarter start month">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTH_KEYS.map((k, i) => (
-                <SelectItem key={k} value={k}>
-                  {MONTH_NAMES[i]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       <div className="col-span-2 flex flex-col gap-2">
-        <p className="font-medium text-foreground text-sm">Scheduled period</p>
+        <p className="flex items-center gap-1.5 font-medium text-foreground text-sm">
+          Scheduled period
+          {useMonthPickerForQuarters && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
+                </TooltipTrigger>
+                <TooltipContent>
+                  A blue dot marks the end months that complete another quarter — picking one
+                  of those adds a case; picking a month in between doesn't change the count.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </p>
         <div className="flex items-center gap-2">
           <div className="flex flex-1 gap-2">
             {s.isMonthly ? (
               <Select value={s.startPeriod?.toString() ?? ''} onValueChange={(v) => s.setStartPeriod(Number(v))}>
-                <SelectTrigger aria-label="Month">
+                <SelectTrigger aria-label="Month" className="w-24">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
-                <SelectContent>
-                  {MONTH_KEYS.map((k) => (
+                <SelectContent className="min-w-0">
+                  {MONTH_KEYS.map((k, i) => (
                     <SelectItem key={k} value={k}>
-                      {k}
+                      {MONTH_NAMES_SHORT[i]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : useMonthPickerForQuarters ? (
+              <Select value={s.startPeriod?.toString() ?? ''} onValueChange={(v) => s.setStartPeriod(Number(v))}>
+                <SelectTrigger aria-label="Month" className="w-24">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent className="min-w-0">
+                  {MONTH_KEYS.map((k, i) => (
+                    <SelectItem key={k} value={k}>
+                      {MONTH_NAMES_SHORT[i]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -422,15 +529,46 @@ export function FrequencyPeriodFields({ s, country }: FrequencyPeriodFieldsProps
           <div className="flex flex-1 gap-2">
             {s.isMonthly ? (
               <Select value={s.endPeriod?.toString() ?? ''} onValueChange={(v) => s.setEndPeriod(Number(v))}>
-                <SelectTrigger aria-label="Month">
+                <SelectTrigger aria-label="Month" className="w-24">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="min-w-0">
                   {s.endMonthKeys.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {k}
+                      {MONTH_NAMES_SHORT[Number(k) - 1]}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            ) : useMonthPickerForQuarters ? (
+              <Select
+                value={s.endPeriod?.toString() ?? ''}
+                onValueChange={(v) => s.setEndPeriod(Number(v))}
+                disabled={noValidEndMonthForYear}
+              >
+                <SelectTrigger aria-label="Month" className="w-24">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent className="min-w-0">
+                  {quarterEndMonthKeys.map((k) => {
+                    const addsQuarter = isQuarterBoundaryMonth(s.startPeriod!, s.startYear, Number(k), s.endYear)
+                    return (
+                      <SelectItem
+                        key={k}
+                        value={k}
+                        rightSlot={
+                          addsQuarter ? (
+                            <span
+                              className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500"
+                              aria-label="Completes another quarter"
+                            />
+                          ) : undefined
+                        }
+                      >
+                        {MONTH_NAMES_SHORT[Number(k) - 1]}
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             ) : (
@@ -461,6 +599,22 @@ export function FrequencyPeriodFields({ s, country }: FrequencyPeriodFieldsProps
             </Select>
           </div>
         </div>
+        {noValidEndMonthForYear ? (
+          <p className="text-destructive text-xs">
+            No quarter fits in {s.endYear} starting from {MONTH_NAMES_SHORT[s.startPeriod! - 1]} — change the end
+            year to a later one.
+          </p>
+        ) : (
+          useMonthPickerForQuarters && s.startPeriod && s.endPeriod && (
+            quarterCaseCount > 0 ? (
+              <p className="text-muted-foreground text-xs">
+                Cases will be created for {quarterCaseCount} {quarterCaseCount === 1 ? 'quarter' : 'quarters'}
+              </p>
+            ) : (
+              <p className="text-destructive text-xs">Selected period does not include a quarter.</p>
+            )
+          )
+        )}
       </div>
     </div>
   )

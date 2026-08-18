@@ -9,7 +9,6 @@ import {
   Eye,
   File,
   FileText,
-  MessageSquareText,
   Trash2,
   X,
 } from 'lucide-react'
@@ -43,7 +42,7 @@ import {
   requirementTotals,
 } from '@/store/useRequirementsStore'
 import { RequirementsProgressBar } from '@/components/body/RequirementsProgressBar'
-import { CommentsDrawer } from '@/components/body/CommentsDrawer'
+import { CommentsDrawer, CommentsIndicatorIcon } from '@/components/body/CommentsDrawer'
 import type { Role } from '@/types'
 
 interface RequirementListAccordionProps {
@@ -232,28 +231,17 @@ export function RequirementListAccordion({
               <div className="flex flex-wrap items-center gap-2.5">
                 {!isDraft &&
                   (() => {
-                    const categoryTotal = categoryComments[category.id]?.length ?? 0
                     const categoryUnseen = hasUnseenComment(category.id)
                     return (
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="relative h-9 w-9 rounded-lg shadow-sm"
+                        className="h-9 w-9 rounded-lg shadow-sm"
                         aria-label={categoryUnseen ? 'Comments (new)' : 'Comments'}
                         onClick={() => openComments(category.id)}
                       >
-                        <MessageSquareText className="h-4 w-4" />
-                        {/* Feature 2c's badge, mirrored here instead of a plain dot — gray with
-                            the total count by default, red "new" while unseen; clears once this
-                            category's drawer has been opened (see CommentsDrawer's onRead). */}
-                        <Badge
-                          variant="fill"
-                          tone={categoryUnseen ? 'red' : 'gray'}
-                          className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 text-[8px] leading-none"
-                        >
-                          {categoryUnseen ? 'new' : categoryTotal > 9 ? '9+' : categoryTotal}
-                        </Badge>
+                        <CommentsIndicatorIcon hasUnseen={categoryUnseen} />
                       </Button>
                     )
                   })()}

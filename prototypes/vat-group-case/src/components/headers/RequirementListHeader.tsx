@@ -3,7 +3,7 @@ import { BackLink } from './parts/BackLink'
 import { DueDate } from './parts/DueDate'
 import { HeaderShell } from './parts/HeaderShell'
 import { PeopleRow } from './parts/PeopleRow'
-import { CaseIdentity, Title } from './parts/Title'
+import { CaseIdentityPills, Title } from './parts/Title'
 import { VerticalSeparator } from './parts/VerticalSeparator'
 import type { HeaderDescriptor } from '@/types'
 
@@ -23,49 +23,47 @@ export function RequirementListHeader({
   return (
     <HeaderShell variant="slim" compact={compact}>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-4">
-            {descriptor.backLink ? (
-              <BackLink
-                label={descriptor.backLink.label}
-                href={descriptor.backLink.href}
-              />
-            ) : (
-              <span className="h-10" />
-            )}
-            <Actions
-              primary={descriptor.actions.primary}
-              secondary={descriptor.actions.secondary}
-              size={compact ? 'sm' : 'lg'}
-              allOutline
+        <div className="flex items-center justify-between gap-4">
+          {descriptor.backLink ? (
+            <BackLink
+              label={descriptor.backLink.label}
+              href={descriptor.backLink.href}
             />
-          </div>
-          {/* Feature 1 of the "requirements header enrichment" ticket — the case's own name +
-              tags, under the "Back" link (see PlaygroundMain.tsx's `caseIdentity`). */}
-          {descriptor.caseIdentity && (
-            <CaseIdentity
-              title={descriptor.caseIdentity.title}
-              parentCaseName={descriptor.caseIdentity.parentCaseName}
-            />
+          ) : (
+            <span className="h-10" />
           )}
+          <Actions
+            primary={descriptor.actions.primary}
+            secondary={descriptor.actions.secondary}
+            size={compact ? 'sm' : 'lg'}
+            allOutline
+          />
         </div>
 
-        <div className="flex items-center gap-4">
-          <Title title={descriptor.title} size="slim" />
-          <VerticalSeparator />
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
-            {descriptor.dueDate && (
-              <DueDate date={descriptor.dueDate} variant="gray" />
-            )}
-            {descriptor.people && (
-              <PeopleRow
-                people={descriptor.people}
-                editable={descriptor.editable}
-                fields={['client']}
-                className="shrink-0"
-              />
-            )}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <Title title={descriptor.title} size="slim" />
+            <VerticalSeparator />
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
+              {descriptor.dueDate && (
+                <DueDate date={descriptor.dueDate} variant="gray" />
+              )}
+              {descriptor.people && (
+                <PeopleRow
+                  people={descriptor.people}
+                  editable={descriptor.editable}
+                  fields={['client']}
+                  className="shrink-0"
+                />
+              )}
+            </div>
           </div>
+          {/* The case's own name + legal-entity/VAT-code pills, under the Requirements/Due Date
+              row — not shown for the Client (see PlaygroundMain.tsx's `caseIdentity`, only set
+              for non-Client roles). */}
+          {descriptor.caseIdentity && (
+            <CaseIdentityPills title={descriptor.caseIdentity.title} />
+          )}
         </div>
       </div>
     </HeaderShell>

@@ -61,28 +61,26 @@ export function Title({ title, size = 'case', className }: TitleProps) {
   )
 }
 
-/** Feature 1 of the "requirements header enrichment" ticket — the underlying case's own name +
- * company/VAT tags (+ "Part of {parent}" for a Child Case), shown under the Requirement List/
- * Bucket headers' "Back" link so the case stays identifiable there. Same building blocks, same
- * "case" size, CaseHeader itself uses for its own title — matched on request rather than
- * shrunk to fit, so the case name reads with the same weight it has on the Case page. */
-export function CaseIdentity({ title, parentCaseName }: { title: HeaderTitle; parentCaseName?: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Title title={title} size="case" />
-      <div className="flex flex-wrap items-center gap-1.5">
-        <TitleSubtitle title={title} />
-        {parentCaseName && <ParentCaseIndicator name={parentCaseName} />}
-      </div>
-    </div>
-  )
-}
-
 /** Company + VAT code pills below the case title. */
 export function TitleSubtitle({ title }: { title: HeaderTitle }) {
   if (!title.subtitle && !title.subCode) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
+      {title.subtitle && <InfoPill>{title.subtitle}</InfoPill>}
+      {title.subCode && <InfoPill>{title.subCode}</InfoPill>}
+    </div>
+  )
+}
+
+/** A same-styled case-name pill (title.parts joined, or plain) to the left of the existing
+ *  legal-entity/VAT-code pills — shown under the Requirements/Due Date row on the Requirement
+ *  List/Bucket headers, for every role except Client (which shows no case-identity chips). */
+export function CaseIdentityPills({ title }: { title: HeaderTitle }) {
+  const caseName = title.parts && title.parts.length > 0 ? title.parts.join(' · ') : title.plain
+  if (!caseName && !title.subtitle && !title.subCode) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {caseName && <InfoPill>{caseName}</InfoPill>}
       {title.subtitle && <InfoPill>{title.subtitle}</InfoPill>}
       {title.subCode && <InfoPill>{title.subCode}</InfoPill>}
     </div>

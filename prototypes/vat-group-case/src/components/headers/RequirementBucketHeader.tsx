@@ -3,7 +3,7 @@ import { BackLink } from './parts/BackLink'
 import { BucketStatusBadge } from './parts/BucketStatusBadge'
 import { DueDate } from './parts/DueDate'
 import { HeaderShell } from './parts/HeaderShell'
-import { CaseIdentity, Title } from './parts/Title'
+import { CaseIdentityPills, Title } from './parts/Title'
 import { VerticalSeparator } from './parts/VerticalSeparator'
 import type { BucketStatus, HeaderDescriptor } from '@/types'
 
@@ -42,46 +42,44 @@ export function RequirementBucketHeader({
   return (
     <HeaderShell variant="slim" compact={compact}>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-4">
-            {descriptor.backLink ? (
-              <BackLink
-                label={descriptor.backLink.label}
-                href={descriptor.backLink.href}
-                onClick={onBack}
-              />
-            ) : (
-              <span className="h-10" />
-            )}
-            <Actions
-              primary={primary}
-              secondary={descriptor.actions.secondary}
-              size={compact ? 'sm' : 'lg'}
-              allOutline
-              markAsDoneChecked={markAsDoneChecked}
-              onMarkAsDoneChange={onMarkAsDoneChange}
-              onCommentsClick={onCommentsClick}
+        <div className="flex items-center justify-between gap-4">
+          {descriptor.backLink ? (
+            <BackLink
+              label={descriptor.backLink.label}
+              href={descriptor.backLink.href}
+              onClick={onBack}
             />
-          </div>
-          {/* Feature 1 of the "requirements header enrichment" ticket — same case name + tags
-              block RequirementListHeader shows, so the Client sees it too. */}
-          {descriptor.caseIdentity && (
-            <CaseIdentity
-              title={descriptor.caseIdentity.title}
-              parentCaseName={descriptor.caseIdentity.parentCaseName}
-            />
+          ) : (
+            <span className="h-10" />
           )}
+          <Actions
+            primary={primary}
+            secondary={descriptor.actions.secondary}
+            size={compact ? 'sm' : 'lg'}
+            allOutline
+            markAsDoneChecked={markAsDoneChecked}
+            onMarkAsDoneChange={onMarkAsDoneChange}
+            onCommentsClick={onCommentsClick}
+          />
         </div>
 
-        <div className="flex items-center gap-4">
-          <Title title={descriptor.title} size="slim" />
-          <VerticalSeparator />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {bucketStatus && <BucketStatusBadge status={bucketStatus} />}
-            {descriptor.dueDate && (
-              <DueDate date={descriptor.dueDate} variant="gray" />
-            )}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <Title title={descriptor.title} size="slim" />
+            <VerticalSeparator />
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {bucketStatus && <BucketStatusBadge status={bucketStatus} />}
+              {descriptor.dueDate && (
+                <DueDate date={descriptor.dueDate} variant="gray" />
+              )}
+            </div>
           </div>
+          {/* The case's own name + legal-entity/VAT-code pills, under the Requirements/Due Date
+              row — not shown for the Client (see PlaygroundMain.tsx's `caseIdentity`, only set
+              for non-Client roles). */}
+          {descriptor.caseIdentity && (
+            <CaseIdentityPills title={descriptor.caseIdentity.title} />
+          )}
         </div>
       </div>
     </HeaderShell>

@@ -6,7 +6,6 @@ import {
   Download,
   File,
   FileStack,
-  MessageSquareText,
   Upload,
   X,
 } from 'lucide-react'
@@ -14,6 +13,7 @@ import {
 import { Badge } from '@wts/ui'
 import { Button } from '@wts/ui'
 import { Separator } from '@wts/ui'
+import { CommentsIndicatorIcon } from '@/components/body/CommentsDrawer'
 import {
   useCommentsForCategory,
   useRequirementCategories,
@@ -993,11 +993,10 @@ function BucketCard({
     status === 'Done' ? 'green' : status === 'In Progress' ? 'sky' : 'gray'
 
   const CardWrapper = onOpen ? 'button' : 'div'
-  // Requirements comment notifications ticket — same gray-total/red-"new" badge the WTS
-  // Requirements List shows on its own Comments button (see RequirementListAccordion.tsx),
-  // backed by the same shared useRequirementsStore thread.
-  const { comments, hasUnseen } = useCommentsForCategory(categoryId)
-  const commentTotal = comments.length
+  // Requirements comment notifications ticket — same icon+dot indicator the WTS Requirements
+  // List shows on its own Comments button (see RequirementListAccordion.tsx), backed by the
+  // same shared useRequirementsStore thread.
+  const { hasUnseen } = useCommentsForCategory(categoryId)
 
   return (
     <CardWrapper
@@ -1016,21 +1015,14 @@ function BucketCard({
           type="button"
           variant="ghost"
           size="icon"
-          className="relative h-8 w-8 -m-1.5"
+          className="h-8 w-8 -m-1.5"
           aria-label={hasUnseen ? 'Comments (new)' : 'Comments'}
           onClick={(e) => {
             e.stopPropagation()
             onOpenComments?.(categoryId)
           }}
         >
-          <MessageSquareText className="h-5 w-5 text-muted-foreground" aria-hidden />
-          <Badge
-            variant="fill"
-            tone={hasUnseen ? 'red' : 'gray'}
-            className="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-[8px] leading-none"
-          >
-            {hasUnseen ? 'new' : commentTotal > 9 ? '9+' : commentTotal}
-          </Badge>
+          <CommentsIndicatorIcon hasUnseen={hasUnseen} iconClassName="h-5 w-5" />
         </Button>
       </div>
       <div className="flex flex-1 flex-col gap-4">

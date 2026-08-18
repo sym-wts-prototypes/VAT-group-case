@@ -1,11 +1,40 @@
 import { useEffect, useRef, useState } from 'react'
-import { Send } from 'lucide-react'
+import { MessageSquareText, Send } from 'lucide-react'
 
 import { Button, cn, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, Textarea } from '@wts/ui'
 
 import type { RequirementComment } from '@/config/requirements'
 
 const MAX_COMMENT_LENGTH = 500
+
+/** Comments trigger icon, shared by every "Comments" button in Requirements (WTS category
+ *  rows in RequirementListAccordion.tsx, Client bucket cards in BodyPlaceholder.tsx). Redesigned
+ *  per the comment-icon-redesign ticket: no counter badge at all — the icon just turns red with
+ *  a plain dot while there's an unseen comment, and reverts to a bare muted icon once read.
+ *  Callers keep their own button chrome (size/variant differ by context); only the icon+dot
+ *  glyph is shared. */
+export function CommentsIndicatorIcon({
+  hasUnseen,
+  iconClassName = 'h-4 w-4',
+}: {
+  hasUnseen: boolean
+  iconClassName?: string
+}) {
+  return (
+    <span className="relative inline-flex">
+      <MessageSquareText
+        className={cn(iconClassName, hasUnseen ? 'text-destructive' : 'text-muted-foreground')}
+        aria-hidden
+      />
+      {hasUnseen && (
+        <span
+          className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background"
+          aria-hidden
+        />
+      )}
+    </span>
+  )
+}
 
 interface CommentsDrawerProps {
   open: boolean

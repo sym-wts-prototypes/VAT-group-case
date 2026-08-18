@@ -18,7 +18,7 @@ import { ParentVatGroupCasePage } from '@/components/parent-vat-group-case-page'
 import type { EditCaseRolesContext } from '@/components/single-case-form'
 import { CHILD_CASE_DEMO_ASSIGNEES, REPRESENTATIVE_ASSIGNEES } from '@/components/vat-group-case-assignees'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
-import { SAMPLE_CASE, SAMPLE_CASE_TITLE } from '@/config/sampleData'
+import { SAMPLE_CASE, SAMPLE_CASE_TITLE, SAMPLE_HR_REQUEST_ID } from '@/config/sampleData'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
 import {
@@ -352,6 +352,12 @@ export function PlaygroundMain() {
   // role/phase rather than duplicating that static config here. Client gets no case-identity
   // chips at all; every other role sees them as pills under the Requirements/Due Date row (see
   // RequirementListHeader/RequirementBucketHeader).
+  // HR is the only process with a Case Wrapper layer (see headers.ts) — its own `case` header
+  // type's title is just the audit's plain name ("Audit Request 1"), not the case-name/legal-
+  // entity/code triple every other process has. For the Requirements pills specifically, HR
+  // wants the *wrapper's* title ("HR · Wage Tax Audit · 2024-2025") as the case-name pill and
+  // the specific audit's own ID ("Audit-0001") as the second pill, so it's built directly from
+  // the wrapper/audit sample data rather than resolved from the `case` header type.
   const withCaseIdentity =
     descriptorWithConsolidationLabel &&
     (headerType === 'requirementList' || headerType === 'requirementBucket') &&
@@ -359,8 +365,16 @@ export function PlaygroundMain() {
       ? {
           ...descriptorWithConsolidationLabel,
           caseIdentity: {
-            title: resolveHeader({ ...ctx, headerType: 'case' })?.title ?? { plain: 'Case' },
+            title:
+              process === 'hr'
+                ? { parts: SAMPLE_CASE_TITLE.hr, subtitle: SAMPLE_HR_REQUEST_ID }
+                : resolveHeader({ ...ctx, headerType: 'case' })?.title ?? { plain: 'Case' },
           },
+          // Requirements header's AssignedPeople shows the Client column only (see
+          // RequirementListHeader/RequirementBucketHeader) and has its own editability rule —
+          // Creator only, unlike the Case header's Creator-or-Reviewer rule — so it's set here
+          // rather than inherited from whatever the case-header chain above left it as.
+          assignedPeopleEditable: role === 'creator',
         }
       : descriptorWithConsolidationLabel
   const descriptor =

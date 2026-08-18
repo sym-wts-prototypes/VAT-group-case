@@ -60,11 +60,12 @@ interface UniquePerson {
 }
 
 /** Every assigned person once, in first-seen role order — someone assigned to more than one
- * role (e.g. Reviewer and Partner) shows a single avatar, tinted by their first role. */
-function uniquePeople(people: AssignedPeopleData): UniquePerson[] {
+ * role (e.g. Reviewer and Partner) shows a single avatar, tinted by their first role. `roles`
+ * restricts which role arrays are considered at all (see `AssignedPeopleProps.roles`). */
+function uniquePeople(people: AssignedPeopleData, roles: Role[]): UniquePerson[] {
   const seen = new Set<string>()
   const out: UniquePerson[] = []
-  for (const role of ROLE_ORDER) {
+  for (const role of roles) {
     for (const person of people[role] ?? []) {
       if (seen.has(person.name)) continue
       seen.add(person.name)
@@ -98,6 +99,11 @@ function PersonAvatar({ person, role }: { person: AssignedPerson; role: Role }) 
 
 export interface AssignedPeopleProps {
   people: AssignedPeopleData
+  /** Restricts which role columns render, in both the collapsed avatar cluster and the
+   * dropdown's per-role columns — defaults to every role. Pass e.g. `['client']` for a
+   * Client-only display (Requirements headers), instead of the usual full Creator/Reviewer/
+   * Partner/Client breakdown. */
+  roles?: Role[]
   /** Creator/Reviewer can edit assignees; everyone else is view-only (see AGENTS-task Segment
    * 0 research — the reference's own edit drawer has no working save-back-to-header flow, so
    * this is a placeholder action for now, not a real add/remove). */
@@ -106,10 +112,25 @@ export interface AssignedPeopleProps {
   editTooltip?: string
   onEdit?: () => void
   className?: string
+  /** Which edge of the trigger the popover's own edge anchors to — 'start' (default) keeps the
+   * panel's left edge under the trigger's left edge, opening rightward; right for a trigger
+   * that sits on the left of its header (e.g. CaseHeader). Use 'end' for a trigger that sits on
+   * the right of its header instead (e.g. the Requirements header) — that anchors the panel's
+   * right edge to the trigger's right edge, opening leftward, so it doesn't run past the right
+   * edge of the viewport. */
+  align?: 'start' | 'end'
 }
 
-export function AssignedPeople({ people, editable, editTooltip, onEdit, className }: AssignedPeopleProps) {
-  const unique = uniquePeople(people)
+export function AssignedPeople({
+  people,
+  roles = ROLE_ORDER,
+  editable,
+  editTooltip,
+  onEdit,
+  className,
+  align = 'start',
+}: AssignedPeopleProps) {
+  const unique = uniquePeople(people, roles)
   if (unique.length === 0 && !editable) return null
 
   const visible = unique.slice(0, MAX_VISIBLE)
@@ -145,21 +166,20 @@ export function AssignedPeople({ people, editable, editTooltip, onEdit, classNam
         {/* Prevents Radix from auto-focusing the Edit button when the popover opens — without
             this, the Edit button's own Tooltip (see below) shows immediately via focus, as an
             unprompted floating text box rather than only on hover.
-            align="start" anchors the panel's left edge to the trigger's left edge, whether it
-            opens above or below (Radix keeps align fixed across a side flip). The four role
-            columns stay in a single row at a fixed, capped width — wrapping to a second row or
-            growing to fit long names/emails would make the panel wide enough that Radix's
-            collision-avoidance shifts the whole panel away from that left anchor to stay
-            on-screen. overflow-x-auto is the fallback for whatever still doesn't fit (a cramped
-            corner of the viewport) — it scrolls instead of shifting the anchor or clipping
-            content outright. */}
+            `align` (see the prop doc above) fixes which edge the panel anchors to, whether it
+            opens above or below (Radix keeps align fixed across a side flip) — deliberately
+            *not* left to Radix's default collision-avoidance, which would shift the anchor
+            itself once the four role columns' fixed width doesn't fit, landing the panel
+            somewhere else entirely rather than predictably left/right of the trigger.
+            overflow-x-auto is the fallback for whatever still doesn't fit even after that (a
+            cramped corner of the viewport) — it scrolls instead of clipping content outright. */}
         <PopoverContent
-          align="start"
+          align={align}
           className="w-auto max-w-[92vw] p-4"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="flex max-w-[680px] flex-nowrap gap-x-6 overflow-x-auto pb-1">
-            {ROLE_ORDER.map((role) => {
+            {roles.map((role) => {
               const rolePeople = people[role] ?? []
               return (
                 <div key={role} className="flex w-[152px] shrink-0 flex-col gap-3">

@@ -1,3 +1,5 @@
+import { AssignedPeople, adaptLegacyPeople } from '@/components/assigned-people'
+
 import { Actions } from './parts/Actions'
 import { BackLink } from './parts/BackLink'
 import { DueDate } from './parts/DueDate'
@@ -48,13 +50,31 @@ export function RequirementListHeader({
               {descriptor.dueDate && (
                 <DueDate date={descriptor.dueDate} variant="gray" />
               )}
-              {descriptor.people && (
-                <PeopleRow
-                  people={descriptor.people}
-                  editable={descriptor.editable}
-                  fields={['client']}
+              {/* Creator/Reviewer/Partner see the same AssignedPeople cluster+dropdown the
+                  Case header uses, all 4 role columns — `caseIdentity` is only set for those
+                  roles (see PlaygroundMain.tsx), so its presence doubles as that gate. Client
+                  keeps the plain text PeopleRow it always had. `align="end"` (unlike the Case
+                  header's own default "start") since this trigger sits on the right edge of the
+                  header — anchoring the popover's right edge instead keeps it from opening
+                  further right, off the viewport. */}
+              {descriptor.caseIdentity ? (
+                <AssignedPeople
+                  people={descriptor.assignedPeople ?? adaptLegacyPeople(descriptor.people)}
+                  align="end"
+                  editable={descriptor.assignedPeopleEditable}
+                  editTooltip={descriptor.editTooltip}
+                  onEdit={descriptor.onEditAssignedPeople}
                   className="shrink-0"
                 />
+              ) : (
+                descriptor.people && (
+                  <PeopleRow
+                    people={descriptor.people}
+                    editable={descriptor.editable}
+                    fields={['client']}
+                    className="shrink-0"
+                  />
+                )
               )}
             </div>
           </div>

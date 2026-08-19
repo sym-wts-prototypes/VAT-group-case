@@ -18,7 +18,7 @@ import { ParentVatGroupCasePage } from '@/components/parent-vat-group-case-page'
 import type { EditCaseRolesContext } from '@/components/single-case-form'
 import { CHILD_CASE_DEMO_ASSIGNEES, REPRESENTATIVE_ASSIGNEES } from '@/components/vat-group-case-assignees'
 import { HeaderRenderer } from '@/components/headers/HeaderRenderer'
-import { SAMPLE_CASE, SAMPLE_CASE_TITLE, SAMPLE_HR_REQUEST_ID } from '@/config/sampleData'
+import { SAMPLE_CASE, SAMPLE_CASE_TITLE, SAMPLE_HR_CASE_TITLE } from '@/config/sampleData'
 import { getRequirementCategory } from '@/config/requirements'
 import { bucketStatusFromMarkAsDone } from '@/lib/bucketStatus'
 import {
@@ -224,12 +224,13 @@ export function PlaygroundMain() {
           },
         }
       : withNeedChanges
-  // Same Next Deadline chip, same position (bottom right of the header) — just relabeled for
-  // the Group Case's Child Case context, matching the Parent Case header's own "Group Case
-  // Deadline" chip (see parent-vat-group-case-page.tsx).
+  // Same Next Deadline chip, same position (bottom right of the header) — relabeled for the
+  // Group Case's Child Case context. Reads "Data provision deadline" (the child's own
+  // data-to-Creator deadline), distinct from the Parent Case header's own "Group Case Deadline"
+  // chip (parent-vat-group-case-page.tsx), which is unaffected by this.
   const withDueDateLabel =
     withCaseVariantTitle && isChildCaseView
-      ? { ...withCaseVariantTitle, dueDateLabel: 'Group Case Deadline' }
+      ? { ...withCaseVariantTitle, dueDateLabel: 'Data provision deadline' }
       : withCaseVariantTitle
   // Group Case Child Case flow: a non-interactive "Part of {parent-case-name}" indicator on the
   // header, distinguishing it from a regular Single Case — same parent-case resolution
@@ -245,6 +246,21 @@ export function PlaygroundMain() {
     withDueDateLabel && isChildCaseView
       ? { ...withDueDateLabel, parentCaseName: parentGroupCase.caseName }
       : withDueDateLabel
+  // Title/period mismatch fix — the Child Case's own generic "case" header title otherwise
+  // always shows the static demo VAT period ("Q3 2026"), unrelated to whichever group/period is
+  // actually being viewed; replace just the period segment with the parent group's own real
+  // reporting period ("Jan 2026") so it reads consistently with the "Part of {parent}" chip
+  // right below it (parentGroupCase.caseName already ends in that same period).
+  const withChildPeriodTitle =
+    withParentCaseName && isChildCaseView && withParentCaseName.title.parts
+      ? {
+          ...withParentCaseName,
+          title: {
+            ...withParentCaseName.title,
+            parts: [...withParentCaseName.title.parts.slice(0, -1), parentGroupCase.reportingPeriod],
+          },
+        }
+      : withParentCaseName
   // Group Case Child Case flow: a representative example of a non-representative-entity Child
   // Case's real, org-sourced assignees (see vat-group-case-assignees.ts) instead of the generic
   // cross-process demo people — plus this component's own Creator/Reviewer-can-edit rule. The
@@ -252,14 +268,14 @@ export function PlaygroundMain() {
   // drawer the Parent Case's child-cases list uses; `childAssignedPeopleOverride` is what a
   // simulated save writes back to, so the header's own people-count stays in sync.
   const withChildAssignedPeople =
-    withParentCaseName && isChildCaseView
+    withChildPeriodTitle && isChildCaseView
       ? {
-          ...withParentCaseName,
+          ...withChildPeriodTitle,
           assignedPeople: childAssignedPeopleOverride ?? CHILD_CASE_DEMO_ASSIGNEES,
           assignedPeopleEditable: role === 'creator' || role === 'reviewer',
           onEditAssignedPeople: () => setAssigneesDrawerOpen(true),
         }
-      : withParentCaseName
+      : withChildPeriodTitle
   // Single Case flow (mutually exclusive with the Child Case chain above) — the header's
   // AssignedPeople "Edit" action was previously wired to nothing (no onEditAssignedPeople in the
   // static header config); it now opens the same drawer, case-name only, since a Single Case has
@@ -336,6 +352,20 @@ export function PlaygroundMain() {
           },
         }
       : withChildInReviewLabel
+  // Group Case Child Case flow: the shared VAT "case" header config's "Create correction" button
+  // at the Submitted phase (headers.ts) is meant for the plain Single Case's own Submission step
+  // — it fires here too only because a Child Case's terminal step is *also* phase 'submitted'
+  // under the hood (just labeled "Ready for Consolidation" for display). It's a dead click for a
+  // Child Case (no correction flow exists at this level — corrections are created from the
+  // Parent Case), so it's removed here rather than in headers.ts, which would also remove it from
+  // the legitimate Single Case Submission step.
+  const withoutChildCreateCorrection =
+    descriptorWithConsolidationLabel &&
+    isChildCaseView &&
+    phase === 'submitted' &&
+    descriptorWithConsolidationLabel.actions.primary?.label === 'Create correction'
+      ? { ...descriptorWithConsolidationLabel, actions: { ...descriptorWithConsolidationLabel.actions, primary: undefined } }
+      : descriptorWithConsolidationLabel
 
   // Group Case Child Case flow, Client role at Client Approval: the button follows the package
   // review outcome exactly like the Parent Case's own Client Approval button does — "Submit
@@ -348,35 +378,56 @@ export function PlaygroundMain() {
       : undefined
   // Requirement List/Bucket headers repurpose `title` for the page/category name (see
   // baseDescriptor above and their own static config), so the underlying case's own identity is
-  // attached separately, resolved by forcing headerType to 'case' for the same process/platform/
-  // role/phase rather than duplicating that static config here. Client gets no case-identity
-  // chips at all; every other role sees them as pills under the Requirements/Due Date row (see
-  // RequirementListHeader/RequirementBucketHeader).
-  // HR is the only process with a Case Wrapper layer (see headers.ts) — its own `case` header
-  // type's title is just the audit's plain name ("Audit Request 1"), not the case-name/legal-
-  // entity/code triple every other process has. For the Requirements pills specifically, HR
-  // wants the *wrapper's* title ("HR · Wage Tax Audit · 2024-2025") as the case-name pill and
-  // the specific audit's own ID ("Audit-0001") as the second pill, so it's built directly from
-  // the wrapper/audit sample data rather than resolved from the `case` header type.
+  // attached separately as explicit named pills, per the "Requirement List chips per case type"
+  // ticket:
+  //   - VAT single case: legal entity · VAT case name · VAT reg. number
+  //   - CIT case: legal entity · CIT case name
+  //   - HR case: parent (audited company) legal entity · child (audit) case name
+  //   - VAT Group Child Case: "Part of {parent legal entity}" · child's own legal entity ·
+  //     VAT reg. number — no case-name pill here (the parent/child legal entity pair already
+  //     identifies it, and the case's own title/period is shown by the Case header itself).
+  // Client gets no case-identity chips at all; every other role sees these under the
+  // Requirements/Due Date row (see RequirementListHeader/RequirementBucketHeader).
+  const caseHeaderTitle = resolveHeader({ ...ctx, headerType: 'case' })?.title
   const withCaseIdentity =
-    descriptorWithConsolidationLabel &&
+    withoutChildCreateCorrection &&
     (headerType === 'requirementList' || headerType === 'requirementBucket') &&
     role !== 'client'
       ? {
-          ...descriptorWithConsolidationLabel,
-          caseIdentity: {
-            title:
-              process === 'hr'
-                ? { parts: SAMPLE_CASE_TITLE.hr, subtitle: SAMPLE_HR_REQUEST_ID }
-                : resolveHeader({ ...ctx, headerType: 'case' })?.title ?? { plain: 'Case' },
-          },
+          ...withoutChildCreateCorrection,
+          caseIdentity: isChildCaseView
+            ? {
+                parentCaseName: parentGroupCase.caseName,
+                legalEntityName: demoChildCase.client,
+                // Same period-correction as `withChildPeriodTitle` above (the Case header's own
+                // title) — this fresh `resolveHeader` call above hasn't gone through that
+                // override, so the period segment is reapplied here too.
+                caseName:
+                  caseHeaderTitle?.parts && caseHeaderTitle.parts.length > 0
+                    ? [...caseHeaderTitle.parts.slice(0, -1), parentGroupCase.reportingPeriod].join(' · ')
+                    : caseHeaderTitle?.plain,
+                vatRegNumber: SAMPLE_CASE.vatCode,
+              }
+            : process === 'hr'
+              ? {
+                  legalEntityName: SAMPLE_CASE.company,
+                  caseName: SAMPLE_HR_CASE_TITLE,
+                }
+              : {
+                  legalEntityName: caseHeaderTitle?.subtitle,
+                  caseName:
+                    caseHeaderTitle?.parts && caseHeaderTitle.parts.length > 0
+                      ? caseHeaderTitle.parts.join(' · ')
+                      : caseHeaderTitle?.plain,
+                  vatRegNumber: caseHeaderTitle?.subCode,
+                },
           // Requirements header's AssignedPeople shows the Client column only (see
           // RequirementListHeader/RequirementBucketHeader) and has its own editability rule —
           // Creator only, unlike the Case header's Creator-or-Reviewer rule — so it's set here
           // rather than inherited from whatever the case-header chain above left it as.
           assignedPeopleEditable: role === 'creator',
         }
-      : descriptorWithConsolidationLabel
+      : withoutChildCreateCorrection
   const descriptor =
     withCaseIdentity && childClientApprovalState === 'approved'
       ? { ...withCaseIdentity, actions: {} }

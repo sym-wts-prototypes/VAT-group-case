@@ -72,23 +72,37 @@ export function TitleSubtitle({ title }: { title: HeaderTitle }) {
   )
 }
 
-/** A same-styled case-name pill (title.parts joined, or plain) to the left of the existing
- *  legal-entity/VAT-code pills — shown under the Requirements/Due Date row on the Requirement
- *  List/Bucket headers, for every role except Client (which shows no case-identity chips). */
-export function CaseIdentityPills({ title }: { title: HeaderTitle }) {
-  const caseName = title.parts && title.parts.length > 0 ? title.parts.join(' · ') : title.plain
-  if (!caseName && !title.subtitle && !title.subCode) return null
+/** Requirement List chips per case type ticket — the case's own identity, shown under the
+ *  Requirements/Due Date row on the Requirement List/Bucket headers, for every role except
+ *  Client. Fixed pill order: parent's full case name (VAT Group Child Case only, via
+ *  `ParentCaseIndicator`'s blue-layers icon) · legal entity name · case name · VAT reg. number.
+ *  See `HeaderDescriptor.caseIdentity`'s own doc for the exact composition per process/case
+ *  type. */
+export function CaseIdentityPills({
+  parentCaseName,
+  legalEntityName,
+  caseName,
+  vatRegNumber,
+}: {
+  parentCaseName?: string
+  legalEntityName?: string
+  caseName?: string
+  vatRegNumber?: string
+}) {
+  if (!parentCaseName && !legalEntityName && !caseName && !vatRegNumber) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
+      {parentCaseName && <ParentCaseIndicator name={parentCaseName} />}
+      {legalEntityName && <InfoPill>{legalEntityName}</InfoPill>}
       {caseName && <InfoPill>{caseName}</InfoPill>}
-      {title.subtitle && <InfoPill>{title.subtitle}</InfoPill>}
-      {title.subCode && <InfoPill>{title.subCode}</InfoPill>}
+      {vatRegNumber && <InfoPill>{vatRegNumber}</InfoPill>}
     </div>
   )
 }
 
 /** Group Case Child Case only — distinguishes it from a regular Single Case. Plain, non-
- * interactive: no href/onClick, so it never reads as a link back to the parent case. */
+ * interactive: no href/onClick, so it never reads as a link back to the parent case. Shared by
+ * the Case header and the Requirement List/Bucket headers' `CaseIdentityPills` above. */
 export function ParentCaseIndicator({ name }: { name: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-1.5 py-[3px] text-xs font-medium leading-none text-foreground">

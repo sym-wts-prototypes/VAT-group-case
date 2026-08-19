@@ -50,10 +50,12 @@ export function CaseHeader({
               size={compact ? 'slim' : 'case'}
             />
             <div className="flex flex-wrap items-center gap-1.5">
-              <TitleSubtitle title={descriptor.title} />
+              {/* Case-identity pill order ticket — "part of a group" comes first, matching the
+                  same order used by the Requirement List/Bucket headers' CaseIdentityPills. */}
               {descriptor.parentCaseName && (
                 <ParentCaseIndicator name={descriptor.parentCaseName} />
               )}
+              <TitleSubtitle title={descriptor.title} />
             </div>
           </div>
         </div>

@@ -1069,7 +1069,11 @@ export function ParentVatGroupCasePage() {
         <div className="flex flex-col gap-3 border-b border-border bg-background px-6 py-6">
           <SectionLabel>Tasks</SectionLabel>
           <ConsolidationTaskCard
-            canAct={allChildrenReady}
+            // Draft ticket — always "Not started" here, regardless of whatever
+            // `allChildrenReady`/`tasksDoneChecked` happen to still read from a phase the user
+            // was previously on (Draft deliberately doesn't reset that state — see
+            // ControlPanel.tsx's own comment on why the Parent Case is exempted from the reset).
+            canAct={parentPhase === 'draft' ? false : allChildrenReady}
             canUpload={isCreator && allChildrenReady && displayedParentPhase === 'inPreparation'}
             uploadedFiles={uploadedFiles}
             onUploadFiles={(files) => setUploadedFiles((prev) => [...prev, ...files])}
@@ -1179,13 +1183,12 @@ export function ParentVatGroupCasePage() {
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-foreground">Child cases ready for consolidation</span>
             <span className="text-muted-foreground text-sm">
-              {readyChildrenCount} of {activeCase.children.length} ({childReadyPercent}%)
+              {readyChildrenCount} out of {activeCase.children.length}
             </span>
           </div>
-          <Progress
-            value={childReadyPercent}
-            indicatorClassName={childReadyPercent > 60 ? 'bg-green-600' : 'bg-amber-500'}
-          />
+          {/* Case Management badge rules ticket — always green, no yellow/amber state; the bar
+              itself (not a percentage label) already communicates partial progress. */}
+          <Progress value={childReadyPercent} indicatorClassName="bg-green-600" />
         </div>
         {/* Feature 1 of the "task element / needs-changes / sidebar / create-group" ticket — the
             Data Package banner (with its own Download) was removed for Creator/Reviewer/Partner;

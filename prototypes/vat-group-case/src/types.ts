@@ -143,14 +143,29 @@ export interface HeaderDescriptor {
   /** Overrides the due-date pill's label — e.g. "Group Case Deadline" for VAT Group cases.
    * Defaults to "Due Date" (see DueDate.tsx) when omitted. */
   dueDateLabel?: string
-  /** Non-interactive "Part of {name}" indicator — Group Case Child Case only. No link. */
+  /** Non-interactive "part of a group" indicator (blue-layers icon + name) — Group Case Child
+   * Case only. No link. */
   parentCaseName?: string
-  /** The underlying case's own name + company/VAT tags, shown as pills under the Requirements/
-   * Due Date row on the Requirement List/Bucket headers so the case stays identifiable there
-   * (those headers' own `title` is repurposed for the page/category name instead). Set only for
-   * `requirementList`/`requirementBucket`, and only for non-Client roles — the Client view shows
-   * no case-identity chips at all. */
-  caseIdentity?: { title: HeaderTitle }
+  /** The underlying case's own identity, shown as pills under the Requirements/Due Date row on
+   * the Requirement List/Bucket headers so the case stays identifiable there (those headers' own
+   * `title` is repurposed for the page/category name instead). Set only for
+   * `requirementList`/`requirementBucket`, and only for non-Client roles. Per-process-type pill
+   * order (see PlaygroundMain.tsx's `withCaseIdentity`): VAT single case = legal entity · case
+   * name · VAT reg.; CIT = legal entity · case name; HR = (audited company) legal entity ·
+   * (audit) case name; VAT Group Child Case = parent's full case name (blue-layers icon) ·
+   * child's own legal entity · child's own case name · VAT reg. */
+  caseIdentity?: {
+    /** The parent VAT Group Case's own full case name (e.g. "EUROPIPE GmbH - Jan 2026") —
+     * Group Child Case only. Same `ParentCaseIndicator` component as the Case header's own
+     * `parentCaseName` above. */
+    parentCaseName?: string
+    /** The case's own legal entity / company name. */
+    legalEntityName?: string
+    /** The case's own descriptive name. */
+    caseName?: string
+    /** VAT registration number — VAT only (single case or Group Child Case). */
+    vatRegNumber?: string
+  }
   editable?: boolean
   /** Tooltip shown on the PeopleRow's Edit action, when editable — e.g. to explain scope. */
   editTooltip?: string

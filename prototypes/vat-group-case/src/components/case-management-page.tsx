@@ -160,21 +160,27 @@ interface DeadlineTier {
   label: string
 }
 
-// Case Management badge rework ticket — one shared traffic light for both Next Deadline and
-// Statutory Deadline: >14d green, 14-4d yellow+clock, 3-1d red+exclamation, due today
-// red+exclamation ("Due date" instead of "0d left"), past red+exclamation ("Overdue").
+// Case Management badge rules ticket — one shared traffic light for both Next Deadline and
+// Statutory Deadline, matching the design spec's NextDeadlineCell table exactly: <0 red
+// "Overdue", 0 red "Due today", 1-2d red+exclamation, 3-5d amber+clock, >5d — gray here rather
+// than the spec's green, per explicit request (so a comfortably-far-out deadline reads as
+// neutral, not as a second "good" status alongside the green Submission/done badges elsewhere
+// in this table).
 function deadlineTier(daysLeft: number): DeadlineTier {
   if (daysLeft < 0) return { tone: 'red', icon: TriangleAlert, label: 'Overdue' }
-  if (daysLeft === 0) return { tone: 'red', icon: TriangleAlert, label: 'Due date' }
-  if (daysLeft <= 3) return { tone: 'red', icon: TriangleAlert, label: `${daysLeft}d left` }
-  if (daysLeft <= 14) return { tone: 'yellow', icon: Clock, label: `${daysLeft}d left` }
-  return { tone: 'green', label: `${daysLeft}d left` }
+  if (daysLeft === 0) return { tone: 'red', icon: TriangleAlert, label: 'Due today' }
+  if (daysLeft <= 2) return { tone: 'red', icon: TriangleAlert, label: `${daysLeft}d left` }
+  if (daysLeft <= 5) return { tone: 'yellow', icon: Clock, label: `${daysLeft}d left` }
+  return { tone: 'gray', label: `${daysLeft}d left` }
 }
 
+// Case Management badge rules ticket — gray is soft (same style as the Draft status pill),
+// red/yellow stay full/fill, so a comfortably-far-out deadline reads as quiet/neutral rather
+// than competing visually with the genuinely urgent tones.
 function DeadlinePill({ tier }: { tier: DeadlineTier }) {
   const Icon = tier.icon
   return (
-    <Badge variant="soft" tone={tier.tone} size="sm" className="w-fit gap-1">
+    <Badge variant={tier.tone === 'gray' ? 'soft' : 'fill'} tone={tier.tone} size="sm" className="w-fit gap-1">
       {Icon && <Icon className="size-3" aria-hidden />}
       {tier.label}
     </Badge>
@@ -192,13 +198,14 @@ function NextDeadlineCell({ value }: { value: string | null }) {
   )
 }
 
-// Feature 1c — only VAT cases (including every VAT Group Case, which is always VAT) get the
-// traffic-light treatment on Statutory Deadline; CIT/HR cases keep the plain date text they
-// already had.
-function StatutoryDeadlineCell({ value, serviceLine }: { value: string; serviceLine: Case['serviceLine'] }) {
-  if (serviceLine !== 'VAT') {
-    return <span className="whitespace-nowrap">{formatDate(value)}</span>
-  }
+// Case Management badge rules ticket — the same traffic-light pill as Next Deadline, for every
+// service line (VAT, CIT, HR) — previously VAT-only (Feature 1c), which read as CIT/HR rows
+// missing a chip Next Deadline still showed them. `value` is nullable — a freshly created VAT
+// Group Case's own children start with no Statutory Deadline (see vat-scheduler-modal.tsx);
+// the Parent Case's own `VatGroupCase.statutoryDeadline` stays required, so only `Case` rows
+// (flat individual cases and group children, never the group parent) can hit this.
+function StatutoryDeadlineCell({ value }: { value: string | null }) {
+  if (!value) return <span className="text-muted-foreground">—</span>
 
   return (
     <div className="flex flex-col gap-1">
@@ -288,7 +295,7 @@ function CaseRow({ item, onOpen, indented }: { item: Case; onOpen: () => void; i
         </Badge>
       </div>
       <div role="cell" className="p-2 text-sm">
-        <StatutoryDeadlineCell value={item.statutoryDeadline} serviceLine={item.serviceLine} />
+        <StatutoryDeadlineCell value={item.statutoryDeadline} />
       </div>
       <div role="cell" className="p-2 text-sm">
         <NextDeadlineCell value={item.nextDeadline} />
@@ -391,7 +398,7 @@ function GroupCaseRow({
             </Badge>
           </div>
           <div role="cell" className="p-2 text-sm">
-            <StatutoryDeadlineCell value={group.statutoryDeadline} serviceLine={group.serviceLine} />
+            <StatutoryDeadlineCell value={group.statutoryDeadline} />
           </div>
           <div role="cell" className="p-2 text-sm">
             <NextDeadlineCell value={group.nextDeadline} />

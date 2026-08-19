@@ -237,6 +237,11 @@ export function VatSchedulerModal({
       const statutoryDeadline = c.customDeadline ?? c.defaultDeadline
       const deadline = toIsoDate(statutoryDeadline)
       const nextDeadline = toIsoDate(addDays(statutoryDeadline, -NEXT_DEADLINE_LEAD_DAYS))
+      // Fill-missing-Next-Deadline ticket, creation-time rule — a freshly created child starts
+      // with neither deadline set at all (unlike the parent, which gets both immediately): its
+      // own filing/data-provision milestones aren't real yet until the group actually gets under
+      // way. Case Management renders both as "—" for a child in this state (see
+      // StatutoryDeadlineCell/NextDeadlineCell in case-management-page.tsx).
       const children: Case[] = groupMembers.map((m) => ({
         id: generateCaseId('VAT', jurisdiction),
         client: m.name,
@@ -247,8 +252,8 @@ export function VatSchedulerModal({
         jurisdiction,
         myRole: 'Creator',
         status: 'Draft',
-        statutoryDeadline: deadline,
-        nextDeadline,
+        statutoryDeadline: null,
+        nextDeadline: null,
         latestActivity: {
           actor: creatorNames[0] ?? 'System',
           description: 'Case created',

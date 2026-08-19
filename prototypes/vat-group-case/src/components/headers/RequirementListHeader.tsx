@@ -82,7 +82,12 @@ export function RequirementListHeader({
               row — not shown for the Client (see PlaygroundMain.tsx's `caseIdentity`, only set
               for non-Client roles). */}
           {descriptor.caseIdentity && (
-            <CaseIdentityPills title={descriptor.caseIdentity.title} />
+            <CaseIdentityPills
+              parentCaseName={descriptor.caseIdentity.parentCaseName}
+              legalEntityName={descriptor.caseIdentity.legalEntityName}
+              caseName={descriptor.caseIdentity.caseName}
+              vatRegNumber={descriptor.caseIdentity.vatRegNumber}
+            />
           )}
         </div>
       </div>

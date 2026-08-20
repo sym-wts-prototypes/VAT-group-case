@@ -20,7 +20,7 @@ import {
   monthRangeLabel,
   NEXT_DEADLINE_LEAD_DAYS,
   periodLabel,
-  ScheduleSummaryBox,
+  SchedulePeriodBanner,
   StatutoryDeadlineFields,
   useDeadlineSchedule,
 } from './scheduler-shared'
@@ -114,6 +114,8 @@ export function SingleCaseSchedulerModal({
     // No backend yet — mirrors the group scheduler's placeholder submit.
     console.log('VAT single-case schedule payload', schedulePayload)
 
+    // `canSubmitSchedule` above already guarantees frequency is set.
+    const frequency = schedule.frequency!
     const generated: Case[] = schedule.cases.map((c) => {
       const statutoryDeadline = c.customDeadline ?? c.defaultDeadline
       return {
@@ -122,7 +124,7 @@ export function SingleCaseSchedulerModal({
         caseName: c.name,
         serviceLine: 'VAT',
         caseType: caseTypeLabel,
-        frequency: schedule.frequency,
+        frequency,
         jurisdiction,
         country: vatRegCountry,
         myRole: 'Creator',
@@ -195,9 +197,12 @@ export function SingleCaseSchedulerModal({
             className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6"
           >
             <FrequencyPeriodFields s={schedule} monthBasedQuarters />
+            {/* Schedule-period-banner ticket — sits right under the Frequency/Scheduled period
+                row, above the rest of the form: green with the resulting case count, or red
+                explaining an impossible (or entirely past) combination. */}
+            <SchedulePeriodBanner ready={schedule.periodSelectionComplete} count={schedule.periodCaseCount} />
             <StatutoryDeadlineFields s={schedule} />
             <CustomDeadlineSection s={schedule} />
-            <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />
 
             {/* Template upload */}
             <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import { InfoIcon, Minus, Plus } from 'lucide-react'
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { CheckCircle2, Minus, Plus, TriangleAlert } from 'lucide-react'
 import {
   Button,
   Checkbox,
@@ -18,10 +18,6 @@ import {
   TableHeader,
   TableRow,
   Tabs,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@wts/ui'
 
 // Statutory Deadline scheduling — shared between SingleCaseSchedulerModal and the Group Case
@@ -32,7 +28,9 @@ import {
 // it. Each modal still owns its own header, side summary panel, and footer.
 
 export const CURRENT_YEAR = new Date().getFullYear()
-export const YEAR_OPTIONS = Array.from({ length: 12 }, (_, i) => CURRENT_YEAR - 1 + i)
+export const CURRENT_MONTH = new Date().getMonth() + 1
+// Quarter-selection validation ticket — only the current year and onwards are selectable.
+export const YEAR_OPTIONS = Array.from({ length: 12 }, (_, i) => CURRENT_YEAR + i)
 export const DAY_OPTIONS_31 = Array.from({ length: 31 }, (_, i) => i + 1)
 export const WORKING_DAY_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1)
 export const QUARTER_OPTIONS = [1, 2, 3, 4] as const
@@ -133,10 +131,19 @@ export function monthRangeLabel(startMonth: number, year: number): string {
   return `${startLabel} - ${MONTH_NAMES_SHORT[endMonthIndex]} ${endYear}`
 }
 
-// Total number of calendar months from start to end, inclusive — the shared span calculation
-// behind both countMonthBasedQuarters and isQuarterBoundaryMonth below.
+// Total number of calendar months from start to end, inclusive — the span calculation behind
+// countMonthBasedQuarters below.
 function monthSpan(startMonth: number, startYear: number, endMonth: number, endYear: number): number {
   return (endYear * 12 + (endMonth - 1)) - (startYear * 12 + (startMonth - 1)) + 1
+}
+
+// Schedule-period-banner ticket — a period that ends before the current month is entirely
+// historical (e.g. picking Jan-Mar while "now" is August 2026) — mathematically a valid
+// quarter, but not one that makes sense to schedule. Treated as invalid alongside "doesn't form
+// a quarter at all", both by the banner and by `periods`/`canSubmitSchedule` (so a past period
+// can't be submitted either).
+function isPeriodEntirelyPast(endMonth: number, endYear: number): boolean {
+  return endYear * 12 + (endMonth - 1) < CURRENT_YEAR * 12 + (CURRENT_MONTH - 1)
 }
 
 // Flexible month-based quarters ticket — groups an arbitrary selected month range into 3-month
@@ -153,20 +160,6 @@ export function countMonthBasedQuarters(
   const span = monthSpan(startMonth, startYear, endMonth, endYear)
   if (span <= 0) return 0
   return Math.floor(span / 3)
-}
-
-// Flexible month-based quarters ticket — true for exactly the end months that complete another
-// full quarter (every 3rd month out from the start: e.g. start = January → March, June,
-// September, December), so the end-month dropdown can flag which choices actually add a case vs
-// which ones (like April, still within Q1) don't change the count.
-export function isQuarterBoundaryMonth(
-  startMonth: number,
-  startYear: number,
-  endMonth: number,
-  endYear: number,
-): boolean {
-  const span = monthSpan(startMonth, startYear, endMonth, endYear)
-  return span > 0 && span % 3 === 0
 }
 
 export function generateMonthBasedQuarterPeriods(
@@ -230,16 +223,19 @@ export function generatePeriods(
 }
 
 export interface DeadlineSchedule {
-  frequency: Frequency
+  /** No-prepopulated-fields ticket — undefined until the user actually picks one; every Select
+   *  bound to a field below only renders sensibly (or, for the period fields, only enables at
+   *  all) once this is set. */
+  frequency: Frequency | undefined
   isMonthly: boolean
   handleFrequencyChange: (value: string) => void
   startPeriod: number | undefined
   setStartPeriod: (v: number) => void
-  startYear: number
+  startYear: number | undefined
   setStartYear: (v: number) => void
   endPeriod: number | undefined
   setEndPeriod: (v: number) => void
-  endYear: number
+  endYear: number | undefined
   setEndYear: (v: number) => void
   endYearOptions: number[]
   endMonthKeys: readonly string[]
@@ -250,7 +246,7 @@ export interface DeadlineSchedule {
   setDataProvisionDeadline: Dispatch<SetStateAction<number>>
   deadlineMode: DeadlineMode
   setDeadlineMode: (v: DeadlineMode) => void
-  workingDaysValue: number
+  workingDaysValue: number | undefined
   setWorkingDaysValue: (v: number) => void
   dayOfMonthValue: number | undefined
   setDayOfMonthValue: (v: number) => void
@@ -260,6 +256,18 @@ export interface DeadlineSchedule {
   setUseCustomDeadlines: (v: boolean) => void
   cases: GeneratedCase[]
   setCustomDeadline: (key: string, date: Date | undefined) => void
+  /** How many cases Frequency + Scheduled period alone would produce — available as soon as
+   *  those are filled in, before Period close date/Statutory deadline are (see
+   *  `SchedulePeriodBanner`, which shows green/red once `periodSelectionComplete`). */
+  periodCaseCount: number
+  /** Frequency + every Scheduled period field has a value — regardless of whether that
+   *  combination is actually valid (`periodCaseCount > 0` covers that). Gates whether
+   *  `SchedulePeriodBanner` renders at all. */
+  periodSelectionComplete: boolean
+  /** Statutory deadline's own value (working days or day of month, per `deadlineMode`) has been
+   *  chosen — exposed so callers can tell "Frequency + period done" (`periodCaseCount > 0`)
+   *  apart from "the rest of the form is also done" without re-deriving this themselves. */
+  deadlineValueChosen: boolean
   /** Period range + close date + deadline value all chosen — the shared slice of validity. */
   canSubmitSchedule: boolean
   /** Call from the modal's own open-reset effect: `useEffect(() => { if (open) s.reset() }, [open])`. */
@@ -278,15 +286,24 @@ export function useDeadlineSchedule(
   },
 ): DeadlineSchedule {
   const monthBasedQuarters = options?.monthBasedQuarters ?? false
-  const [frequency, setFrequency] = useState<Frequency>('Quarterly')
-  const [startPeriod, setStartPeriod] = useState<number | undefined>(undefined)
-  const [startYear, setStartYear] = useState(CURRENT_YEAR)
+  // No-prepopulated-fields ticket — every field below starts genuinely unset (not a silently-
+  // assumed default like "Quarterly" or "this year") so nothing can be submitted without the
+  // user actively choosing it; each field's own Select shows a placeholder until then. The one
+  // exception is Start month/year (month-based quarters, VAT Scheduler only): they default to
+  // today rather than blank. "Until" always starts unset regardless — every month stays freely
+  // selectable (see FrequencyPeriodFields), and an impossible combination is caught by
+  // `SchedulePeriodBanner` rather than by narrowing what can be picked. The Group Case
+  // scheduler never sets `monthBasedQuarters`, so its own Month-vs-Quarter-number period fields
+  // are unaffected and stay unset until chosen.
+  const [frequency, setFrequency] = useState<Frequency | undefined>(undefined)
+  const [startPeriod, setStartPeriodRaw] = useState<number | undefined>(monthBasedQuarters ? CURRENT_MONTH : undefined)
+  const [startYear, setStartYearRaw] = useState<number | undefined>(monthBasedQuarters ? CURRENT_YEAR : undefined)
   const [endPeriod, setEndPeriod] = useState<number | undefined>(undefined)
-  const [endYear, setEndYear] = useState(CURRENT_YEAR)
+  const [endYear, setEndYear] = useState<number | undefined>(undefined)
   const [periodCloseDay, setPeriodCloseDay] = useState<number | undefined>(undefined)
   const [dataProvisionDeadline, setDataProvisionDeadline] = useState(3)
   const [deadlineMode, setDeadlineMode] = useState<DeadlineMode>('workingDays')
-  const [workingDaysValue, setWorkingDaysValue] = useState(2)
+  const [workingDaysValue, setWorkingDaysValue] = useState<number | undefined>(undefined)
   const [dayOfMonthValue, setDayOfMonthValue] = useState<number | undefined>(undefined)
   const [deadlineExtension, setDeadlineExtension] = useState(false)
   const [useCustomDeadlines, setUseCustomDeadlines] = useState(false)
@@ -294,31 +311,55 @@ export function useDeadlineSchedule(
 
   const isMonthly = frequency === 'Monthly'
   const useMonthBasedQuarters = monthBasedQuarters && !isMonthly
+  const setStartPeriod = setStartPeriodRaw
+  const setStartYear = setStartYearRaw
 
   const handleFrequencyChange = (value: string) => {
     setFrequency(value as Frequency)
-    setStartPeriod(undefined)
-    setEndPeriod(undefined)
+    // Monthly and month-based-quarters both use month-shaped (1-12) period values, so an
+    // already-filled start/end carries over cleanly between them — only the Group Case
+    // scheduler's Quarter-number mode (1-4) is shape-incompatible with Monthly and needs
+    // clearing when switching.
+    if (!monthBasedQuarters) {
+      setStartPeriodRaw(undefined)
+      setEndPeriod(undefined)
+    }
   }
 
-  const endYearOptions = YEAR_OPTIONS.filter((y) => y >= startYear)
-  const endMonthKeys = startYear === endYear && startPeriod ? MONTH_KEYS.filter((k) => Number(k) >= startPeriod) : MONTH_KEYS
-  const endQuarterOptions = startYear === endYear && startPeriod ? QUARTER_OPTIONS.filter((q) => q >= startPeriod) : QUARTER_OPTIONS
-
-  // Flexible month-based quarters ticket — if a start-month change (or the end month/year
-  // themselves) leaves the previously chosen end month no longer forming a full 3-month
-  // quarter with the start, clear it instead of silently keeping a now-invalid selection
-  // (FrequencyPeriodFields' own month list already stops offering it, but a stale value chosen
-  // before the start changed wouldn't otherwise be cleared).
-  useEffect(() => {
-    if (!useMonthBasedQuarters || !startPeriod || endPeriod === undefined) return
-    if (countMonthBasedQuarters(startPeriod, startYear, endPeriod, endYear) === 0) setEndPeriod(undefined)
-  }, [useMonthBasedQuarters, startPeriod, startYear, endPeriod, endYear])
+  const endYearOptions = startYear === undefined ? YEAR_OPTIONS : YEAR_OPTIONS.filter((y) => y >= startYear)
+  const endMonthKeys =
+    startYear !== undefined && startYear === endYear && startPeriod
+      ? MONTH_KEYS.filter((k) => Number(k) >= startPeriod)
+      : MONTH_KEYS
+  const endQuarterOptions =
+    startYear !== undefined && startYear === endYear && startPeriod
+      ? QUARTER_OPTIONS.filter((q) => q >= startPeriod)
+      : QUARTER_OPTIONS
 
   const deadlineValueChosen = deadlineMode === 'workingDays' ? !!workingDaysValue : !!dayOfMonthValue
 
+  // Schedule-summary-placement ticket — how many cases the Frequency + Scheduled period alone
+  // would produce, independent of whether Period close date/Statutory deadline are filled in
+  // yet. `periods` below can't be reused for this since it deliberately waits on
+  // `deadlineValueChosen` too (it needs a real deadline mode to compute each case's actual
+  // default deadline) — this is a lighter, earlier-available count for the summary banner only.
+  const periodCaseCount = useMemo(() => {
+    if (!frequency || !startPeriod || startYear === undefined || !endPeriod || endYear === undefined) return 0
+    if (isPeriodEntirelyPast(endPeriod, endYear)) return 0
+    return useMonthBasedQuarters
+      ? countMonthBasedQuarters(startPeriod, startYear, endPeriod, endYear)
+      : generatePeriods(frequency, startPeriod, startYear, endPeriod, endYear).length
+  }, [frequency, startPeriod, startYear, endPeriod, endYear, useMonthBasedQuarters])
+  // Green/red SchedulePeriodBanner ticket — Frequency + every Scheduled period field has a
+  // value (regardless of whether that combination is actually valid — `periodCaseCount` above
+  // covers that). The banner renders nothing at all until this is true.
+  const periodSelectionComplete =
+    !!frequency && !!startPeriod && startYear !== undefined && !!endPeriod && endYear !== undefined
+
   const periods = useMemo(() => {
-    if (!startPeriod || !endPeriod || !deadlineValueChosen) return []
+    if (!frequency || !startPeriod || startYear === undefined || !endPeriod || endYear === undefined || !deadlineValueChosen)
+      return []
+    if (isPeriodEntirelyPast(endPeriod, endYear)) return []
     if (useMonthBasedQuarters) {
       return generateMonthBasedQuarterPeriods(startPeriod, startYear, endPeriod, endYear)
     }
@@ -329,7 +370,7 @@ export function useDeadlineSchedule(
     () =>
       periods.map((p) => {
         const { monthIndex, year } = followingMonth(
-          frequency,
+          frequency!,
           p.startMonth !== undefined ? 1 : p.period,
           p.year,
           deadlineExtension ? 2 : 1,
@@ -337,9 +378,9 @@ export function useDeadlineSchedule(
         )
         const defaultDeadline =
           deadlineMode === 'workingDays'
-            ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue)
+            ? nthWeekdayOfMonth(year, monthIndex, workingDaysValue ?? 1)
             : dateForDayOfMonth(year, monthIndex, dayOfMonthValue ?? 1)
-        return { ...p, name: caseNameFor(p, frequency), defaultDeadline, customDeadline: customDeadlines[p.key] }
+        return { ...p, name: caseNameFor(p, frequency!), defaultDeadline, customDeadline: customDeadlines[p.key] }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [periods, frequency, deadlineMode, workingDaysValue, dayOfMonthValue, deadlineExtension, customDeadlines],
@@ -352,18 +393,19 @@ export function useDeadlineSchedule(
   // periods, close day, and deadline value chosen) but produces no actual quarter case — e.g. a
   // month-based-quarters span under 3 months; without this, submitting would silently create
   // zero cases instead of visibly doing nothing.
-  const canSubmitSchedule = !!startPeriod && !!endPeriod && !!periodCloseDay && deadlineValueChosen && cases.length > 0
+  const canSubmitSchedule =
+    !!frequency && !!startPeriod && !!endPeriod && !!periodCloseDay && deadlineValueChosen && cases.length > 0
 
   const reset = () => {
-    setFrequency('Quarterly')
-    setStartPeriod(undefined)
-    setStartYear(CURRENT_YEAR)
+    setFrequency(undefined)
+    setStartPeriodRaw(monthBasedQuarters ? CURRENT_MONTH : undefined)
+    setStartYearRaw(monthBasedQuarters ? CURRENT_YEAR : undefined)
     setEndPeriod(undefined)
-    setEndYear(CURRENT_YEAR)
+    setEndYear(undefined)
     setPeriodCloseDay(undefined)
     setDataProvisionDeadline(3)
     setDeadlineMode('workingDays')
-    setWorkingDaysValue(2)
+    setWorkingDaysValue(undefined)
     setDayOfMonthValue(undefined)
     setDeadlineExtension(false)
     setUseCustomDeadlines(false)
@@ -401,6 +443,9 @@ export function useDeadlineSchedule(
     setUseCustomDeadlines,
     cases,
     setCustomDeadline,
+    periodCaseCount,
+    periodSelectionComplete,
+    deadlineValueChosen,
     canSubmitSchedule,
     reset,
   }
@@ -418,21 +463,12 @@ export interface FrequencyPeriodFieldsProps {
 
 export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: FrequencyPeriodFieldsProps) {
   const useMonthPickerForQuarters = monthBasedQuarters && !s.isMonthly
-  const quarterCaseCount =
-    useMonthPickerForQuarters && s.startPeriod && s.endPeriod
-      ? countMonthBasedQuarters(s.startPeriod, s.startYear, s.endPeriod, s.endYear)
-      : 0
-  // Flexible month-based quarters ticket — an end month only offered once it forms at least one
-  // full 3-month quarter with the chosen start (e.g. start = January → February is not
-  // selectable, March is the earliest); reuses the exact same grouping math as the case count
-  // and the "not enough months" message below, so the three always agree.
-  const quarterEndMonthKeys = s.startPeriod
-    ? MONTH_KEYS.filter((k) => countMonthBasedQuarters(s.startPeriod!, s.startYear, Number(k), s.endYear) > 0)
-    : MONTH_KEYS
-  // No month in the currently selected end year can complete a quarter (e.g. start = November,
-  // end year still the same year — even December is only 2 months out) — rather than opening an
-  // empty dropdown, disable it and point at the fix (a later end year) instead.
-  const noValidEndMonthForYear = useMonthPickerForQuarters && !!s.startPeriod && quarterEndMonthKeys.length === 0
+  // No-prepopulated-fields ticket — the whole "Scheduled period" row stays disabled (all four
+  // Selects) until Frequency is actually chosen; there's no sensible Month-vs-Quarter option
+  // set to show for an unset frequency, so asking for it first keeps the flow linear instead of
+  // letting the user fill in a period that then silently gets reinterpreted once they do pick
+  // one.
+  const periodFieldsDisabled = !s.frequency
 
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -440,9 +476,9 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
         <label htmlFor="frequency" className="font-medium text-foreground text-sm">
           Frequency
         </label>
-        <Select value={s.frequency} onValueChange={s.handleFrequencyChange}>
+        <Select value={s.frequency ?? ''} onValueChange={s.handleFrequencyChange}>
           <SelectTrigger id="frequency">
-            <SelectValue />
+            <SelectValue placeholder="Select" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Monthly">Monthly</SelectItem>
@@ -452,26 +488,15 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
       </div>
 
       <div className="col-span-2 flex flex-col gap-2">
-        <p className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          Scheduled period
-          {useMonthPickerForQuarters && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                </TooltipTrigger>
-                <TooltipContent>
-                  A blue dot marks the end months that complete another quarter — picking one
-                  of those adds a case; picking a month in between doesn't change the count.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </p>
+        <p className="font-medium text-foreground text-sm">Scheduled period</p>
         <div className="flex items-center gap-2">
           <div className="flex flex-1 gap-2">
             {s.isMonthly ? (
-              <Select value={s.startPeriod?.toString() ?? ''} onValueChange={(v) => s.setStartPeriod(Number(v))}>
+              <Select
+                value={s.startPeriod?.toString() ?? ''}
+                onValueChange={(v) => s.setStartPeriod(Number(v))}
+                disabled={periodFieldsDisabled}
+              >
                 <SelectTrigger aria-label="Month" className="w-24">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
@@ -484,7 +509,11 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
                 </SelectContent>
               </Select>
             ) : useMonthPickerForQuarters ? (
-              <Select value={s.startPeriod?.toString() ?? ''} onValueChange={(v) => s.setStartPeriod(Number(v))}>
+              <Select
+                value={s.startPeriod?.toString() ?? ''}
+                onValueChange={(v) => s.setStartPeriod(Number(v))}
+                disabled={periodFieldsDisabled}
+              >
                 <SelectTrigger aria-label="Month" className="w-24">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
@@ -497,7 +526,11 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
                 </SelectContent>
               </Select>
             ) : (
-              <Select value={s.startPeriod?.toString() ?? ''} onValueChange={(v) => s.setStartPeriod(Number(v))}>
+              <Select
+                value={s.startPeriod?.toString() ?? ''}
+                onValueChange={(v) => s.setStartPeriod(Number(v))}
+                disabled={periodFieldsDisabled}
+              >
                 <SelectTrigger aria-label="Quarter">
                   <SelectValue placeholder="Quarter" />
                 </SelectTrigger>
@@ -510,9 +543,13 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
                 </SelectContent>
               </Select>
             )}
-            <Select value={s.startYear.toString()} onValueChange={(v) => s.setStartYear(Number(v))}>
+            <Select
+              value={s.startYear?.toString() ?? ''}
+              onValueChange={(v) => s.setStartYear(Number(v))}
+              disabled={periodFieldsDisabled}
+            >
               <SelectTrigger aria-label="Year">
-                <SelectValue />
+                <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
                 {YEAR_OPTIONS.map((y) => (
@@ -528,51 +565,48 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
 
           <div className="flex flex-1 gap-2">
             {s.isMonthly ? (
-              <Select value={s.endPeriod?.toString() ?? ''} onValueChange={(v) => s.setEndPeriod(Number(v))}>
-                <SelectTrigger aria-label="Month" className="w-24">
-                  <SelectValue placeholder="Month" />
-                </SelectTrigger>
-                <SelectContent className="min-w-0">
-                  {s.endMonthKeys.map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {MONTH_NAMES_SHORT[Number(k) - 1]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : useMonthPickerForQuarters ? (
               <Select
                 value={s.endPeriod?.toString() ?? ''}
                 onValueChange={(v) => s.setEndPeriod(Number(v))}
-                disabled={noValidEndMonthForYear}
+                disabled={periodFieldsDisabled}
               >
                 <SelectTrigger aria-label="Month" className="w-24">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
                 <SelectContent className="min-w-0">
-                  {quarterEndMonthKeys.map((k) => {
-                    const addsQuarter = isQuarterBoundaryMonth(s.startPeriod!, s.startYear, Number(k), s.endYear)
-                    return (
-                      <SelectItem
-                        key={k}
-                        value={k}
-                        rightSlot={
-                          addsQuarter ? (
-                            <span
-                              className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500"
-                              aria-label="Completes another quarter"
-                            />
-                          ) : undefined
-                        }
-                      >
-                        {MONTH_NAMES_SHORT[Number(k) - 1]}
-                      </SelectItem>
-                    )
-                  })}
+                  {MONTH_KEYS.map((k, i) => (
+                    <SelectItem key={k} value={k}>
+                      {MONTH_NAMES_SHORT[i]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : useMonthPickerForQuarters ? (
+              // Quarter-selection validation ticket — every month is always selectable (never
+              // disabled); an impossible combination is caught by the green/red
+              // SchedulePeriodBanner instead of blocking the pick itself.
+              <Select
+                value={s.endPeriod?.toString() ?? ''}
+                onValueChange={(v) => s.setEndPeriod(Number(v))}
+                disabled={periodFieldsDisabled}
+              >
+                <SelectTrigger aria-label="Month" className="w-24">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent className="min-w-0">
+                  {MONTH_KEYS.map((k, i) => (
+                    <SelectItem key={k} value={k}>
+                      {MONTH_NAMES_SHORT[i]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             ) : (
-              <Select value={s.endPeriod?.toString() ?? ''} onValueChange={(v) => s.setEndPeriod(Number(v))}>
+              <Select
+                value={s.endPeriod?.toString() ?? ''}
+                onValueChange={(v) => s.setEndPeriod(Number(v))}
+                disabled={periodFieldsDisabled}
+              >
                 <SelectTrigger aria-label="Quarter">
                   <SelectValue placeholder="Quarter" />
                 </SelectTrigger>
@@ -585,9 +619,13 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
                 </SelectContent>
               </Select>
             )}
-            <Select value={s.endYear.toString()} onValueChange={(v) => s.setEndYear(Number(v))}>
+            <Select
+              value={s.endYear?.toString() ?? ''}
+              onValueChange={(v) => s.setEndYear(Number(v))}
+              disabled={periodFieldsDisabled}
+            >
               <SelectTrigger aria-label="Year">
-                <SelectValue />
+                <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
                 {s.endYearOptions.map((y) => (
@@ -599,22 +637,6 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
             </Select>
           </div>
         </div>
-        {noValidEndMonthForYear ? (
-          <p className="text-destructive text-xs">
-            No quarter fits in {s.endYear} starting from {MONTH_NAMES_SHORT[s.startPeriod! - 1]} — change the end
-            year to a later one.
-          </p>
-        ) : (
-          useMonthPickerForQuarters && s.startPeriod && s.endPeriod && (
-            quarterCaseCount > 0 ? (
-              <p className="text-muted-foreground text-xs">
-                Cases will be created for {quarterCaseCount} {quarterCaseCount === 1 ? 'quarter' : 'quarters'}
-              </p>
-            ) : (
-              <p className="text-destructive text-xs">Selected period does not include a quarter.</p>
-            )
-          )
-        )}
       </div>
     </div>
   )
@@ -622,64 +644,38 @@ export function FrequencyPeriodFields({ s, monthBasedQuarters = false }: Frequen
 
 export interface StatutoryDeadlineFieldsProps {
   s: DeadlineSchedule
-  /** Group Case flow: overrides the "Data provision deadline" tooltip copy — the group
-   * scheduler mirrors this field exactly (same +/- control) but describes it in terms of the
-   * client's own data-delivery commitment rather than a generic working-days count. Defaults
-   * to Single Case's existing tooltip. */
-  dataProvisionTooltip?: string
   /** Group Case flow: renames the third column from "Statutory deadline" to "Group Case
-   * Deadline" — same mode-toggle control (working days / day of month) and the same
+   * Deadline" — same mode-toggle control (working days / calendar day) and the same
    * calculation, just relabeled for the group context. Defaults to Single Case's label. */
   deadlineLabel?: string
-  deadlineTooltip?: string
 }
 
-export function StatutoryDeadlineFields({
-  s,
-  dataProvisionTooltip = 'How many working days the client has to provide data.',
-  deadlineLabel = 'Statutory deadline',
-  deadlineTooltip = 'The legal filing deadline for this VAT return.',
-}: StatutoryDeadlineFieldsProps) {
+export function StatutoryDeadlineFields({ s, deadlineLabel = 'Statutory deadline' }: StatutoryDeadlineFieldsProps) {
   return (
     <div className="grid grid-cols-3 gap-3">
       <div className="flex flex-col gap-2">
-        <label htmlFor="period-close-day" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          Period close date
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-              </TooltipTrigger>
-              <TooltipContent>The date the VAT period closes each cycle.</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <label htmlFor="period-close-day" className="font-medium text-foreground text-sm">
+          Client closes the VAT period cycle on the
         </label>
         <Select value={s.periodCloseDay?.toString() ?? ''} onValueChange={(v) => s.setPeriodCloseDay(Number(v))}>
           <SelectTrigger id="period-close-day">
-            <SelectValue placeholder="Day" />
+            <SelectValue placeholder="Select date" />
           </SelectTrigger>
           <SelectContent>
             {DAY_OPTIONS_31.map((d) => (
               <SelectItem key={d} value={d.toString()}>
                 {d}
+                {ordinalSuffix(d)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <p className="text-muted-foreground text-sm">of previous month</p>
+        <p className="text-muted-foreground text-sm">of the following month.</p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="data-provision-deadline" className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          Data provision deadline
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-              </TooltipTrigger>
-              <TooltipContent>{dataProvisionTooltip}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <label htmlFor="data-provision-deadline" className="font-medium text-foreground text-sm">
+          Deadline for providing the data is
         </label>
         <div className="flex w-fit items-center rounded-md border border-input shadow-sm">
           <Button
@@ -706,33 +702,23 @@ export function StatutoryDeadlineFields({
             <Plus className="size-4" />
           </Button>
         </div>
-        <p className="text-muted-foreground text-sm">working days after the closure</p>
+        <p className="text-muted-foreground text-sm">working days after VAT period cycle closes.</p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="flex items-center gap-1.5 font-medium text-foreground text-sm">
-          {deadlineLabel}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
-              </TooltipTrigger>
-              <TooltipContent>{deadlineTooltip}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </label>
+        <label className="font-medium text-foreground text-sm">{deadlineLabel}</label>
         <Tabs
           value={s.deadlineMode}
           onChange={s.setDeadlineMode}
           options={[
             { value: 'workingDays', label: 'Working days' },
-            { value: 'dayOfMonth', label: 'Day of month' },
+            { value: 'dayOfMonth', label: 'Calendar day' },
           ]}
         />
         {s.deadlineMode === 'workingDays' ? (
-          <Select value={s.workingDaysValue.toString()} onValueChange={(v) => s.setWorkingDaysValue(Number(v))}>
+          <Select value={s.workingDaysValue?.toString() ?? ''} onValueChange={(v) => s.setWorkingDaysValue(Number(v))}>
             <SelectTrigger aria-label="Working days">
-              <SelectValue />
+              <SelectValue placeholder="Select day" />
             </SelectTrigger>
             <SelectContent>
               {WORKING_DAY_OPTIONS.map((n) => (
@@ -744,13 +730,14 @@ export function StatutoryDeadlineFields({
           </Select>
         ) : (
           <Select value={s.dayOfMonthValue?.toString() ?? ''} onValueChange={(v) => s.setDayOfMonthValue(Number(v))}>
-            <SelectTrigger aria-label="Day of month">
-              <SelectValue placeholder="Day" />
+            <SelectTrigger aria-label="Calendar day">
+              <SelectValue placeholder="Select date" />
             </SelectTrigger>
             <SelectContent>
               {DAY_OPTIONS_31.map((d) => (
                 <SelectItem key={d} value={d.toString()}>
                   {d}
+                  {ordinalSuffix(d)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -775,10 +762,16 @@ export function StatutoryDeadlineFields({
 }
 
 export function CustomDeadlineSection({ s }: { s: DeadlineSchedule }) {
+  // Custom-deadlines-warning ticket — the switch itself only becomes interactive once every
+  // field above it (Frequency, Scheduled period, Period close date, Statutory deadline) is
+  // filled in and forms a valid, non-past schedule; before that there's no real case list to
+  // set a custom deadline for. No accompanying message — the disabled switch says enough on
+  // its own.
+  const priorDataComplete = s.periodCaseCount > 0 && !!s.periodCloseDay && s.deadlineValueChosen
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2.5">
-        <Switch checked={s.useCustomDeadlines} onCheckedChange={s.setUseCustomDeadlines} />
+        <Switch checked={s.useCustomDeadlines} onCheckedChange={s.setUseCustomDeadlines} disabled={!priorDataComplete} />
         <span className="font-medium text-foreground text-sm">Set custom statutory deadlines for each case</span>
       </div>
 
@@ -840,14 +833,26 @@ export function CustomDeadlineSection({ s }: { s: DeadlineSchedule }) {
   )
 }
 
-export function ScheduleSummaryBox({ count, frequency }: { count: number; frequency: Frequency }) {
-  if (count === 0) return null
+// Green/red SchedulePeriodBanner ticket — replaces the old blue "Schedule Summary" info box.
+// Renders nothing until Frequency + every Scheduled period field has a value
+// (`periodSelectionComplete`); from then on it's a straight verdict on that selection — green
+// with the resulting case count, or red explaining the combination doesn't work, never both and
+// never a third "still missing something below" state (that's what the disabled submit button
+// already communicates).
+export function SchedulePeriodBanner({ ready, count }: { ready: boolean; count: number }) {
+  if (!ready) return null
+  if (count > 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm">
+        <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+        {count} {count === 1 ? 'case' : 'cases'} will be scheduled
+      </div>
+    )
+  }
   return (
-    <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
-      <p className="font-medium text-blue-900 text-sm">Schedule Summary</p>
-      <p className="text-blue-800 text-sm">
-        {count} {count === 1 ? 'case' : 'cases'} planned · {frequency} recurrence
-      </p>
+    <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">
+      <TriangleAlert className="size-4 shrink-0" aria-hidden />
+      Selected period is not supporting the frequency. Please select a correct scheduling period.
     </div>
   )
 }

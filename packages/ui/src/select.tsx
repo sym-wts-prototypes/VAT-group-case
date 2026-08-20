@@ -6,7 +6,23 @@ import { cn } from './cn'
 
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
-const SelectValue = SelectPrimitive.Value
+
+// Radix's own `placeholder` prop renders as plain text with no distinguishing state — unlike a
+// native <input>'s ::placeholder pseudo-element, there's nothing to hang a `placeholder:` Tailwind
+// variant off of. Wrapping a string placeholder in a muted span here (once, for every consumer)
+// is what actually makes "Month"/"Select..." read as a placeholder instead of a chosen value.
+// A non-string placeholder (a caller passing its own ReactNode) is left exactly as given.
+const SelectValue = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Value>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
+>(({ placeholder, ...props }, ref) => (
+  <SelectPrimitive.Value
+    ref={ref}
+    placeholder={typeof placeholder === 'string' ? <span className="text-muted-foreground">{placeholder}</span> : placeholder}
+    {...props}
+  />
+))
+SelectValue.displayName = SelectPrimitive.Value.displayName
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,

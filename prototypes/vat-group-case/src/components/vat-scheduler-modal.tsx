@@ -24,7 +24,7 @@ import {
   FrequencyPeriodFields,
   NEXT_DEADLINE_LEAD_DAYS,
   periodLabel,
-  ScheduleSummaryBox,
+  SchedulePeriodBanner,
   StatutoryDeadlineFields,
   useDeadlineSchedule,
 } from './scheduler-shared'
@@ -232,6 +232,8 @@ export function VatSchedulerModal({
     console.log('VAT group schedule payload', schedulePayload)
 
     const representative = groupMembers.find((m) => m.isRepresentative) ?? groupMembers[0]
+    // `canSubmit`/`schedule.canSubmitSchedule` above already guarantees frequency is set.
+    const frequency = schedule.frequency!
 
     const generated: VatGroupCase[] = schedule.cases.map((c) => {
       const statutoryDeadline = c.customDeadline ?? c.defaultDeadline
@@ -245,10 +247,10 @@ export function VatSchedulerModal({
       const children: Case[] = groupMembers.map((m) => ({
         id: generateCaseId('VAT', jurisdiction),
         client: m.name,
-        caseName: `VAT - ${caseTypeLabel} - ${shortPeriodLabel(schedule.frequency, c.period, c.year)}`,
+        caseName: `VAT - ${caseTypeLabel} - ${shortPeriodLabel(frequency, c.period, c.year)}`,
         serviceLine: 'VAT',
         caseType: caseTypeLabel,
-        frequency: schedule.frequency,
+        frequency,
         jurisdiction,
         myRole: 'Creator',
         status: 'Draft',
@@ -266,11 +268,11 @@ export function VatSchedulerModal({
         organisation: organisationName,
         representativeEntity: representative?.name ?? '',
         vatGroupName: groupName,
-        reportingPeriod: periodLabel(schedule.frequency, c.period, c.year),
+        reportingPeriod: periodLabel(frequency, c.period, c.year),
         caseName: c.name,
         serviceLine: 'VAT',
         caseType: caseTypeLabel,
-        frequency: schedule.frequency,
+        frequency,
         jurisdiction,
         status: 'Draft',
         statutoryDeadline: deadline,
@@ -363,13 +365,10 @@ export function VatSchedulerModal({
             {step === 'schedule' ? (
               <>
                 <FrequencyPeriodFields s={schedule} />
-                <StatutoryDeadlineFields
-                  s={schedule}
-                  dataProvisionTooltip="Client must deliver all VAT data to the consultant by this date."
-                  deadlineLabel="Group Case Deadline"
-                  deadlineTooltip="The deadline for all the child cases in a group to be closed."
-                />
-                <ScheduleSummaryBox count={schedule.cases.length} frequency={schedule.frequency} />
+                {/* Schedule-period-banner ticket — sits right under the Frequency/Scheduled
+                    period row, above the rest of the form, as soon as both are filled in. */}
+                <SchedulePeriodBanner ready={schedule.periodSelectionComplete} count={schedule.periodCaseCount} />
+                <StatutoryDeadlineFields s={schedule} deadlineLabel="Group Case Deadline" />
 
                 {/* Template upload */}
                 <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">

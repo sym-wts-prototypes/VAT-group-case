@@ -1,4 +1,9 @@
+import { RefreshCw, Sparkles } from 'lucide-react'
+
+import { Button } from '@wts/ui'
 import { AssignedPeople, adaptLegacyPeople } from '@/components/assigned-people'
+import { useAiMatchRun, useRequirementsStore } from '@/store/useRequirementsStore'
+import type { Process } from '@/types'
 
 import { Actions } from './parts/Actions'
 import { BackLink } from './parts/BackLink'
@@ -12,6 +17,12 @@ import type { HeaderDescriptor } from '@/types'
 interface RequirementListHeaderProps {
   descriptor: HeaderDescriptor
   compact?: boolean
+  /** CIT AI file-matcher simulation ticket — only CIT gets the "Start/Re-run AI file matching"
+   *  button; VAT's categories are preset and never run the matcher. Rendered directly here
+   *  rather than through the shared `actions` descriptor, since `requirementList`'s config
+   *  object is reused verbatim by HR and VAT (see config/headers.ts) and gating it there would
+   *  leak the button into both. */
+  process?: Process
 }
 
 /**
@@ -21,7 +32,11 @@ interface RequirementListHeaderProps {
 export function RequirementListHeader({
   descriptor,
   compact,
+  process,
 }: RequirementListHeaderProps) {
+  const aiMatchRun = useAiMatchRun()
+  const runAiFileMatching = useRequirementsStore((s) => s.runAiFileMatching)
+
   return (
     <HeaderShell variant="slim" compact={compact}>
       <div className="flex flex-col gap-6">
@@ -34,12 +49,30 @@ export function RequirementListHeader({
           ) : (
             <span className="h-10" />
           )}
-          <Actions
-            primary={descriptor.actions.primary}
-            secondary={descriptor.actions.secondary}
-            size={compact ? 'sm' : 'lg'}
-            allOutline
-          />
+          <div className="flex items-center gap-2.5">
+            {process === 'cit' && (
+              <Button
+                type="button"
+                variant="outline"
+                size={compact ? 'sm' : 'lg'}
+                className="gap-2 text-destructive"
+                onClick={runAiFileMatching}
+              >
+                {aiMatchRun ? (
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                )}
+                {aiMatchRun ? 'Re-run Ai matching' : 'Ai match files'}
+              </Button>
+            )}
+            <Actions
+              primary={descriptor.actions.primary}
+              secondary={descriptor.actions.secondary}
+              size={compact ? 'sm' : 'lg'}
+              allOutline
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">

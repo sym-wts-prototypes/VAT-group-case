@@ -342,7 +342,7 @@ export function BodyPlaceholder({
         (showDraftToolbar ? (
           <DraftRequirementsSection role={role} />
         ) : (
-          <WtsRequirementCategories role={role} className="px-6 pt-6 pb-6" />
+          <WtsRequirementCategories role={role} process={process} className="px-6 pt-6 pb-6" />
         ))}
 
       {/* No Comments trigger needed inside this body — RequirementBucketHeader (rendered

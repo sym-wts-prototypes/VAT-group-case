@@ -65,7 +65,11 @@ export function HeaderRenderer({
       )
     case 'requirementList':
       return (
-        <RequirementListHeader descriptor={descriptor} compact={compact} />
+        <RequirementListHeader
+          descriptor={descriptor}
+          compact={compact}
+          process={ctx?.process}
+        />
       )
     case 'requirementBucket':
       return (

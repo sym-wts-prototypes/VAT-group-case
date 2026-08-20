@@ -10,9 +10,11 @@ import { create } from 'zustand'
 
 import {
   REQUIREMENT_CATEGORIES,
+  type MatchedFile,
   type RequirementCategory,
   type RequirementComment,
   type RequirementItem,
+  type SimulatedFile,
 } from '@/config/requirements'
 
 interface RequirementsState {
@@ -40,6 +42,22 @@ interface RequirementsState {
   seenCategoryIds: Record<string, true>
   sendComment: (categoryId: string, author: string, text: string) => void
   markCategorySeen: (categoryId: string) => void
+  /** CIT AI file-matcher simulation ticket — incremented on every run/re-run. `0` means "never
+   *  run" (flips the header button to "Re-run AI matching" once past 0); the count itself (not
+   *  just a boolean) is what lets the accordion notice a *re*-run and auto-expand again, since a
+   *  plain boolean would already be `true` and wouldn't change on a second run. */
+  aiMatchRunCount: number
+  /** Which of each category's `aiMatchAssignments` files currently sit on which item, keyed by
+   *  RequirementItem.id. A file only ever appears here or in that category's unmatched pool
+   *  (derived — see `useUnmatchedFiles`), never both, so the two views can't disagree. */
+  matchedFilesByItem: Record<string, MatchedFile[]>
+  /** Runs (or re-runs) the simulated matcher: (re)applies every category's static
+   *  `aiMatchAssignments` in one shot, discarding any previous "Clear matching" so a re-run
+   *  always starts from the same deterministic demo result. */
+  runAiFileMatching: () => void
+  /** "Clear matching" ticket — un-sorts one item's matched files back into its category's
+   *  unmatched pool (they simply stop appearing in `matchedFilesByItem`). */
+  clearItemMatching: (itemId: string) => void
 }
 
 let simulatedItemCount = 0
@@ -96,6 +114,25 @@ export const useRequirementsStore = create<RequirementsState>((set) => ({
     })),
   markCategorySeen: (categoryId) =>
     set((state) => ({ seenCategoryIds: { ...state.seenCategoryIds, [categoryId]: true } })),
+  aiMatchRunCount: 0,
+  matchedFilesByItem: {},
+  runAiFileMatching: () =>
+    set((state) => {
+      const matchedFilesByItem: Record<string, MatchedFile[]> = {}
+      for (const category of REQUIREMENT_CATEGORIES) {
+        for (const [itemId, files] of Object.entries(category.aiMatchAssignments ?? {})) {
+          matchedFilesByItem[itemId] = files
+        }
+      }
+      return { aiMatchRunCount: state.aiMatchRunCount + 1, matchedFilesByItem }
+    }),
+  clearItemMatching: (itemId) =>
+    set((state) => {
+      if (!(itemId in state.matchedFilesByItem)) return {}
+      const next = { ...state.matchedFilesByItem }
+      delete next[itemId]
+      return { matchedFilesByItem: next }
+    }),
 }))
 
 /** Requirements comment notifications ticket — a category's comment thread + whether it still
@@ -117,6 +154,7 @@ export function useRequirementCategories(): RequirementCategory[] {
   const checkedOverrides = useRequirementsStore((s) => s.checkedOverrides)
   const addedItems = useRequirementsStore((s) => s.addedItems)
   const removedCount = useRequirementsStore((s) => s.removedCount)
+  const matchedFilesByItem = useRequirementsStore((s) => s.matchedFilesByItem)
 
   return REQUIREMENT_CATEGORIES.map((category) => {
     const hidden = removedCount[category.id] ?? 0
@@ -124,11 +162,39 @@ export function useRequirementCategories(): RequirementCategory[] {
       hidden > 0 ? category.items.slice(0, Math.max(0, category.items.length - hidden)) : category.items
     const items = [...baseItems, ...(addedItems[category.id] ?? [])].map((item) => {
       const override = checkedOverrides[item.id]
-      if (override === undefined) return item
-      return { ...item, checkState: override ? ('done' as const) : ('open' as const) }
+      const matchedFiles = matchedFilesByItem[item.id]
+      return {
+        ...item,
+        ...(override !== undefined ? { checkState: override ? ('done' as const) : ('open' as const) } : null),
+        matchedFiles,
+      }
     })
     return { ...category, items }
   })
+}
+
+/** CIT AI file-matcher simulation ticket — has "Start AI file matching" been run at least once
+ *  (drives the header button's "Start" vs "Re-run" label, and the accordion's pending-vs-result
+ *  copy). Use `useAiMatchRunCount` instead when a *re*-run needs to trigger something too. */
+export function useAiMatchRun(): boolean {
+  return useRequirementsStore((s) => s.aiMatchRunCount > 0)
+}
+
+/** CIT AI file-matcher simulation ticket — the raw run counter, for effects that need to fire on
+ *  every run *and* every re-run (a plain boolean wouldn't change on the second run onward). */
+export function useAiMatchRunCount(): number {
+  return useRequirementsStore((s) => s.aiMatchRunCount)
+}
+
+/** CIT AI file-matcher simulation ticket — a category's own files that are not currently sorted
+ *  onto any of its requirement items: `aiMatchPool` minus whatever's attached to one of the
+ *  (already store-merged) `category.items`, so "Clear matching" moving a file back here is
+ *  automatic rather than a second place to update. Plain function, not a hook — the accordion
+ *  calls this once per category inside a `.map`, where a hook would break the rules of hooks. */
+export function unmatchedFilesForCategory(category: RequirementCategory): SimulatedFile[] {
+  if (!category.aiMatchPool) return []
+  const matchedNames = new Set(category.items.flatMap((item) => (item.matchedFiles ?? []).map((f) => f.name)))
+  return category.aiMatchPool.filter((f) => !matchedNames.has(f.name))
 }
 
 export function requirementTotals(categories: RequirementCategory[]): {
